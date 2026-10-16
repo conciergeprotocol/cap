@@ -8,3 +8,4 @@ node_modules/
 reference/data/
 site/dist/
 .vercel
+.env*
