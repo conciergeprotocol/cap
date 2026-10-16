@@ -6,7 +6,7 @@ Soon everyone will have an agent that visits websites for them. CAP gives your c
 
 The company publishes one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. No tools, MCP servers, or API keys change hands.
 
-**Status: Draft. Version 1.0.** Read it at [conciergeprotocol.org](https://conciergeprotocol.org). Feedback is welcome in [issues](https://github.com/conciergeprotocol/spec/issues).
+**Status: Draft. Version 1.0.** Read it at [conciergeprotocol.org](https://conciergeprotocol.org). Feedback is welcome in [issues](https://github.com/conciergeprotocol/cap/issues).
 
 - [Introducing the Concierge Agent Protocol](article/introducing-the-concierge-agent-protocol.md)
 - [White paper](article/white-paper.md)

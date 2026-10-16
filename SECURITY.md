@@ -2,7 +2,7 @@
 
 Report a vulnerability privately. Do not open a public issue.
 
-Use GitHub's private reporting: open the [Security tab](https://github.com/conciergeprotocol/spec/security) of this repository and choose **Report a vulnerability**. Only the maintainers can see the report.
+Use GitHub's private reporting: open the [Security tab](https://github.com/conciergeprotocol/cap/security) of this repository and choose **Report a vulnerability**. Only the maintainers can see the report.
 
 ## What to report
 

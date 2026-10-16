@@ -5,7 +5,7 @@ import { Marked } from 'marked'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const out = join(root, 'site', 'dist')
-const repo = 'https://github.com/conciergeprotocol/spec'
+const repo = 'https://github.com/conciergeprotocol/cap'
 
 const pages = [
   { src: 'README.md', route: '/', file: 'index.html', nav: 'Overview' },
