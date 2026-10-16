@@ -1,0 +1,9 @@
+{
+  "name": "cap-store-example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node start.mjs",
+    "check": "node check.mjs"
+  }
+}

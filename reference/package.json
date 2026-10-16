@@ -1,0 +1,12 @@
+{
+  "name": "cap-reference",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node start.mjs",
+    "check": "node check.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.16.0"
+  }
+}

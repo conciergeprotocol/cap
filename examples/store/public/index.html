@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Harbor Goods</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #10141a;
+        --card: #1a212b;
+        --text: #eef2f6;
+        --muted: #9aa6b2;
+        --line: #2c3642;
+        --accent: #7eb6ff;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font: 16px/1.5 "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+      main { max-width: 680px; margin: 0 auto; padding: 48px 20px 80px; }
+      h1 { font-size: 28px; margin: 0 0 8px; }
+      p { margin: 0 0 16px; }
+      .muted { color: var(--muted); }
+      section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-top: 20px; }
+      label { display: block; font-size: 14px; color: var(--muted); margin: 12px 0 4px; }
+      textarea, input { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: inherit; }
+      .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+      button { background: var(--accent); color: #0e1318; border: 0; border-radius: 8px; padding: 10px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+      button.secondary { background: transparent; color: var(--text); border: 1px solid var(--line); }
+      .pill { display: inline-block; border-radius: 999px; padding: 2px 10px; background: #243041; font-size: 13px; }
+      .reply { white-space: pre-wrap; margin: 12px 0 0; }
+      pre { white-space: pre-wrap; font-size: 13px; color: var(--muted); margin: 12px 0 0; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Harbor Goods</h1>
+      <p class="muted">This page plays the visiting agent. It sends a message to the store's agent and shows the reply. Product questions need no login. An order needs one. The page holds the login token, never the store's keys.</p>
+      <p class="muted" id="who">Not logged in.</p>
+
+      <section>
+        <label for="message">Message</label>
+        <textarea id="message" rows="2">Running shoes in size 12, black sweatpants, and a black hoodie</textarea>
+        <label for="context">Context: the brief your agent sends</label>
+        <input id="context" value='{"style":"minimal, no logos","sizes":{"bottoms":"L","tops":"L"}}' />
+        <div class="row">
+          <button id="send">Send</button>
+          <button class="secondary" id="cheaper">Something cheaper?</button>
+          <button class="secondary" id="order">Where's my order?</button>
+          <button class="secondary" id="fresh">New conversation</button>
+          <button class="secondary" id="maya">Log in as Maya</button>
+          <button class="secondary" id="sam">Log in as Sam</button>
+          <button class="secondary" id="logout">Log out</button>
+        </div>
+      </section>
+
+      <section id="out" hidden>
+        <div class="pill" id="pill">working</div>
+        <p class="reply" id="reply"></p>
+        <pre id="raw"></pre>
+      </section>
+    </main>
+    <script>
+      const $ = (id) => document.getElementById(id)
+      let token = ''
+      let timer = null
+      let lastId = ''
+
+      function headers() {
+        return {
+          'content-type': 'application/json',
+          'cap-version': '1.0',
+          'cap-from': 'agent:shopper',
+          ...(token ? { authorization: 'Bearer ' + token } : {}),
+        }
+      }
+
+      function show(status, body) {
+        $('out').hidden = false
+        $('pill').textContent = status
+        $('raw').textContent = JSON.stringify(body, null, 2)
+        if (body.error) $('reply').textContent = body.error.message
+        else if (body.status === 'working') $('reply').textContent = 'The store is still answering. No reply yet.'
+        else $('reply').textContent = body.reply || ''
+      }
+
+      async function read(response) {
+        const body = await response.json()
+        const status = response.ok ? body.status : response.status + ' ' + body.error.code
+        show(status, body)
+        if (body.id) lastId = body.id
+        if (body.status === 'working') {
+          const wait = Number(response.headers.get('retry-after') || 1) * 1000
+          timer = setTimeout(async () => read(await fetch('/cap/v1/messages/' + body.id, { headers: headers() })), wait)
+        }
+      }
+
+      async function send(message) {
+        clearTimeout(timer)
+        let context = {}
+        try { context = JSON.parse($('context').value || '{}') } catch { context = {} }
+        show('working', { status: 'working' })
+        await read(await fetch('/cap/v1/messages', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ message, context, ...(lastId ? { previous_message_id: lastId } : {}) }),
+        }))
+      }
+
+      async function login(account) {
+        const response = await fetch('/oauth/token', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ account, client: 'shopper' }),
+        })
+        const body = await response.json()
+        if (token) lastId = ''
+        token = body.access_token || ''
+        $('who').textContent = token ? 'Logged in as ' + account + '. This page holds the token.' : 'Login failed.'
+      }
+
+      $('send').addEventListener('click', () => send($('message').value))
+      $('cheaper').addEventListener('click', () => send('Something cheaper?'))
+      $('order').addEventListener('click', () => send("Where's my order?"))
+      $('fresh').addEventListener('click', () => { lastId = ''; $('out').hidden = true })
+      $('maya').addEventListener('click', () => login('maya'))
+      $('sam').addEventListener('click', () => login('sam'))
+      $('logout').addEventListener('click', async () => {
+        if (token) await fetch('/oauth/revoke', { method: 'POST', headers: headers() })
+        token = ''
+        lastId = ''
+        $('who').textContent = 'Not logged in.'
+      })
+    </script>
+  </body>
+</html>

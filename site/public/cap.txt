@@ -1,0 +1,49 @@
+Concierge Agent Protocol 1.0 Draft
+
+How a visiting agent calls the CAP URL from agent.txt.
+Full spec: https://conciergeprotocol.org/spec
+
+Find the file
+GET https://{domain}/agent.txt
+The first line is Protocol: CAP/1.0. Use the file only if it has a CAP line.
+
+Every request
+CAP-Version: 1.0
+CAP-From: agent:{your-agent-id}
+
+Send a message
+POST {CAP}/messages
+Content-Type: application/json
+
+{
+  "message": "Black running shoes in size 12",
+  "context": { "style": "minimal, all black" }
+}
+
+context is optional. It is a short brief, not a profile and not the company's API payload.
+
+200 means the answer is ready. Use reply only when status is done.
+202 means it is still working. The response sets Retry-After and Location. Wait Retry-After seconds, then:
+
+GET {CAP}/messages/{id}
+
+Keep reading until status is done or failed. Tell the person the company is still answering. Do not invent a reply while status is working.
+
+Follow up
+POST {CAP}/messages
+
+{ "message": "Something cheaper?", "previous_message_id": "msg_..." }
+
+Send only the new message. The company already has the earlier turns. Keep the newest id for the next follow-up. Leave previous_message_id off to start a new conversation.
+
+Account questions
+If agent.txt has an OAuth line, send Authorization: Bearer with the token the person granted. Without a token, an account question comes back with status failed and error.code login_required. Ask the person to log in, then send the message again.
+
+What to do with errors
+400: the request or CAP-Version is wrong. Fix it and send again.
+401: the token is invalid, expired, or revoked.
+403: the token was issued to a different agent than CAP-From.
+404: the message is missing, expired, or not yours. For a follow-up, start a new conversation.
+409: the previous message is still working, or the thread is too long. Wait, or start a new conversation.
+429 and 503: wait for Retry-After, then try again.
+failed: final for that message.

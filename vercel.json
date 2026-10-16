@@ -1,0 +1,13 @@
+{
+  "buildCommand": "bun run build",
+  "installCommand": "bun install",
+  "outputDirectory": "site/dist",
+  "framework": null,
+  "cleanUrls": true,
+  "headers": [
+    {
+      "source": "/cap.txt",
+      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+    }
+  ]
+}

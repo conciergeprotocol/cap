@@ -1,174 +1,165 @@
-# Specification (draft)
+# Specification
 
-This is the contract Cosmic agents already satisfy. It is not a published wire with SDKs. Field names use the protocol vocabulary; Cosmic product names are noted in parentheses.
+**Status: Draft. Version 1.0.** Breaking changes are listed in the [changelog](CHANGELOG.md). Feedback is welcome in [GitHub issues](https://github.com/conciergeprotocol/spec/issues).
 
-## Objects
+CAP lets an agent ask a company's agent a question and get the answer back. The company's tools, prompts, and keys stay with the company. There is one object, the **message**, and two endpoints. How to call it: [Usage](usage.md).
 
-### Agent
+## Front door
 
-Public face of a peer. Internals (full prompt, secrets, tool implementations) are not part of the object.
+A company publishes one text file at `https://{domain}/agent.txt`, next to `robots.txt`.
 
-| Field | Notes |
-| --- | --- |
-| `id` | Stable |
-| `name` | Display name |
-| `description` | Snippet, not the system prompt |
-| `capabilities` | Permission flags. Open vocabulary |
-| `channels` | Surfaces the agent listens on |
-| `goals` | Current goal list |
-| `roster` | Peers this agent will accept mail from (`connected_agents`) |
+```text
+Protocol: CAP/1.0
+Name: Harbor Goods
+Chat: https://harborgoods.example/chat
+CAP: https://harborgoods.example/cap/v1
+OAuth: https://harborgoods.example/oauth
+Spec: https://harborgoods.example/cap.txt
+```
 
-### Capability
+`Protocol` is the first line. It names this format, so a caller can tell this file apart from an unrelated `agent.txt`. A caller that finds no `Protocol` line uses the file only when it has a `CAP` line. `Name` is the public agent. `Chat` is the page a person opens. `CAP` is the base URL for the two endpoints. `OAuth` is the authorization server for questions about a customer's account. Leave it off when the agent answers only public questions. `Spec` is a short caller card. Leave it off when you have no public URL for one. The file lists no tools, MCP servers, prompts, or credentials.
 
-A string permission. Cosmic's current vocabulary includes `cms_read`, `cms_write`, `agent_delegate`, `agent_manage`, `workflow_execute`, `computer_use`, `api_request`, `notify_send`, `web_browse`, `code_read`, `code_write`, `insights_read`. Foreign runtimes publish their own.
+One domain has one agent. A person uses the chat page. An agent fetches the file. Both reach the same agent and get the same answers.
 
-### RosterEntry
+The chat page and the CAP URL may be hosted for the company. The company's own domain still serves `agent.txt`.
 
-`agent_id`, `name`, `description`, optional `capabilities`. Enough to brief, not enough to reconstruct.
+A caller fetches `/agent.txt`. It treats a redirect off the company's domain, an HTML body, or a file without a `CAP` line as no front door.
 
-### Channel
+## Message
 
-`api` | `slack` | `whatsapp` | `telegram` | `email` | `webhook` | `agent`
+| Field         | Notes                                                                    |
+| ------------- | ------------------------------------------------------------------------ |
+| `id`          | Assigned by the owner                                                    |
+| `status`      | `working`, `done`, or `failed`                                           |
+| `reply`       | Text. Set only when `status` is `done`. Links go in the text             |
+| `error`       | `{ code, message }`. Set only when `status` is `failed`                  |
+| `created_at`  |                                                                          |
+| `finished_at` | Set when `status` is `done` or `failed`                                  |
 
-### Session
+| Status    | Meaning                                    | Final |
+| --------- | ------------------------------------------ | ----- |
+| `working` | The owner has the message and is answering | No    |
+| `done`    | `reply` is set                             | Yes   |
+| `failed`  | `error` is set                             | Yes   |
 
-A conversation on one channel.
-
-| Field | Notes |
-| --- | --- |
-| `id` | Stable |
-| `agent_id` | Owner |
-| `channel` | Required |
-| `status` | `idle` \| `working` \| `closed` |
-| `messages` | Visible turns. Internal tool traces are not protocol |
-| `delegated_by` | Set when `channel` is `agent` |
-| `handoff` | Summary carried from the previous session on this channel |
-
-### Brief
-
-| Field | Notes |
-| --- | --- |
-| `from` | Sending agent id |
-| `to` | Target agent id |
-| `text` | Complete natural-language hand-off |
-| `context` | Optional structured payload (`trigger_data` on runs) |
-| `wait` | Default true. Runtime caps the wait |
-
-### Goal
-
-`id`, `name`, `prompt`, `max_steps`, optional `max_runs_per_day`, optional `schedule.cron` + `timezone`, `enabled`. Without a cron it is on-demand. The agent judges done.
-
-### CheckIn
-
-`delay_seconds`, `reason`, `follow_up_prompt`, optional `related_resource`. Lives on a session, not on the agent.
-
-### Run
-
-A real execution, not a chat. Returns a run id. Polled separately. May carry `context` as trigger data.
+`error.message` is written for the person. It never names a tool, a vendor, or an internal id. `login_required` is the one defined failure code: the answer needs the person's account and no grant was sent. Owners may use other codes. A caller treats any failure as final for that message.
 
 ## Operations
 
 ```
-POST   /agents/{id}/messages          # send a Brief
-GET    /agents/{id}/messages/latest   # pull the reply
-GET    /agents/{id}/inbox             # inbound briefs on this agent
-GET    /agents/{id}/presence          # working | idle, across channels
-
-POST   /agents/{id}/runs              # execute, not chat
-GET    /runs/{id}
-
-GET    /agents/{id}                   # public face
-PATCH  /agents/{id}                   # self-update, including goals
-GET    /agents/{id}/goals
-PUT    /agents/{id}/goals
-
-POST   /sessions/{id}/check-ins
-DELETE /sessions/{id}/check-ins/{id}
-POST   /sessions/{id}/handoff         # soft reset
+POST /cap/v1/messages
+GET  /cap/v1/messages/{id}
 ```
 
-Cosmic today: `POST /agents/{id}/messages` is `message_agent`, the pull is `get_delegation_reply`, runs are `execute_agent` / `get_agent_run_status`.
+Every request carries `CAP-Version: 1.0` and `CAP-From: agent:{id}`, naming the calling agent. A request for a logged-in person also carries `Authorization: Bearer` with an OAuth access token.
 
-## Send semantics
-
-Default wait is capped (90 seconds in Cosmic). After the cap, or when `wait` is false:
+### Send a message
 
 ```json
-{
-  "status": "accepted",
-  "still_running": true,
-  "session_id": "sess_01",
-  "note": "Working. Pull later. Do not invent a result."
-}
+{ "message": "Black running shoes in size 12", "context": { "style": "minimal, all black" } }
 ```
 
-`still_running` is a success state. A conforming caller MUST NOT treat it as a result, MUST NOT busy-wait, and MUST NOT invent a summary.
+`message` is required text. `context` is an optional object: a short brief from the caller, such as sizes, dates, or preferences. It is not a vendor API payload and not the person's whole profile.
 
-When the peer has written:
+- `200` with the message when the owner finished within its own wait. The status is `done` or `failed`.
+- `202` with the message when it did not. The status is `working`. The response sets `Location: /cap/v1/messages/{id}` and `Retry-After` in seconds.
+
+The owner picks the wait, and it SHOULD be under 30 seconds. The caller sends nothing extra to get it.
+
+`Idempotency-Key` is optional. The same key from the same `CAP-From`, with the same grant or none, returns the original message and does not answer again.
+
+### Follow up
 
 ```json
-{
-  "status": "ok",
-  "still_running": false,
-  "session_id": "sess_01",
-  "reply": "Draft changelog in markdown..."
-}
+{ "message": "Something cheaper?", "previous_message_id": "msg_c1fac527668c6694" }
 ```
 
-A later pull may still return `still_running: true` with a partial `reply`. Partial replies may be superseded.
+`previous_message_id` is optional. It continues the conversation that message belongs to, so the owner answers with every earlier turn in mind. The caller sends only the new message and never resends earlier turns or replies. The owner rebuilds the thread from its own records, so a caller cannot put words in the owner's mouth.
 
-## Invariants
+The previous message must be visible to the caller, under the same rules as a read. A thread may move from no grant to a grant, such as after the person logs in. It never moves from one account to another, and it never drops a grant it had. A thread lasts as long as its messages are kept.
 
-1. **Allowlist.** A brief to an agent that has not listed the sender on its roster MUST fail. No project-wide fallback.
-2. **Async by default.** Tight re-poll loops are a protocol violation. Recommend `max_outstanding_briefs` of 2 per turn.
-3. **Ambient inbox.** A conforming runtime MUST surface active inbound briefs into the agent's other non-ephemeral sessions, attributed and truncated. It MUST NOT inject that inbox into the delegation session itself.
-4. **Chat is not a run.** `messages` MUST NOT start computer use, an autonomous job, or a workflow. `runs` MUST NOT be presented as a conversational reply.
-5. **Continuity survives soft reset.** Soft reset produces a handoff and seeds the next session on that channel. Hard reset carries nothing. Ephemeral sessions (delegations, workflow steps) inherit neither handoff nor cross-channel history.
-6. **Depth is bounded.** Chained runs stop at a small cap (3 in Cosmic). Briefs should be similarly capped.
-7. **The agent is a principal.** Self-`PATCH` is allowed for an agent acting on its own id. Creating other agents is a separate, capability-gated operation, scoped to a project.
+The previous message must be final. If it is still `working`, the owner returns `409`. The owner may cap how many turns a thread keeps and returns `409` past that cap. The caller then starts a new thread without `previous_message_id`.
 
-## Brief example
+### Read a message
+
+`GET /cap/v1/messages/{id}` returns `200` with the message. While it is `working`, the response sets `Retry-After`.
+
+A message is visible only to the `CAP-From` that sent it, with the same grant or none. Anyone else gets `404`. The owner keeps a finished message for at least 24 hours. After that, a read is `404` and the caller asks again.
+
+## Access
+
+A public question needs no token. A question about an account needs the person to log in.
+
+The person logs in at the `OAuth` server and consents. The token is bound to that person's account and to the visiting agent that received it. The visiting agent stores the token and sends it on each request. It never holds the person's password or the company's keys.
+
+Two identities travel on an account request:
+
+- `Authorization: Bearer` is the person and the account.
+- `CAP-From: agent:{id}` is the visiting agent.
+
+The owner answers however it chooses: its own MCP servers, a direct API, or a person. The caller does not learn which. Revoking the token stops that agent. Nothing else has to rotate.
+
+## Owner rules
+
+An owner conforms if it:
+
+1. Returns only the fields above. Never tools, prompts, transcripts, internal ids, or credentials, in a field or in the reply.
+2. Answers each message from its text, its `context`, the grant, and its own record of the thread. Never from another caller's messages.
+3. Answers an account question only with a grant for that account. A name or an account number in `context` is not a grant.
+4. Returns `202` with `Location` and `Retry-After` when it cannot finish within its wait.
+5. Keeps its limits private. When it will not take more from a caller, it returns `429` with `Retry-After`.
+6. Keeps finished messages for at least 24 hours.
+
+## Caller rules
+
+A caller conforms if it:
+
+1. Never calls the owner's tools, MCP servers, or APIs to do or check the work.
+2. Uses `reply` only when `status` is `done`.
+3. Never invents a reply while a message is `working`. It tells the person the owner is still answering.
+4. Waits at least `Retry-After` between reads.
+5. Treats `failed` as final for that message. It sends a new one only when something changed, such as the person logging in.
+6. Sends a short brief in `context`. Never the person's password or another company's data.
+7. Sets `previous_message_id` to the last message when the person is continuing the same conversation, and leaves it off when they start a new one.
+
+## Errors
 
 ```json
-{
-  "from": "agent:analyst",
-  "to": "agent:cms",
-  "channel": "agent",
-  "wait": false,
-  "brief": {
-    "text": "Draft a changelog for the pricing launch. Audience is existing customers. Return markdown only.",
-    "context": {
-      "date_range": "2026-08-01/2026-08-28",
-      "object_type": "posts",
-      "format": "markdown"
-    }
-  }
-}
+{ "error": { "code": "rate_limited", "message": "Try again in a minute." } }
 ```
 
-## Inbox injection example
+| Code                    | HTTP | When                                                                        |
+| ----------------------- | ---- | --------------------------------------------------------------------------- |
+| `invalid_request`       | 400  | The body is not JSON, `message` is missing, or a header is malformed        |
+| `version_not_supported` | 400  | `CAP-Version` is not implemented                                            |
+| `unauthorized`          | 401  | The bearer token is invalid, expired, or revoked                            |
+| `forbidden`             | 403  | The token was issued to a different agent than `CAP-From`                   |
+| `not_found`             | 404  | The message, or `previous_message_id`, does not exist, has expired, or is not visible to this caller |
+| `conflict`              | 409  | `previous_message_id` is still `working`, or the thread is too long          |
+| `rate_limited`          | 429  | The owner will not take more from this caller now. `Retry-After` is set     |
+| `unavailable`           | 503  | The agent is not answering                                                  |
 
-On a later Slack turn, the runtime may prepend:
+These are request errors. A message that was accepted and could not be answered is `failed`, with its own `error`.
 
-```
-[From analyst, 12m ago]
-  analyst: Draft a changelog for the pricing launch...
-  You replied: (still working)
-```
+## Relationship to other protocols
 
-This block is protocol, not an implementation detail. A conforming runtime MUST keep it out of the caller's transcript.
+| Layer             | Protocol | Role                                                                   |
+| ----------------- | -------- | ---------------------------------------------------------------------- |
+| Tools and data    | MCP      | An agent reaching its own tools, inside one boundary                   |
+| Agent integration | A2A      | Agents that integrate with each other: agent cards, tasks, streaming   |
+| Personal agents   | Personal Agent Protocol | A personal agent working with a company: sessions, sign-in, APIs, web, and the company agent |
+| Public front door | CAP      | Any agent asking a company's agent, from a text file and two endpoints |
 
-## Relationship to A2A and MCP
+CAP is the smallest of these on purpose: one file, one object, two endpoints, and common HTTP. It suits the public question that needs no session. An owner can serve CAP next to any of the others from the same agent. Each keeps its own discovery file (`/.well-known/agent-card.json` for A2A, `/.well-known/poppy.json` for Personal Agent Protocol), and `agent.txt` does not list them.
 
-| Layer | Protocol | Role |
-| --- | --- | --- |
-| Tools and data | MCP | Agent to its own tools |
-| Stranger, cross-org | A2A | Discover a card, start a task |
-| Teammates, same workplace | PAP | Roster, brief, inbox, handoff, goals |
+An owner can serve both A2A and CAP from the same agent. A CAP message maps onto an A2A task:
 
-A Cosmic agent MAY later project an A2A Agent Card (name, snippet, capabilities, endpoint) and declare PAP as extensions:
+| CAP                         | A2A 1.0                                       |
+| --------------------------- | --------------------------------------------- |
+| Send a message              | `SendMessage` with `returnImmediately: true`  |
+| Read a message              | `GetTask`                                     |
+| `working`, `done`, `failed` | `TASK_STATE_WORKING`, `_COMPLETED`, `_FAILED` |
+| `reply`                     | A text part on the task's result              |
+| `previous_message_id`       | Sending with the earlier task's `contextId`   |
 
-- `https://www.cosmicjs.com/extensions/delegation-continuity/v1`
-- `https://www.cosmicjs.com/extensions/goal-loops/v1`
-
-The card is how a stranger finds you. PAP is how a peer works with you after you have listed them.
+Version 1 ships as the `/cap/v1` HTTP surface above.

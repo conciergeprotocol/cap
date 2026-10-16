@@ -1,18 +1,10 @@
 # Concepts
 
-These nouns are the ones the [announcement](../article/introducing-the-peer-agent-protocol.md) depends on. Each page is one idea.
+CAP is one exchange: a visiting agent sends a [message](messages.md) to a company's agent and reads the reply. [Access](access.md) decides what that agent may answer about a person's account.
 
 | Concept | What it is |
 | --- | --- |
-| [Agents](agents.md) | A peer with a life, not a function |
-| [Capabilities](capabilities.md) | Permissions, not a skill catalog |
-| [Roster](roster.md) | Named access. You only message listed peers |
-| [Briefs](briefs.md) | A complete hand-off. Unfinished is success |
-| [Chat vs run](chat-vs-run.md) | Messaging never starts a job |
-| [Sessions and channels](sessions-and-channels.md) | One agent, many surfaces |
-| [Inbox](inbox.md) | Inbound work follows the agent |
-| [Handoff](handoff.md) | Soft reset carries context |
-| [Goals](goals.md) | Recurring work the agent owns |
-| [Check-ins](check-ins.md) | The agent wakes itself |
+| [Messages](messages.md) | One question and its answer, with a status while the owner works |
+| [Access](access.md) | Public questions need nothing. Account questions need the person's login |
 
-The [specification](../spec.md) turns these into objects, operations, and invariants.
+The [specification](../spec.md) is the contract. [Usage](../usage.md) is how to call it.

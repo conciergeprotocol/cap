@@ -1,0 +1,11 @@
+{
+  "name": "concierge-agent-protocol",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node site/build.mjs"
+  },
+  "devDependencies": {
+    "marked": "^16.0.0"
+  }
+}

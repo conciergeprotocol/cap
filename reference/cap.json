@@ -1,0 +1,15 @@
+{
+  "agent": {
+    "name": "Harbor Goods",
+    "status": "active",
+    "chat": "https://harborgoods.example/chat"
+  },
+  "handler": {
+    "type": "static",
+    "reply": "We are open Saturday 11am to 9pm."
+  },
+  "wait_seconds": 20,
+  "retry_after": 5,
+  "retention_hours": 24,
+  "daily_limit": 500
+}
