@@ -71,7 +71,7 @@ The visiting agent should know the limits too. The answer is the company's frami
 
 ## What this is not
 
-This is not a replacement for MCP. MCP is how the company's agent reaches its own tools. It is not a replacement for A2A either, which suits agents that integrate deeply with each other. Nor is it a replacement for the Personal Agent Protocol, which covers sessions, sign-in, APIs, and the web for personal agents working with a company. CAP is the small public door any agent can find from a domain, and an owner can serve it next to any of them from the same agent. How they fit together is in the [spec](../spec.md#relationship-to-other-protocols).
+This is not a replacement for MCP. MCP is how the company's agent reaches its own tools. It is not a replacement for A2A either, which suits agents that integrate deeply with each other. The Personal Agent Protocol covers similar ground with more machinery: sessions, scopes, browser sessions, and APIs. CAP does the same job with one file, two endpoints, and a standard OAuth token for account questions. It is the small door any agent can find from a domain, and an owner can serve it next to any of these from the same agent. How they fit together is in the [spec](../spec.md#relationship-to-other-protocols).
 
 ## Try it
 

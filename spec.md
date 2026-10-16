@@ -148,9 +148,9 @@ These are request errors. A message that was accepted and could not be answered 
 | Tools and data    | MCP      | An agent reaching its own tools, inside one boundary                   |
 | Agent integration | A2A      | Agents that integrate with each other: agent cards, tasks, streaming   |
 | Personal agents   | Personal Agent Protocol | A personal agent working with a company: sessions, sign-in, APIs, web, and the company agent |
-| Public front door | CAP      | Any agent asking a company's agent, from a text file and two endpoints |
+| Front door        | CAP      | Any agent asking a company's agent, public or logged in, from a text file and two endpoints |
 
-CAP is the smallest of these on purpose: one file, one object, two endpoints, and common HTTP. It suits the public question that needs no session. An owner can serve CAP next to any of the others from the same agent. Each keeps its own discovery file (`/.well-known/agent-card.json` for A2A, `/.well-known/poppy.json` for Personal Agent Protocol), and `agent.txt` does not list them.
+CAP is the smallest of these on purpose: one file, one object, two endpoints, and common HTTP. It covers the public question and the account question. A public question needs nothing. An account question adds one OAuth token the person granted. There is no session to open and no browser to drive. An owner can serve CAP next to any of the others from the same agent. Each keeps its own discovery file (`/.well-known/agent-card.json` for A2A, `/.well-known/poppy.json` for Personal Agent Protocol), and `agent.txt` does not list them.
 
 An owner can serve both A2A and CAP from the same agent. A CAP message maps onto an A2A task:
 
