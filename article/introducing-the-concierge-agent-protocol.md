@@ -8,7 +8,7 @@ Handing over tools is worse. An MCP server or an API key gives the visiting agen
 
 Companies already have an agent that knows the answer: the one on their chat page, with access to their catalog, their CMS, and their order system. What is missing is a way for another agent to ask it.
 
-The **Concierge Agent Protocol (CAP)** is that way: a front door to the company, for every AI agent. The company publishes one text file. A visiting agent knocks with a message, and the company's agent greets it like a hotel concierge: it works for the company, not the visitor. It does the work with its own tools, and hands back the answer. **Share results, not credentials.**
+The **Concierge Agent Protocol (CAP)** is that way: a front door to the website, for every AI agent. The company publishes one text file. A visiting agent knocks with a message, and the company's agent greets it like a hotel concierge: it works for the company, not the visitor. It does the work with its own tools, and hands back the answer. **Share results, not credentials.**
 
 ## How it works
 

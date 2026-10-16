@@ -75,7 +75,7 @@ const layout = ({ title, body, route }) => {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${pageTitle}</title>
-<meta name="description" content="The front door to your company, for every AI agent. Share results, not credentials.">
+<meta name="description" content="The front door to your website, for every AI agent. Share results, not credentials.">
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>

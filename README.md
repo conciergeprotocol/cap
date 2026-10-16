@@ -1,6 +1,6 @@
 # 🧢 Concierge Agent Protocol (CAP)
 
-**The front door to your company, for every AI agent.**
+**The front door to your website, for every AI agent.**
 
 Soon everyone will have an agent that visits websites for them. CAP gives your company a concierge to greet it. The concierge is your agent, working for you at your front door: the visiting agent asks, your agent answers with your own tools, and nothing else leaves the building. Share results, not credentials.
 

@@ -1,6 +1,6 @@
 # The Concierge Agent Protocol
 
-**The front door to your company, for every AI agent.** Share results, not credentials.
+**The front door to your website, for every AI agent.** Share results, not credentials.
 
 Draft, October 2026.
 
