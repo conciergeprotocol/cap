@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash, randomBytes } from 'node:crypto'
 import { createServer } from 'node:http'
+import { publicConfirmation } from './server.mjs'
 import { boot } from './start.mjs'
 
 const dir = mkdtempSync(join(tmpdir(), 'cap-reference-'))
@@ -457,6 +458,154 @@ const slowStart = await oauthForm(slowRoot, 'device', { client_id: 'agent:shoppe
 await pollDevice(slowRoot, slowStart.body.device_code)
 const tooFast = await pollDevice(slowRoot, slowStart.body.device_code)
 assert(tooFast.body.error === 'slow_down', 'polling faster than the interval is slow_down')
+
+// Write access: asked for by the caller, chosen by the person, never widened.
+assert(!('scopes_supported' in meta.body), 'an owner without write lists no scopes')
+const writeOnReadOwner = await oauthForm(accountRoot, 'device', { client_id: 'agent:shopper', scope: 'write' })
+assert(writeOnReadOwner.status === 400 && writeOnReadOwner.body.error === 'invalid_scope', 'write on an owner that does not offer it is invalid_scope')
+const writeRedirect = new URL((await startLogin(accountRoot, { scope: 'write' })).res.headers.get('location') || 'http://x/')
+assert(writeRedirect.searchParams.get('error') === 'invalid_scope', 'the redirect login returns invalid_scope too')
+
+const POSTS = new Map([['hello-world', 'Hello World'], ['second-post', 'Second Post']])
+const actions = []
+const writeAnswer = async ({ message, account, scope }) => {
+  if (!account) return { error: { code: 'login_required', message: 'Log in first.' } }
+  const remove = message.match(/^delete (\S+)$/i)
+  if (remove) {
+    if (!POSTS.has(remove[1])) return { reply: 'There is no such post.' }
+    return { confirm: { summary: `Delete the post "${POSTS.get(remove[1])}".`, authorization_details: [{ type: 'delete_post', post: remove[1] }] } }
+  }
+  if (/^rename/i.test(message)) {
+    if (scope !== 'write') return { error: { code: 'write_required', message: 'This login can read but not make changes.' } }
+    return { reply: 'Renamed.' }
+  }
+  return { reply: `Posts: ${[...POSTS.values()].join(', ')}` }
+}
+const writeAct = async ({ account, authorization_details, caller }) => {
+  actions.push({ account, caller })
+  POSTS.delete(authorization_details[0].post)
+  return { message: `Deleted ${authorization_details[0].post}.` }
+}
+const writeRoot = await start('write', { agent, oauth: { ...oauthConfig, write: true } }, { answer: writeAnswer, act: writeAct })
+const writeMeta = await json(`${writeRoot}/.well-known/oauth-authorization-server/oauth`)
+assert(JSON.stringify(writeMeta.body.scopes_supported) === '["read","write"]', 'an owner with write lists read and write')
+const bogusScope = await oauthForm(writeRoot, 'device', { client_id: 'agent:shopper', scope: 'admin' })
+assert(bogusScope.body.error === 'invalid_scope', 'an unknown scope is invalid_scope')
+
+async function deviceLogin(rootUrl, { scope, decision, username = 'maya' }) {
+  const begun = await oauthForm(rootUrl, 'device', { client_id: 'agent:shopper', ...(scope ? { scope } : {}) })
+  const html = await (await fetch(begun.body.verification_uri_complete)).text()
+  await approveDevice(rootUrl, { user_code: begun.body.user_code, username, password: `${username}-pass`, decision })
+  return { html, token: (await pollDevice(rootUrl, begun.body.device_code)).body }
+}
+
+const writeLogin = await deviceLogin(writeRoot, { scope: 'write', decision: 'allow_write' })
+assert(writeLogin.html.includes('make changes') && writeLogin.html.includes('value="allow_write"') && writeLogin.html.includes('Allow read only'), 'the page says changes were asked for and offers read only')
+assert(writeLogin.token.scope === 'read write' && writeLogin.token.expires_in === 900, 'allowing changes grants read write with a shorter token')
+const narrowed = await deviceLogin(writeRoot, { scope: 'write', decision: 'allow' })
+assert(narrowed.token.scope === 'read' && narrowed.token.expires_in === 3600, 'the person can narrow write to read')
+const widened = await deviceLogin(writeRoot, { decision: 'allow_write' })
+assert(!widened.html.includes('allow_write') && widened.token.scope === 'read', 'a read login is never widened to write')
+
+const redirectWrite = await startLogin(writeRoot, { scope: 'write' })
+assert(redirectWrite.html.includes('make changes'), 'the redirect login page says changes were asked for')
+const redirectBack = await submitLogin(writeRoot, redirectWrite.request, { username: 'maya', password: 'maya-pass', decision: 'allow_write' })
+const redirectCode = new URL(redirectBack.headers.get('location')).searchParams.get('code')
+const redirectToken = await oauthForm(writeRoot, 'token', exchange(redirectCode, redirectWrite.verifier))
+assert(redirectToken.body.scope === 'read write', 'the redirect login grants write when the person allows it')
+const renewedWrite = await oauthForm(writeRoot, 'token', { grant_type: 'refresh_token', refresh_token: redirectToken.body.refresh_token, client_id: clientId })
+assert(renewedWrite.body.scope === 'read write', 'a renewed token keeps its scope')
+
+const writer = { ...shopper, authorization: `Bearer ${writeLogin.token.access_token}` }
+const reader = { ...shopper, authorization: `Bearer ${narrowed.token.access_token}` }
+const readRename = await post(writeRoot, 'rename hello-world', reader)
+assert(readRename.body.status === 'failed' && readRename.body.error.code === 'write_required', 'the owner sees the scope and refuses a change on read')
+const readDelete = await post(writeRoot, 'delete hello-world', reader)
+assert(readDelete.body.status === 'failed' && readDelete.body.error.code === 'write_required' && !readDelete.body.confirmation, 'a read login cannot even ask for a confirmed action')
+assert((await post(writeRoot, 'rename hello-world', writer)).body.reply === 'Renamed.', 'a write login makes a plain change')
+
+// A delete waits for the person. The token alone never runs it.
+const held = await post(writeRoot, 'delete hello-world', writer)
+const confirmation = held.body.confirmation
+assert(held.body.status === 'done' && confirmation?.status === 'pending', 'a held action is done with a pending confirmation')
+assert(/^cfm_[A-Za-z0-9_-]{20,}$/.test(confirmation.id) && confirmation.url === `${writeRoot}/oauth/confirm?id=${confirmation.id}`, 'the confirmation carries its id and link')
+assert(held.body.reply.includes(confirmation.url) && confirmation.summary === 'Delete the post "Hello World".', 'the reply gives the person the summary and the link')
+assert(confirmation.authorization_details[0].type === 'delete_post' && confirmation.expires_at, 'the confirmation describes the action and when it expires')
+assert(POSTS.has('hello-world') && actions.length === 0, 'nothing runs before the person approves')
+
+const confirmPath = `${writeRoot}/cap/v1/confirmations/${confirmation.id}`
+const pendingRead = await json(confirmPath, { headers: headers(writer) })
+assert(pendingRead.status === 200 && pendingRead.body.status === 'pending' && pendingRead.headers.get('retry-after') === '5', 'a pending confirmation reads with Retry-After')
+assert((await json(confirmPath, { headers: headers(shopper) })).status === 404, 'a confirmation is not visible without a token')
+assert((await json(confirmPath, { headers: headers({ 'cap-from': 'agent:other', authorization: writer.authorization }) })).status === 403, 'a confirmation read with another CAP-From is 403')
+const samWrite = await deviceLogin(writeRoot, { scope: 'write', decision: 'allow_write', username: 'sam' })
+assert((await json(confirmPath, { headers: headers({ ...shopper, authorization: `Bearer ${samWrite.token.access_token}` }) })).status === 404, 'another account cannot see the confirmation')
+
+function decide(fields) {
+  return fetch(`${writeRoot}/oauth/confirm`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ id: confirmation.id, ...fields }),
+  })
+}
+const confirmHtml = await (await fetch(confirmation.url)).text()
+assert(confirmHtml.includes('Delete the post &quot;Hello World&quot;.') && confirmHtml.includes('agent:shopper'), 'the confirm page shows the summary and the asking agent')
+const wrongPerson = await decide({ username: 'sam', password: 'sam-pass', decision: 'approve' })
+assert(wrongPerson.status === 401 && POSTS.has('hello-world'), 'another account cannot approve')
+const approvedAction = await decide({ username: 'maya', password: 'maya-pass', decision: 'approve' })
+assert(approvedAction.status === 200 && (await approvedAction.text()).includes('Deleted hello-world.'), 'the person approves and sees the result')
+assert(!POSTS.has('hello-world') && actions.length === 1 && actions[0].account === 'maya' && actions[0].caller === 'shopper', 'the action runs once, as the person')
+const againAction = await decide({ username: 'maya', password: 'maya-pass', decision: 'approve' })
+assert(againAction.status === 400 && actions.length === 1, 'an approved action never runs twice')
+
+const doneRead = await json(confirmPath, { headers: headers(writer) })
+assert(doneRead.body.status === 'done' && doneRead.body.result?.message === 'Deleted hello-world.' && !doneRead.body.url, 'a done confirmation carries the result and no link')
+assert(!doneRead.headers.get('retry-after'), 'a finished confirmation sets no Retry-After')
+const heldAgain = await json(`${writeRoot}/cap/v1/messages/${held.body.id}`, { headers: headers(writer) })
+assert(heldAgain.body.confirmation?.status === 'done', 'the message shows the confirmation as it is now')
+
+const toRefuse = await post(writeRoot, 'delete second-post', writer)
+const refuseId = toRefuse.body.confirmation.id
+await fetch(`${writeRoot}/oauth/confirm`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ id: refuseId, decision: 'deny' }) })
+const refused = await json(`${writeRoot}/cap/v1/confirmations/${refuseId}`, { headers: headers(writer) })
+assert(refused.body.status === 'denied' && POSTS.has('second-post') && actions.length === 1, 'a denied action never runs')
+assert((await json(`${writeRoot}/cap/v1/confirmations/cfm_nope`, { headers: headers(writer) })).status === 404, 'an unknown confirmation is 404')
+
+// With the http handler, the hook holds the action and later receives it as `confirmed`.
+const hookActions = []
+const actionHook = createServer(async (req, res) => {
+  const chunks = []
+  for await (const chunk of req) chunks.push(chunk)
+  const body = JSON.parse(Buffer.concat(chunks).toString() || '{}')
+  res.writeHead(200, { 'content-type': 'application/json' })
+  if (body.confirmed) {
+    hookActions.push(body.confirmed)
+    res.end(JSON.stringify({ message: 'Refunded.' }))
+    return
+  }
+  res.end(JSON.stringify(body.scope === 'write'
+    ? { reply: 'A refund needs your OK:', confirm: { summary: 'Refund order 42.', authorization_details: [{ type: 'refund', order: '42' }] } }
+    : { reply: `scope ${body.scope}` }))
+})
+const actionHookPort = await listen(actionHook)
+const hookWriteRoot = await start('hook-write', {
+  agent,
+  oauth: { ...oauthConfig, write: true },
+  handler: { type: 'http', url: `http://127.0.0.1:${actionHookPort}` },
+})
+const hookWriter = await deviceLogin(hookWriteRoot, { scope: 'write', decision: 'allow_write' })
+const hookHeld = await post(hookWriteRoot, 'refund please', { ...shopper, authorization: `Bearer ${hookWriter.token.access_token}` })
+assert(hookHeld.body.confirmation?.status === 'pending' && hookHeld.body.reply.startsWith('A refund needs your OK: http'), 'the hook can hold an action, and its reply leads the link')
+await fetch(`${hookWriteRoot}/oauth/confirm`, {
+  method: 'POST',
+  headers: { 'content-type': 'application/x-www-form-urlencoded' },
+  body: new URLSearchParams({ id: hookHeld.body.confirmation.id, username: 'maya', password: 'maya-pass', decision: 'approve' }),
+})
+assert(hookActions.length === 1 && hookActions[0].account === 'maya' && hookActions[0].authorization_details[0].order === '42', 'the approved action goes back to the hook once')
+actionHook.close()
+
+const lapsed = publicConfirmation({ id: 'cfm_x', status: 'pending', summary: 's', authorization_details: [], expires_at: new Date(Date.now() - 1000).toISOString() }, 'https://x/confirm')
+assert(lapsed.status === 'expired' && !lapsed.url, 'a pending confirmation past its time reads as expired, with no link')
 
 // Limits stay private. The caller only sees 429 and Retry-After.
 const limitedRoot = await start('limited', { agent, handler: { type: 'echo' }, daily_limit: 2 })

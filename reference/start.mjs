@@ -18,25 +18,38 @@ export function loadConfig(path) {
   return config
 }
 
+async function postHook(handler, payload) {
+  const url = handler.url || process.env[handler.url_env || 'HOOK_URL']
+  if (!url) return { error: { code: 'failed', message: 'The agent could not answer.' } }
+  const secret = process.env[handler.secret_env || 'HOOK_SECRET'] || ''
+  const headers = { 'content-type': 'application/json' }
+  if (secret) headers['x-cap-secret'] = secret
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(payload) })
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok || body.error) return { error: body.error || { code: 'failed', message: 'The agent could not answer.' } }
+  return body
+}
+
 export function handlerAnswer(handler = { type: 'echo' }) {
   const login = { error: { code: 'login_required', message: 'Log in to your account to ask about it.' } }
-  return async ({ message, context, history, account }) => {
+  return async ({ message, context, history, account, scope }) => {
     if (handler.account && !account) return login
     if (handler.type === 'static') return { reply: String(handler.reply ?? '') }
     if (handler.type === 'echo') return { reply: message }
-    const url = handler.url || process.env[handler.url_env || 'HOOK_URL']
-    if (!url) return { error: { code: 'failed', message: 'The agent could not answer.' } }
-    const secret = process.env[handler.secret_env || 'HOOK_SECRET'] || ''
-    const headers = { 'content-type': 'application/json' }
-    if (secret) headers['x-cap-secret'] = secret
-    const res = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ message, context, history, account }),
-    })
-    const body = await res.json().catch(() => ({}))
-    if (!res.ok || body.error) return { error: body.error || { code: 'failed', message: 'The agent could not answer.' } }
+    const body = await postHook(handler, { message, context, history, account, scope })
+    if (body.error) return body
+    if (body.confirm) return { confirm: body.confirm, reply: typeof body.reply === 'string' ? body.reply : '' }
     return { reply: typeof body.reply === 'string' ? body.reply : '' }
+  }
+}
+
+/** With `http`, an approved action goes back to the same hook as `{ confirmed }`. */
+export function handlerAct(handler = { type: 'echo' }) {
+  if (handler.type !== 'http') return null
+  return async ({ account, authorization_details, caller }) => {
+    const body = await postHook(handler, { confirmed: { account, authorization_details, caller } })
+    if (body.error) return { error: { message: body.error.message } }
+    return { message: typeof body.message === 'string' ? body.message : '' }
   }
 }
 
@@ -64,7 +77,7 @@ export async function boot(options = {}) {
   })
   for (const grant of config.grants || []) {
     if (grant.token && grant.account && grant.client) {
-      await store.upsertGrant({ token: grant.token, account: grant.account, clientId: grant.client })
+      await store.upsertGrant({ token: grant.token, account: grant.account, clientId: grant.client, scope: grant.scope === 'write' ? 'write' : 'read' })
     }
   }
   const oauthConfig = config.oauth
@@ -73,7 +86,10 @@ export async function boot(options = {}) {
       store,
       agentName: config.agent.name,
       login: options.login || accountsLogin(oauthConfig?.accounts),
+      write: Boolean(oauthConfig?.write),
+      act: options.act || handlerAct(config.handler),
       accessTokenSeconds: oauthConfig?.access_token_seconds ?? 3600,
+      writeAccessTokenSeconds: oauthConfig?.write_access_token_seconds ?? 900,
       allowHttpClients: Boolean(oauthConfig?.allow_http_clients),
       hint: oauthConfig?.hint || '',
       fetchImpl: options.fetch,

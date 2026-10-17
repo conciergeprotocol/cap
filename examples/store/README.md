@@ -110,7 +110,7 @@ curl http://127.0.0.1:8810/.well-known/oauth-authorization-server/oauth
 On the demo page, click **Log in**. The page makes a PKCE verifier and sends you to the store's login page at `/oauth/authorize`. The demo accounts are `maya` / `maya` and `sam` / `sam`. After you allow access, the store redirects back with a code, and the page exchanges it at `/oauth/token`:
 
 ```json
-{ "access_token": "cap_at_...", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "cap_rt_..." }
+{ "access_token": "cap_at_...", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "cap_rt_...", "scope": "read" }
 ```
 
 The page's `client_id` is `http://127.0.0.1:8810/client.json`. A real visiting agent hosts that document itself. The store hosts it here only because the demo page plays the agent. The document's `cap_from` is `agent:shopper`, so the token works only with that `CAP-From`. The same token with a different `CAP-From` is `403`. The page never sees the password.
@@ -173,3 +173,65 @@ curl http://127.0.0.1:8810/cap/v1/messages/msg_22eec828b542bf17 \
 ```
 
 Maya's token cannot read Sam's message. That read is `404`.
+
+## 8. A change
+
+"Add gift wrap to my order" with the read token fails:
+
+```json
+{ "status": "failed", "error": { "code": "write_required", "message": "This login can read your order but not change it. Log in again and allow changes." } }
+```
+
+On the demo page, click **Log in to make changes**. The page adds `scope=write`, and the store's login page offers **Log in and allow changes**, **Allow read only**, or **Deny**. Allow changes, and the token response says `"scope": "read write"` with `"expires_in": 900`. Send the same message again:
+
+```json
+{ "status": "done", "reply": "Gift wrap added to your Stride Runner order, at no charge." }
+```
+
+Gift wrap is easy to undo, so it runs on the write token alone.
+
+## 9. A change that needs the person's OK
+
+"Cancel my order" is hard to undo. The store does not cancel it. It holds the cancel and replies with a link:
+
+```json
+{
+  "id": "msg_7e2a91d04c3b5f18",
+  "status": "done",
+  "reply": "Cancel order hg_1042 (Stride Runner, $120). This needs your OK first: http://127.0.0.1:8810/oauth/confirm?id=cfm_q3Vd0mXr8YtN2bLk5PwA7hJc",
+  "confirmation": {
+    "id": "cfm_q3Vd0mXr8YtN2bLk5PwA7hJc",
+    "status": "pending",
+    "url": "http://127.0.0.1:8810/oauth/confirm?id=cfm_q3Vd0mXr8YtN2bLk5PwA7hJc",
+    "summary": "Cancel order hg_1042 (Stride Runner, $120).",
+    "authorization_details": [{ "type": "cancel_order", "order": "hg_1042" }],
+    "expires_at": "2026-10-17T17:25:41.302Z"
+  },
+  "created_at": "2026-10-17T17:15:41.300Z",
+  "finished_at": "2026-10-17T17:15:41.302Z"
+}
+```
+
+The order is unchanged. The demo page shows the link and reads the confirmation every two seconds:
+
+```bash
+curl http://127.0.0.1:8810/cap/v1/confirmations/cfm_q3Vd0mXr8YtN2bLk5PwA7hJc \
+  -H 'cap-version: 1.0' \
+  -H 'cap-from: agent:shopper' \
+  -H 'authorization: Bearer <write token>'
+```
+
+Open the link, log in as `maya`, and approve. The store runs the cancel once, as Maya, and the next read is:
+
+```json
+{
+  "id": "cfm_q3Vd0mXr8YtN2bLk5PwA7hJc",
+  "status": "done",
+  "summary": "Cancel order hg_1042 (Stride Runner, $120).",
+  "authorization_details": [{ "type": "cancel_order", "order": "hg_1042" }],
+  "expires_at": "2026-10-17T17:25:41.302Z",
+  "result": { "message": "Order hg_1042 is cancelled. The $120 refund goes back to your card in 3 to 5 days." }
+}
+```
+
+`answer` returns `confirm` in place of a reply, and `act` in `store.mjs` runs the cancel after approval. [Add login to your agent](../../owners.md) explains both.

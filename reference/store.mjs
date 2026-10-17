@@ -48,6 +48,20 @@ CREATE TABLE IF NOT EXISTS oauth_devices (
   last_poll_at TEXT NOT NULL DEFAULT '',
   expires_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS confirmations (
+  id TEXT PRIMARY KEY,
+  caller_id TEXT NOT NULL,
+  account TEXT NOT NULL,
+  client_id TEXT NOT NULL,
+  message_id TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  details_json TEXT NOT NULL,
+  status TEXT NOT NULL,
+  result_json TEXT,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  finished_at TEXT
+);
 `
 
 // Columns added after the first release. Older databases get them on migrate.
@@ -56,6 +70,10 @@ const GRANT_COLUMNS = [
   "ALTER TABLE grants ADD COLUMN oauth_client TEXT NOT NULL DEFAULT ''",
   "ALTER TABLE grants ADD COLUMN expires_at TEXT NOT NULL DEFAULT ''",
   "ALTER TABLE grants ADD COLUMN grant_id TEXT NOT NULL DEFAULT ''",
+  "ALTER TABLE grants ADD COLUMN scope TEXT NOT NULL DEFAULT 'read'",
+  "ALTER TABLE oauth_codes ADD COLUMN scope TEXT NOT NULL DEFAULT 'read'",
+  "ALTER TABLE oauth_devices ADD COLUMN scope TEXT NOT NULL DEFAULT 'read'",
+  'ALTER TABLE messages ADD COLUMN confirmation_id TEXT',
 ]
 
 export function tokenHash(token) {
@@ -87,7 +105,30 @@ function mapMessage(row) {
     error: row.error_json ? JSON.parse(row.error_json) : null,
     created_at: row.created_at,
     finished_at: row.finished_at ?? null,
+    confirmation_id: row.confirmation_id || null,
   }
+}
+
+function mapConfirmation(row) {
+  if (!row) return null
+  return {
+    id: row.id,
+    caller_id: row.caller_id,
+    account: row.account,
+    client_id: row.client_id,
+    message_id: row.message_id,
+    summary: row.summary,
+    authorization_details: JSON.parse(row.details_json || '[]'),
+    status: row.status,
+    result: row.result_json ? JSON.parse(row.result_json) : null,
+    expires_at: row.expires_at,
+    created_at: row.created_at,
+    finished_at: row.finished_at ?? null,
+  }
+}
+
+export function newConfirmationId() {
+  return `cfm_${randomBytes(18).toString('base64url')}`
 }
 
 function sqliteStore(db) {
@@ -134,15 +175,16 @@ function driver({ run, get, close }) {
     /**
      * `clientId` is the CAP-From id the token is bound to. `oauthClient` is the
      * client id URL that logged in, empty for tokens set in cap.json. Tokens from
-     * one login share a `grantId`, so revoking one revokes the rest.
+     * one login share a `grantId`, so revoking one revokes the rest. `scope` is
+     * `read` or `write`.
      */
-    async upsertGrant({ token, account, clientId, kind = 'access', oauthClient = '', expiresAt = '', grantId = '' }) {
+    async upsertGrant({ token, account, clientId, kind = 'access', oauthClient = '', expiresAt = '', grantId = '', scope = 'read' }) {
       await run(
-        `INSERT INTO grants (token_hash, account, client_id, kind, oauth_client, expires_at, grant_id) VALUES (?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO grants (token_hash, account, client_id, kind, oauth_client, expires_at, grant_id, scope) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (token_hash) DO UPDATE SET account = excluded.account, client_id = excluded.client_id,
            kind = excluded.kind, oauth_client = excluded.oauth_client, expires_at = excluded.expires_at,
-           grant_id = excluded.grant_id`,
-        [tokenHash(token), account, clientId, kind, oauthClient, expiresAt, grantId],
+           grant_id = excluded.grant_id, scope = excluded.scope`,
+        [tokenHash(token), account, clientId, kind, oauthClient, expiresAt, grantId, scope],
       )
     },
     async revokeGrant(token) {
@@ -154,18 +196,18 @@ function driver({ run, get, close }) {
     async grantByToken(token) {
       if (!token) return null
       const row = await get(
-        'SELECT token_hash, account, client_id, kind, oauth_client, expires_at, grant_id FROM grants WHERE token_hash = ?',
+        'SELECT token_hash, account, client_id, kind, oauth_client, expires_at, grant_id, scope FROM grants WHERE token_hash = ?',
         [tokenHash(token)],
       )
       if (!row) return null
       if (row.expires_at && Date.parse(row.expires_at) <= Date.now()) return null
       return row
     },
-    async insertCode({ code, account, oauthClient, capFrom, redirectUri, codeChallenge, expiresAt }) {
+    async insertCode({ code, account, oauthClient, capFrom, redirectUri, codeChallenge, expiresAt, scope = 'read' }) {
       await run(
-        `INSERT INTO oauth_codes (code_hash, account, oauth_client, cap_from, redirect_uri, code_challenge, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [tokenHash(code), account, oauthClient, capFrom, redirectUri, codeChallenge, expiresAt],
+        `INSERT INTO oauth_codes (code_hash, account, oauth_client, cap_from, redirect_uri, code_challenge, expires_at, scope)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [tokenHash(code), account, oauthClient, capFrom, redirectUri, codeChallenge, expiresAt, scope],
       )
     },
     // A code works once: it is deleted as it is read.
@@ -175,11 +217,12 @@ function driver({ run, get, close }) {
       if (!row || Date.parse(row.expires_at) <= Date.now()) return null
       return row
     },
-    async insertDevice({ deviceCode, userCode, oauthClient, capFrom, clientName, verifiedHost, expiresAt }) {
+    // `scope` is what the caller asked for until the person decides, then what they granted.
+    async insertDevice({ deviceCode, userCode, oauthClient, capFrom, clientName, verifiedHost, expiresAt, scope = 'read' }) {
       await run(
-        `INSERT INTO oauth_devices (device_hash, user_code, oauth_client, cap_from, client_name, verified_host, status, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
-        [tokenHash(deviceCode), userCode, oauthClient, capFrom, clientName, verifiedHost, expiresAt],
+        `INSERT INTO oauth_devices (device_hash, user_code, oauth_client, cap_from, client_name, verified_host, status, expires_at, scope)
+         VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+        [tokenHash(deviceCode), userCode, oauthClient, capFrom, clientName, verifiedHost, expiresAt, scope],
       )
     },
     async deviceByUserCode(userCode) {
@@ -192,11 +235,11 @@ function driver({ run, get, close }) {
       return (await get('SELECT * FROM oauth_devices WHERE device_hash = ?', [tokenHash(deviceCode)])) || null
     },
     // Only a pending login can be decided, and only once.
-    async decideDevice(userCode, { status, account = '', expiresAt = null }) {
+    async decideDevice(userCode, { status, account = '', expiresAt = null, scope = null }) {
       const row = await get(
-        `UPDATE oauth_devices SET status = ?, account = ?, expires_at = COALESCE(?, expires_at)
+        `UPDATE oauth_devices SET status = ?, account = ?, expires_at = COALESCE(?, expires_at), scope = COALESCE(?, scope)
          WHERE user_code = ? AND status = 'pending' RETURNING *`,
-        [status, account, expiresAt, userCode],
+        [status, account, expiresAt, scope, userCode],
       )
       return row || null
     },
@@ -259,14 +302,37 @@ function driver({ run, get, close }) {
         return { message: existing, created: false }
       }
     },
-    async finish(id, { status, reply, error, finishedAt }) {
+    async finish(id, { status, reply, error, finishedAt, confirmationId = null }) {
       await run(
-        'UPDATE messages SET status = ?, reply = ?, error_json = ?, finished_at = ? WHERE id = ?',
-        [status, reply ?? null, error ? JSON.stringify(error) : null, finishedAt, id],
+        'UPDATE messages SET status = ?, reply = ?, error_json = ?, finished_at = ?, confirmation_id = ? WHERE id = ?',
+        [status, reply ?? null, error ? JSON.stringify(error) : null, finishedAt, confirmationId, id],
       )
     },
     async byId(id) {
       return mapMessage(await get('SELECT * FROM messages WHERE id = ?', [id]))
+    },
+    async insertConfirmation(c) {
+      await run(
+        `INSERT INTO confirmations (id, caller_id, account, client_id, message_id, summary, details_json, status, expires_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+        [c.id, c.caller_id, c.account, c.client_id, c.message_id, c.summary, JSON.stringify(c.authorization_details || []), c.expires_at, c.created_at],
+      )
+    },
+    async confirmationById(id) {
+      return mapConfirmation(await get('SELECT * FROM confirmations WHERE id = ?', [id]))
+    },
+    // Only a pending, unexpired request can be decided, and only once.
+    async claimConfirmation(id, status) {
+      return mapConfirmation(await get(
+        `UPDATE confirmations SET status = ? WHERE id = ? AND status = 'pending' AND expires_at > ? RETURNING *`,
+        [status, id, new Date().toISOString()],
+      ))
+    },
+    async finishConfirmation(id, { status, result = null }) {
+      await run(
+        'UPDATE confirmations SET status = ?, result_json = ?, finished_at = ? WHERE id = ?',
+        [status, result ? JSON.stringify(result) : null, new Date().toISOString(), id],
+      )
     },
   }
 }

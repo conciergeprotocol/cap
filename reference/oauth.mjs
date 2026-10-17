@@ -106,6 +106,24 @@ export async function fetchClient(clientId, { allowHttpClients = false, fetchImp
   return { client: { clientId, name, host: url.host, redirectUris, capFrom: capFrom[1] } }
 }
 
+/**
+ * `read` unless the caller asked for `write`. `null` for a scope this owner does
+ * not offer, which the caller gets back as `invalid_scope`.
+ */
+export function parseScope(raw, { write = false } = {}) {
+  const asked = String(raw || '').split(/\s+/).filter(Boolean)
+  const known = write ? ['read', 'write'] : ['read']
+  if (asked.some((item) => !known.includes(item))) return null
+  return asked.includes('write') ? 'write' : 'read'
+}
+
+/** Write is granted only when it was asked for and the person chose it. */
+export function grantedScope(requested, decision) {
+  return requested === 'write' && decision === 'allow_write' ? 'write' : 'read'
+}
+
+export const scopeString = (scope) => (scope === 'write' ? 'read write' : 'read')
+
 export function newUserCode() {
   const bytes = randomBytes(8)
   const chars = [...bytes].map((b) => USER_CODE_ALPHABET[b % USER_CODE_ALPHABET.length]).join('')
@@ -137,6 +155,9 @@ export async function resolveDeviceClient(clientId, clientName, options) {
  * with PKCE, client id metadata documents, refresh rotation, and revocation.
  *
  * `login({ username, password })` resolves to the account id, or null.
+ * `write` offers the `write` scope. `act({ account, authorization_details, caller })`
+ * runs an action the person approved on the confirm page, and resolves to
+ * `{ message }` or `{ error: { message } }`.
  */
 export function createOAuth({
   store,
@@ -144,6 +165,9 @@ export function createOAuth({
   login,
   path = '/oauth',
   accessTokenSeconds = 3600,
+  writeAccessTokenSeconds = 900,
+  write = false,
+  act = null,
   allowHttpClients = false,
   hint = '',
   fetchImpl = fetch,
@@ -167,7 +191,22 @@ export function createOAuth({
       revocation_endpoint_auth_methods_supported: ['none'],
       client_id_metadata_document_supported: true,
       authorization_response_iss_parameter_supported: true,
+      ...(write ? { scopes_supported: ['read', 'write'] } : {}),
     }
+  }
+
+  const wants = (scope) => (scope === 'write'
+    ? `wants ${escape(agentName)} to read your account and make changes for you.`
+    : `wants to ask ${escape(agentName)} about your account.`)
+
+  function decisionButtons(scope) {
+    const allow = scope === 'write'
+      ? '<button name="decision" value="allow_write">Log in and allow changes</button><button name="decision" value="allow">Allow read only</button>'
+      : '<button name="decision" value="allow">Log in and allow</button>'
+    const warning = scope === 'write'
+      ? '<p class="muted">Allow changes only if you asked this agent to make them. Deletes and other actions that are hard to undo still need your OK each time.</p>'
+      : ''
+    return `${warning}<div class="row">${allow}<button name="decision" value="deny" formnovalidate>Deny</button></div>`
   }
 
   function page(res, status, { title, body }) {
@@ -189,7 +228,7 @@ export function createOAuth({
     page(res, status, {
       title: `Log in to ${agentName}`,
       body: `<h1>Log in to ${escape(agentName)}</h1>
-<p><strong>${escape(client.name)}</strong> (${escape(client.host)}) wants to ask ${escape(agentName)} about your account.</p>
+<p><strong>${escape(client.name)}</strong> (${escape(client.host)}) ${wants(pending.scope)}</p>
 <p class="muted">It will get answers about your account. It will not see your password.</p>
 ${error ? `<p class="error">${escape(error)}</p>` : ''}
 ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
@@ -197,7 +236,7 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
 <input type="hidden" name="request" value="${escape(id)}">
 <label>Username <input name="username" autocomplete="username" required></label>
 <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
-<div class="row"><button name="decision" value="allow">Log in and allow</button><button name="decision" value="deny" formnovalidate>Deny</button></div>
+${decisionButtons(pending.scope)}
 </form>`,
     })
   }
@@ -218,11 +257,13 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
     if (q.get('code_challenge_method') !== 'S256' || !PKCE_RE.test(q.get('code_challenge') || '')) {
       return back('invalid_request', 'PKCE with S256 is required.')
     }
+    const scope = parseScope(q.get('scope'), { write })
+    if (!scope) return back('invalid_scope', 'scope must be read or write.')
 
     const now = Date.now()
     for (const [key, value] of requests) if (value.expires < now) requests.delete(key)
     const id = random(24)
-    const pending = { client: found.client, redirectUri, state, codeChallenge: q.get('code_challenge'), expires: now + REQUEST_TTL_MS }
+    const pending = { client: found.client, redirectUri, state, scope, codeChallenge: q.get('code_challenge'), expires: now + REQUEST_TTL_MS }
     requests.set(id, pending)
     consentPage(res, 200, id, pending)
   }
@@ -236,7 +277,8 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
       return errorPage(res, 400, 'This login expired.')
     }
     const back = (params) => redirect(res, withParams(pending.redirectUri, { ...params, state: pending.state, iss: issuer(origin) }))
-    if (form.get('decision') !== 'allow') {
+    const decision = form.get('decision')
+    if (decision !== 'allow' && decision !== 'allow_write') {
       requests.delete(id)
       return back({ error: 'access_denied', error_description: 'The person denied access.' })
     }
@@ -253,6 +295,7 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
       redirectUri: pending.redirectUri,
       codeChallenge: pending.codeChallenge,
       expiresAt: new Date(Date.now() + CODE_TTL_MS).toISOString(),
+      scope: grantedScope(pending.scope, decision),
     })
     back({ code })
   }
@@ -262,6 +305,8 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
     if (!form) return oauthError(res, 400, 'invalid_request', 'The body must be a form.')
     const found = await resolveDeviceClient(form.get('client_id'), form.get('client_name'), { allowHttpClients, fetchImpl })
     if (found.error) return oauthError(res, 400, 'invalid_client', found.error)
+    const scope = parseScope(form.get('scope'), { write })
+    if (!scope) return oauthError(res, 400, 'invalid_scope', 'scope must be read or write.')
     const { client } = found
     const deviceCode = random()
     let userCode = newUserCode()
@@ -277,6 +322,7 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
       clientName: client.name,
       verifiedHost: client.host,
       expiresAt: new Date(Date.now() + DEVICE_TTL_SECONDS * 1000).toISOString(),
+      scope,
     })
     const verification = `${issuer(origin)}/device`
     send(res, 200, {
@@ -292,8 +338,8 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
   function devicePage(res, status, { userCode = '', device = null, error = '', done = '' }) {
     const who = device
       ? device.verified_host
-        ? `<p><strong>${escape(device.client_name)}</strong> (${escape(device.verified_host)}) wants to ask ${escape(agentName)} about your account.</p>`
-        : `<p><strong>${escape(device.client_name)}</strong> (agent:${escape(device.cap_from)}, name not verified) wants to ask ${escape(agentName)} about your account.</p>`
+        ? `<p><strong>${escape(device.client_name)}</strong> (${escape(device.verified_host)}) ${wants(device.scope)}</p>`
+        : `<p><strong>${escape(device.client_name)}</strong> (agent:${escape(device.cap_from)}, name not verified) ${wants(device.scope)}</p>`
       : ''
     const body = done
       ? `<h1>${escape(done)}</h1><p class="muted">Go back to your agent.</p>`
@@ -306,7 +352,7 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
 <label>Code <input name="user_code" value="${escape(userCode)}" autocomplete="off" required></label>
 <label>Username <input name="username" autocomplete="username" required></label>
 <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
-<div class="row"><button name="decision" value="allow">Log in and allow</button><button name="decision" value="deny" formnovalidate>Deny</button></div>
+${decisionButtons(device?.scope)}
 </form>`
     page(res, status, { title: `Log in to ${agentName}`, body })
   }
@@ -327,7 +373,8 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
     if (!device || device.status !== 'pending') {
       return devicePage(res, 400, { userCode: form.get('user_code') || '', error: 'That code is expired or already used.' })
     }
-    if (form.get('decision') !== 'allow') {
+    const decision = form.get('decision')
+    if (decision !== 'allow' && decision !== 'allow_write') {
       await store.decideDevice(userCode, { status: 'denied' })
       return devicePage(res, 200, { done: 'Access denied' })
     }
@@ -335,13 +382,15 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
     if (!account) return devicePage(res, 401, { userCode, device, error: 'That username and password did not match.' })
     // An agent that cannot keep polling asks once the person says so, so the
     // token stays collectable for a full window after approval.
+    const scope = grantedScope(device.scope, decision)
     const decided = await store.decideDevice(userCode, {
       status: 'approved',
       account,
       expiresAt: new Date(Date.now() + DEVICE_TTL_SECONDS * 1000).toISOString(),
+      scope,
     })
     if (!decided) return devicePage(res, 400, { error: 'That code is expired or already used.' })
-    devicePage(res, 200, { done: 'You are logged in' })
+    devicePage(res, 200, { done: scope === 'write' ? 'You are logged in, with changes allowed' : 'You are logged in' })
   }
 
   async function deviceToken(res, form) {
@@ -364,16 +413,17 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
     }
     const row = await store.takeApprovedDevice(deviceCode)
     if (!row) return oauthError(res, 400, 'invalid_grant', 'The device code is invalid or already used.')
-    return issue(res, { account: row.account, capFrom: row.cap_from, oauthClient: row.oauth_client, grantId: random(16) })
+    return issue(res, { account: row.account, capFrom: row.cap_from, oauthClient: row.oauth_client, grantId: random(16), scope: row.scope })
   }
 
-  async function issue(res, { account, capFrom, oauthClient, grantId }) {
+  async function issue(res, { account, capFrom, oauthClient, grantId, scope = 'read' }) {
     const accessToken = `cap_at_${random()}`
     const refreshToken = `cap_rt_${random()}`
-    const shared = { account, clientId: capFrom, oauthClient, grantId }
-    await store.upsertGrant({ ...shared, token: accessToken, kind: 'access', expiresAt: new Date(Date.now() + accessTokenSeconds * 1000).toISOString() })
+    const seconds = scope === 'write' ? writeAccessTokenSeconds : accessTokenSeconds
+    const shared = { account, clientId: capFrom, oauthClient, grantId, scope }
+    await store.upsertGrant({ ...shared, token: accessToken, kind: 'access', expiresAt: new Date(Date.now() + seconds * 1000).toISOString() })
     await store.upsertGrant({ ...shared, token: refreshToken, kind: 'refresh', expiresAt: new Date(Date.now() + REFRESH_TTL_MS).toISOString() })
-    send(res, 200, { access_token: accessToken, token_type: 'Bearer', expires_in: accessTokenSeconds, refresh_token: refreshToken })
+    send(res, 200, { access_token: accessToken, token_type: 'Bearer', expires_in: seconds, refresh_token: refreshToken, scope: scopeString(scope) })
   }
 
   async function token(req, res) {
@@ -393,7 +443,7 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
         && PKCE_RE.test(verifier)
         && s256(verifier) === row.code_challenge
       if (!valid) return oauthError(res, 400, 'invalid_grant', 'The code is invalid, expired, or already used.')
-      return issue(res, { account: row.account, capFrom: row.cap_from, oauthClient: row.oauth_client, grantId: random(16) })
+      return issue(res, { account: row.account, capFrom: row.cap_from, oauthClient: row.oauth_client, grantId: random(16), scope: row.scope })
     }
 
     if (grantType === 'refresh_token') {
@@ -403,7 +453,7 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
         return oauthError(res, 400, 'invalid_grant', 'The refresh token is invalid, expired, or revoked.')
       }
       await store.revokeGrant(presented)
-      return issue(res, { account: grant.account, capFrom: grant.client_id, oauthClient: grant.oauth_client, grantId: grant.grant_id })
+      return issue(res, { account: grant.account, capFrom: grant.client_id, oauthClient: grant.oauth_client, grantId: grant.grant_id, scope: grant.scope })
     }
 
     oauthError(res, 400, 'unsupported_grant_type', `grant_type must be ${DEVICE_GRANT}, authorization_code, or refresh_token.`)
@@ -422,7 +472,91 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
     send(res, 200, {})
   }
 
+  const confirmUrl = (origin, id) => `${issuer(origin)}/confirm?id=${encodeURIComponent(id)}`
+
+  const CONFIRM_DONE = {
+    working: 'This is running',
+    done: 'Done',
+    failed: 'This did not finish',
+    denied: 'You denied this',
+    expired: 'This request expired',
+  }
+
+  function confirmPage(res, status, { confirmation = null, error = '', done = '', message = '' }) {
+    if (done || !confirmation) {
+      const heading = done || 'Request not found'
+      const note = message || (confirmation ? 'Go back to your agent.' : 'It may have expired. Ask your agent again.')
+      return page(res, status, { title: heading, body: `<h1>${escape(heading)}</h1><p class="muted">${escape(note)}</p>` })
+    }
+    page(res, status, {
+      title: `Confirm with ${agentName}`,
+      body: `<h1>Confirm with ${escape(agentName)}</h1>
+<p><strong>${escape(confirmation.summary)}</strong></p>
+<p class="muted">Your agent (agent:${escape(confirmation.caller_id)}) asked for this. Approve only if you asked for it. It runs once.</p>
+${error ? `<p class="error">${escape(error)}</p>` : ''}
+${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
+<form method="post" action="${escape(path)}/confirm">
+<input type="hidden" name="id" value="${escape(confirmation.id)}">
+<label>Username <input name="username" autocomplete="username" required></label>
+<label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+<div class="row"><button name="decision" value="approve">Log in and approve</button><button name="decision" value="deny" formnovalidate>Deny</button></div>
+</form>`,
+    })
+  }
+
+  const isOpen = (c) => c && c.status === 'pending' && Date.parse(c.expires_at) > Date.now()
+
+  async function confirmView(res, url) {
+    const confirmation = await store.confirmationById(url.searchParams.get('id') || '')
+    if (!confirmation) return confirmPage(res, 404, {})
+    if (!isOpen(confirmation)) {
+      const status = confirmation.status === 'pending' ? 'expired' : confirmation.status
+      return confirmPage(res, 200, { confirmation, done: CONFIRM_DONE[status] || 'This request is closed' })
+    }
+    confirmPage(res, 200, { confirmation })
+  }
+
+  async function confirmDecide(req, res) {
+    const form = await readForm(req)
+    const confirmation = form ? await store.confirmationById(form.get('id') || '') : null
+    if (!confirmation) return confirmPage(res, 404, {})
+    if (!isOpen(confirmation)) return confirmPage(res, 400, { confirmation, done: 'This request is closed' })
+
+    if (form.get('decision') !== 'approve') {
+      const claimed = await store.claimConfirmation(confirmation.id, 'denied')
+      if (!claimed) return confirmPage(res, 400, { confirmation, done: 'This request is closed' })
+      await store.finishConfirmation(confirmation.id, { status: 'denied' })
+      return confirmPage(res, 200, { confirmation, done: CONFIRM_DONE.denied, message: 'Nothing changed. Go back to your agent.' })
+    }
+    // The person who approves must be the account the request is for.
+    const account = await login({ username: form.get('username') || '', password: form.get('password') || '' })
+    if (!account || account !== confirmation.account) {
+      return confirmPage(res, 401, { confirmation, error: 'That login does not match the account this request is for.' })
+    }
+    const claimed = await store.claimConfirmation(confirmation.id, 'working')
+    if (!claimed) return confirmPage(res, 400, { confirmation, done: 'This request is closed' })
+
+    let outcome
+    try {
+      outcome = act
+        ? await act({ account, authorization_details: claimed.authorization_details, caller: claimed.caller_id })
+        : { error: { message: `${agentName} cannot run this action.` } }
+    } catch {
+      outcome = { error: { message: 'The action could not finish.' } }
+    }
+    const failed = Boolean(outcome?.error)
+    const message = String((failed ? outcome.error.message : outcome?.message) || (failed ? 'The action could not finish.' : 'Done.'))
+    await store.finishConfirmation(confirmation.id, { status: failed ? 'failed' : 'done', result: { message } })
+    confirmPage(res, 200, { confirmation, done: failed ? CONFIRM_DONE.failed : CONFIRM_DONE.done, message })
+  }
+
   async function handle(req, res, url, origin) {
+    if (url.pathname === `${path}/confirm`) {
+      if (req.method === 'GET') await confirmView(res, url)
+      else if (req.method === 'POST') await confirmDecide(req, res)
+      else return false
+      return true
+    }
     if (req.method === 'GET' && url.pathname === metadataPath) {
       send(res, 200, metadata(origin))
       return true
@@ -454,5 +588,5 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
     return false
   }
 
-  return { handle, issuer }
+  return { handle, issuer, confirmUrl, canConfirm: Boolean(act) }
 }

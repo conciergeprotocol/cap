@@ -1,15 +1,30 @@
 import { createServer } from 'node:http'
 import { fail, readBody, requestOrigin, send } from './http.mjs'
-import { newMessageId, startOfUtcDay } from './store.mjs'
+import { newConfirmationId, newMessageId, startOfUtcDay } from './store.mjs'
 
 const MAX_MESSAGE = 8000
+const MAX_SUMMARY = 300
+const CONFIRM_TTL_MS = 10 * 60_000
 
-export function publicMessage(msg) {
+export function publicMessage(msg, confirmation = null) {
   const view = { id: msg.id, status: msg.status }
   if (msg.status === 'done') view.reply = msg.reply ?? ''
   if (msg.status === 'failed') view.error = msg.error || { code: 'failed', message: 'The agent could not answer.' }
+  if (msg.status === 'done' && confirmation) view.confirmation = confirmation
   view.created_at = msg.created_at
   view.finished_at = msg.finished_at || null
+  return view
+}
+
+/** A pending request past its time reads as expired, and only a pending one carries the link. */
+export function publicConfirmation(c, url) {
+  const status = c.status === 'pending' && Date.parse(c.expires_at) <= Date.now() ? 'expired' : c.status
+  const view = { id: c.id, status }
+  if (status === 'pending') view.url = url
+  view.summary = c.summary
+  view.authorization_details = c.authorization_details
+  view.expires_at = c.expires_at
+  if ((status === 'done' || status === 'failed') && c.result) view.result = c.result
   return view
 }
 
@@ -36,8 +51,11 @@ function outcome(value) {
 }
 
 /**
- * `answer({ message, context, history, account, caller })` resolves to `{ reply }` or `{ error: { code, message } }`.
+ * `answer({ message, context, history, account, scope, caller })` resolves to `{ reply }` or `{ error: { code, message } }`.
  * `history` is the earlier turns of the thread, oldest first, from the owner's own records.
+ * `scope` is `read` or `write` with a token, and null without one.
+ * To hold an action for the person's approval, it resolves to
+ * `{ confirm: { summary, authorization_details }, reply? }` instead.
  * It runs on the owner. Nothing it uses is returned except the reply text.
  */
 export function createCapServer({
@@ -63,14 +81,50 @@ export function createCapServer({
     }
   })
 
-  function respond(res, msg) {
+  async function view(msg, origin) {
+    if (msg.status !== 'done' || !msg.confirmation_id || !oauth) return publicMessage(msg)
+    const confirmation = await store.confirmationById(msg.confirmation_id)
+    return publicMessage(msg, confirmation ? publicConfirmation(confirmation, oauth.confirmUrl(origin, confirmation.id)) : null)
+  }
+
+  async function respond(res, msg, origin) {
     if (msg.status === 'working') {
       send(res, 202, publicMessage(msg), {
         headers: { location: `/cap/v1/messages/${msg.id}`, 'retry-after': String(retryAfter) },
       })
       return
     }
-    send(res, 200, publicMessage(msg))
+    send(res, 200, await view(msg, origin))
+  }
+
+  const failedWith = (code, message) => ({ status: 'failed', reply: null, error: { code, message } })
+
+  // The action is not run here. It waits for the person on the confirm page.
+  async function hold(value, msg, scope, origin) {
+    if (!oauth?.canConfirm || !msg.account) {
+      return { result: failedWith('failed', `${agent.name} cannot hold an action for approval.`) }
+    }
+    if (scope !== 'write') {
+      return { result: failedWith('write_required', 'This login can read but not make changes. Log in again and allow changes.') }
+    }
+    const summary = String(value.confirm.summary || '').trim().slice(0, MAX_SUMMARY)
+    if (!summary) return { result: failedWith('failed', 'The agent could not answer.') }
+    const details = Array.isArray(value.confirm.authorization_details) ? value.confirm.authorization_details : []
+    const id = newConfirmationId()
+    const now = Date.now()
+    await store.insertConfirmation({
+      id,
+      caller_id: msg.caller_id,
+      account: msg.account,
+      client_id: msg.client_id,
+      message_id: msg.id,
+      summary,
+      authorization_details: details,
+      expires_at: new Date(now + CONFIRM_TTL_MS).toISOString(),
+      created_at: new Date(now).toISOString(),
+    })
+    const lead = typeof value.reply === 'string' && value.reply.trim() ? value.reply.trim() : `${summary} This needs your OK first:`
+    return { id, result: { status: 'done', reply: `${lead} ${oauth.confirmUrl(origin, id)}`, error: null } }
   }
 
   function expired(msg) {
@@ -154,18 +208,23 @@ export function createCapServer({
     }
 
     if (req.method === 'POST' && url.pathname === '/cap/v1/messages') {
-      await sendMessage(req, res, caller)
+      await sendMessage(req, res, caller, origin)
       return
     }
     const readMatch = url.pathname.match(/^\/cap\/v1\/messages\/([^/]+)$/)
     if (req.method === 'GET' && readMatch) {
-      await readMessage(req, res, caller, decodeURIComponent(readMatch[1]))
+      await readMessage(req, res, caller, decodeURIComponent(readMatch[1]), origin)
+      return
+    }
+    const confirmMatch = url.pathname.match(/^\/cap\/v1\/confirmations\/([^/]+)$/)
+    if (req.method === 'GET' && confirmMatch) {
+      await readConfirmation(req, res, caller, decodeURIComponent(confirmMatch[1]), origin)
       return
     }
     fail(res, 404, 'not_found', 'Not found.')
   }
 
-  async function sendMessage(req, res, caller) {
+  async function sendMessage(req, res, caller, origin) {
     if (agent.status && agent.status !== 'active') {
       fail(res, 503, 'unavailable', `${agent.name} is not answering right now.`)
       return
@@ -200,6 +259,7 @@ export function createCapServer({
 
     const account = access.grant?.account || ''
     const client = access.grant?.client_id || ''
+    const scope = access.grant ? (access.grant.scope === 'write' ? 'write' : 'read') : null
     const key = String(req.headers['idempotency-key'] || '')
     if (key && !/^[A-Za-z0-9_.:-]{1,128}$/.test(key)) {
       fail(res, 400, 'invalid_request', 'Idempotency-Key is invalid.')
@@ -208,7 +268,7 @@ export function createCapServer({
     if (key) {
       const existing = await store.byIdempotency({ callerId: caller, account, clientId: client, key })
       if (existing) {
-        respond(res, existing)
+        await respond(res, existing, origin)
         return
       }
     }
@@ -245,27 +305,49 @@ export function createCapServer({
     }
     const saved = await store.insert(msg)
     if (!saved.created) {
-      respond(res, saved.message)
+      await respond(res, saved.message, origin)
       return
     }
 
     const work = Promise.resolve()
-      .then(() => answer({ message: msg.message, context: msg.context, history, account: account || null, caller }))
+      .then(() => answer({ message: msg.message, context: msg.context, history, account: account || null, scope, caller }))
       .catch(() => ({ error: { code: 'failed', message: 'The agent could not answer.' } }))
       .then(async (value) => {
-        const result = outcome(value)
+        const held = value?.confirm && !value.error ? await hold(value, msg, scope, origin) : null
+        const result = held ? held.result : outcome(value)
+        const confirmationId = held?.id || null
         const finishedAt = new Date().toISOString()
-        await store.finish(msg.id, { ...result, finishedAt })
-        Object.assign(msg, result, { finished_at: finishedAt })
+        await store.finish(msg.id, { ...result, finishedAt, confirmationId })
+        Object.assign(msg, result, { finished_at: finishedAt, confirmation_id: confirmationId })
       })
     let timer
     const waited = new Promise((resolve) => { timer = setTimeout(resolve, waitMs) })
     await Promise.race([work, waited])
     clearTimeout(timer)
-    respond(res, msg)
+    await respond(res, msg, origin)
   }
 
-  async function readMessage(req, res, caller, id) {
+  async function readConfirmation(req, res, caller, id, origin) {
+    const access = await grantFor(req, caller)
+    if (!access.grant && access.status) {
+      fail(res, access.status, access.code, access.message)
+      return
+    }
+    const confirmation = oauth && access.grant ? await store.confirmationById(id) : null
+    const visible = confirmation
+      && confirmation.caller_id === caller
+      && confirmation.account === access.grant.account
+      && confirmation.client_id === access.grant.client_id
+    if (!visible) {
+      fail(res, 404, 'not_found', 'Confirmation not found.')
+      return
+    }
+    const body = publicConfirmation(confirmation, oauth.confirmUrl(origin, confirmation.id))
+    const waiting = body.status === 'pending' || body.status === 'working'
+    send(res, 200, body, waiting ? { headers: { 'retry-after': String(retryAfter) } } : {})
+  }
+
+  async function readMessage(req, res, caller, id, origin) {
     const access = await grantFor(req, caller)
     if (!access.grant && access.status) {
       fail(res, access.status, access.code, access.message)
@@ -284,7 +366,7 @@ export function createCapServer({
       send(res, 200, publicMessage(msg), { headers: { 'retry-after': String(retryAfter) } })
       return
     }
-    send(res, 200, publicMessage(msg))
+    send(res, 200, await view(msg, origin))
   }
 
   return { server }

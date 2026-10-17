@@ -22,7 +22,7 @@ function send(message, headers = shopper, context) {
 }
 
 // The same steps the demo page takes in a browser: PKCE, the store's login page, the token exchange.
-async function login(account) {
+async function login(account, { write = false } = {}) {
   const card = await (await fetch(`${store.base}/agent.txt`)).text()
   const issuer = new URL(card.match(/^OAuth: (.+)$/m)[1])
   const meta = await (await fetch(`${issuer.origin}/.well-known/oauth-authorization-server${issuer.pathname}`)).json()
@@ -33,6 +33,7 @@ async function login(account) {
   authorize.search = new URLSearchParams({
     response_type: 'code', client_id: clientId, redirect_uri: redirectUri, state: 'demo',
     code_challenge: createHash('sha256').update(verifier).digest('base64url'), code_challenge_method: 'S256',
+    ...(write ? { scope: 'write' } : {}),
   })
   const html = await (await fetch(authorize)).text()
   assert(html.includes('Harbor Goods demo page'), 'login page names the visiting agent')
@@ -41,7 +42,7 @@ async function login(account) {
     method: 'POST',
     redirect: 'manual',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ request, username: account, password: account, decision: 'allow' }),
+    body: new URLSearchParams({ request, username: account, password: account, decision: write ? 'allow_write' : 'allow' }),
   })
   const code = new URL(allowed.headers.get('location')).searchParams.get('code')
   const { body } = await call(new URL(meta.token_endpoint).pathname, {
@@ -49,7 +50,7 @@ async function login(account) {
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri, client_id: clientId, code_verifier: verifier }),
   })
-  assert(body.access_token, JSON.stringify(body))
+  assert(body.access_token && body.scope === (write ? 'read write' : 'read'), JSON.stringify(body))
   return { ...shopper, authorization: `Bearer ${body.access_token}` }
 }
 
@@ -103,6 +104,31 @@ try {
   }
   assert(read.body.status === 'done' && read.body.reply.includes('packing'), JSON.stringify(read.body))
   assert(!read.body.reply.includes('Stride'), "Sam saw Maya's order")
+
+  // A read login cannot change the order.
+  const readWrap = await send('Add gift wrap to my order', maya)
+  assert(readWrap.body.status === 'failed' && readWrap.body.error.code === 'write_required', JSON.stringify(readWrap.body))
+
+  const mayaWrite = await login('maya', { write: true })
+  const wrapped = await send('Add gift wrap to my order', mayaWrite)
+  assert(wrapped.body.reply.startsWith('Gift wrap added'), JSON.stringify(wrapped.body))
+
+  // A cancel waits for Maya on the store's page.
+  const cancel = await send('Cancel my order', mayaWrite)
+  const confirmation = cancel.body.confirmation
+  assert(cancel.body.status === 'done' && confirmation?.status === 'pending', JSON.stringify(cancel.body))
+  assert(confirmation.summary === 'Cancel order hg_1042 (Stride Runner, $120).' && cancel.body.reply.includes(confirmation.url), JSON.stringify(cancel.body))
+  assert((await send("Where's my order?", maya)).body.reply.includes('shipped'), 'the order changed before approval')
+
+  const approved = await fetch(new URL(confirmation.url).origin + new URL(confirmation.url).pathname, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ id: confirmation.id, username: 'maya', password: 'maya', decision: 'approve' }),
+  })
+  assert(approved.status === 200 && (await approved.text()).includes('refund'), 'approval shows the result')
+  const status = await call(`/cap/v1/confirmations/${confirmation.id}`, { headers: mayaWrite })
+  assert(status.body.status === 'done' && status.body.result.message.includes('cancelled'), JSON.stringify(status.body))
+  assert((await send("Where's my order?", maya)).body.reply === 'Order hg_1042 is cancelled.', 'the order is cancelled after approval')
 
   console.log('ok')
 } finally {

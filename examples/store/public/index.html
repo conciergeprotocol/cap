@@ -34,7 +34,7 @@
   <body>
     <main>
       <h1>Harbor Goods</h1>
-      <p class="muted">This page plays the visiting agent. It sends a message to the store's agent and shows the reply. Product questions need no login. An order needs one. The page holds the login token, never the store's keys.</p>
+      <p class="muted">This page plays the visiting agent. It sends a message to the store's agent and shows the reply. Product questions need no login. An order needs one. Gift wrap needs a login that allows changes, and a cancel also needs your OK on the store's page. The page holds the login token, never the store's keys.</p>
       <p class="muted" id="who">Not logged in.</p>
 
       <section>
@@ -46,8 +46,11 @@
           <button id="send">Send</button>
           <button class="secondary" id="cheaper">Something cheaper?</button>
           <button class="secondary" id="order">Where's my order?</button>
+          <button class="secondary" id="wrap">Add gift wrap</button>
+          <button class="secondary" id="cancel">Cancel my order</button>
           <button class="secondary" id="fresh">New conversation</button>
           <button class="secondary" id="login">Log in</button>
+          <button class="secondary" id="login-write">Log in to make changes</button>
           <button class="secondary" id="logout">Log out</button>
         </div>
       </section>
@@ -55,6 +58,7 @@
       <section id="out" hidden>
         <div class="pill" id="pill">working</div>
         <p class="reply" id="reply"></p>
+        <p id="confirm" hidden><a id="confirm-link" target="_blank" rel="noopener">Open the store's page to approve</a> <span class="muted" id="confirm-status"></span></p>
         <pre id="raw"></pre>
       </section>
     </main>
@@ -63,7 +67,9 @@
       const clientId = location.origin + '/client.json'
       const redirectUri = location.origin + '/'
       let token = sessionStorage.getItem('cap_token') || ''
+      let scope = sessionStorage.getItem('cap_scope') || ''
       let timer = null
+      let confirmTimer = null
       let lastId = ''
 
       function headers() {
@@ -82,6 +88,22 @@
         if (body.error) $('reply').textContent = body.error.message
         else if (body.status === 'working') $('reply').textContent = 'The store is still answering. No reply yet.'
         else $('reply').textContent = body.reply || ''
+        clearTimeout(confirmTimer)
+        $('confirm').hidden = !body.confirmation
+        if (body.confirmation) watchConfirmation(body.confirmation)
+      }
+
+      // Never report the action as done until the store says so.
+      function watchConfirmation(confirmation) {
+        $('confirm-link').hidden = confirmation.status !== 'pending'
+        if (confirmation.url) $('confirm-link').href = confirmation.url
+        const result = confirmation.result ? '. ' + confirmation.result.message : ''
+        $('confirm-status').textContent = 'Status: ' + confirmation.status + result
+        if (confirmation.status !== 'pending' && confirmation.status !== 'working') return
+        confirmTimer = setTimeout(async () => {
+          const response = await fetch('/cap/v1/confirmations/' + confirmation.id, { headers: headers() })
+          if (response.ok) watchConfirmation(await response.json())
+        }, 2000)
       }
 
       async function read(response) {
@@ -116,7 +138,7 @@
         return (await fetch(issuer.origin + '/.well-known/oauth-authorization-server' + issuer.pathname)).json()
       }
 
-      async function login() {
+      async function login(write) {
         const meta = await oauthMetadata()
         const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)))
         const state = b64url(crypto.getRandomValues(new Uint8Array(16)))
@@ -126,6 +148,7 @@
         url.search = new URLSearchParams({
           response_type: 'code', client_id: clientId, redirect_uri: redirectUri, state,
           code_challenge: challenge, code_challenge_method: 'S256',
+          ...(write && (meta.scopes_supported || []).includes('write') ? { scope: 'write' } : {}),
         })
         location.assign(url)
       }
@@ -147,18 +170,24 @@
         })
         const body = await response.json()
         token = body.access_token || ''
+        scope = body.scope || ''
         if (token) sessionStorage.setItem('cap_token', token)
+        if (scope) sessionStorage.setItem('cap_scope', scope)
       }
 
       function showWho() {
-        $('who').textContent = token ? 'Logged in. This page holds the token, never the password.' : 'Not logged in.'
+        const access = scope === 'read write' ? ' Changes are allowed.' : ' Read only.'
+        $('who').textContent = token ? 'Logged in.' + access + ' This page holds the token, never the password.' : 'Not logged in.'
       }
 
       $('send').addEventListener('click', () => send($('message').value))
       $('cheaper').addEventListener('click', () => send('Something cheaper?'))
       $('order').addEventListener('click', () => send("Where's my order?"))
+      $('wrap').addEventListener('click', () => send('Add gift wrap to my order'))
+      $('cancel').addEventListener('click', () => send('Cancel my order'))
       $('fresh').addEventListener('click', () => { lastId = ''; $('out').hidden = true })
-      $('login').addEventListener('click', login)
+      $('login').addEventListener('click', () => login(false))
+      $('login-write').addEventListener('click', () => login(true))
       $('logout').addEventListener('click', async () => {
         if (token) {
           const meta = await oauthMetadata()
@@ -169,8 +198,10 @@
           })
         }
         token = ''
+        scope = ''
         lastId = ''
         sessionStorage.removeItem('cap_token')
+        sessionStorage.removeItem('cap_scope')
         showWho()
       })
       finishLogin().then(showWho)

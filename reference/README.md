@@ -2,7 +2,7 @@
 
 One process that speaks `/cap/v1`. SQLite by default, so a local run needs no database server and no account on any vendor. Set `DATABASE_URL` to a Postgres connection string when you deploy somewhere that already has Postgres.
 
-The spec does not require a database. This server keeps four tables (`messages`, `grants`, `oauth_codes`, `oauth_devices`) because a slow answer and a login have to survive a restart. Another runtime can store them somewhere else. The HTTP contract does not change.
+The spec does not require a database. This server keeps five tables (`messages`, `grants`, `oauth_codes`, `oauth_devices`, `confirmations`) because a slow answer, a login, and an action waiting for approval have to survive a restart. Another runtime can store them somewhere else. The HTTP contract does not change.
 
 ## Run locally
 
@@ -46,13 +46,13 @@ Handlers:
 
 - `static` replies with fixed text.
 - `echo` replies with the message it was sent.
-- `http` `POST`s `{ message, context, history, account }` to a URL you run. That URL returns `{ "reply": "..." }`, or `{ "error": { "code", "message" } }` to fail the message. `account` is null unless the caller sent a valid token. `history` is the earlier turns of the thread, oldest first, as `{ message, context, reply }`. It is empty for a new conversation, and `reply` is null for a turn that failed.
+- `http` `POST`s `{ message, context, history, account, scope }` to a URL you run. That URL returns `{ "reply": "..." }`, or `{ "error": { "code", "message" } }` to fail the message. `account` and `scope` are null unless the caller sent a valid token. `scope` is then `read` or `write`. `history` is the earlier turns of the thread, oldest first, as `{ message, context, reply }`. It is empty for a new conversation, and `reply` is null for a turn that failed.
 
 The hook URL can be `handler.url` or the environment variable named by `handler.url_env` (default `HOOK_URL`). If you set `handler.secret_env` (default `HOOK_SECRET`), that value is sent as `X-Cap-Secret` and is never written into a message.
 
 `"account": true` on the handler fails every message without a token as `login_required`. With `http`, the hook can make that choice per question instead.
 
-From code, `boot({ answer })` takes an async function `({ message, context, history, account, caller }) => ({ reply })` in place of a handler. The [store example](../examples/store) uses it.
+From code, `boot({ answer })` takes an async function `({ message, context, history, account, scope, caller }) => ({ reply })` in place of a handler. The [store example](../examples/store) uses it.
 
 The server waits up to `wait_seconds` for an answer. If it is ready, the response is `200`. If not, it is `202` with `Location` and `Retry-After: retry_after`, and the answer finishes in the background. Finished messages are readable for `retention_hours`. `daily_limit` caps messages per `CAP-From` per UTC day. Over it, the caller gets `429` and never sees the number. `0` turns it off.
 
@@ -78,6 +78,16 @@ It serves the OAuth metadata at `/.well-known/oauth-authorization-server/oauth`,
 
 Each token is bound to the `CAP-From` that logged in. Refresh tokens rotate and last 30 days. Revoking either token of a login ends both.
 
+### Changes and confirmations
+
+`"write": true` offers the `write` scope. A caller asks with `scope=write`, and the person can allow changes, allow read only, or deny. The token response's `scope` is `read` or `read write`, and a renewed token keeps it. Write access tokens last `write_access_token_seconds` (default 900). The handler receives `scope`, and refuses a change on `read`, for example with `write_required`.
+
+To hold an action for the person's OK, `answer` returns `{ confirm: { summary, authorization_details }, reply }` in place of a reply. The server stores the request, and the message is `done` with a `confirmation` and a link to `/oauth/confirm?id=...`. There the person logs in and approves or denies. On approval the server calls `boot({ act })`, an async function `({ account, authorization_details, caller }) => ({ message })` or `({ error: { message } })`, once. The caller reads `GET /cap/v1/confirmations/{id}`. A request expires after ten minutes. A `read` token cannot hold one, and gets `write_required`.
+
+With the `http` handler, the hook returns `confirm` next to `reply`, and after approval it receives `{ "confirmed": { "account", "authorization_details", "caller" } }` and returns `{ "message": "..." }`.
+
+[Add login to your agent](../owners.md) walks through both, with code.
+
 `accounts` is for demos. A real owner checks its own user store by passing `boot({ login })`, an async function `({ username, password }) => accountId | null`. The account id is what the handler receives as `account`.
 
 `"allow_http_clients": true` accepts client documents on `http` and on `localhost`, for local testing. Leave it off on a public deploy, where client ids must be https URLs on public hosts. The server fetches each client document when a person starts a login, with a five-second timeout, no redirects, and a 16 KB limit. Run it behind egress rules if it can reach private services.
@@ -91,6 +101,8 @@ Fixed tokens, for tests and scripts, can go in `grants`:
 ```json
 "grants": [{ "token": "grant_demo", "account": "maya", "client": "shopper" }]
 ```
+
+Add `"scope": "write"` to a fixed token to let it make changes.
 
 Put real tokens and passwords in the environment or in a file that is not committed. `cap.json` in this folder ships with no grants and no accounts.
 

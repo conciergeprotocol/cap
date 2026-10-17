@@ -206,6 +206,38 @@ grant_type=authorization_code&code=<code>&redirect_uri=<redirect_uri>&client_id=
 
 The response is the same token, bound to the `cap_from` in your document. Send the message again, refresh, and log out as above.
 
+## 6. Make changes, and confirm the risky ones
+
+With a `read write` token, the company's agent can make changes for the person, within what the person could do themselves. With a `read` token, a change fails with a code such as `write_required`. Ask the person to log in again and allow changes.
+
+An action that is hard to undo, such as a cancel, a delete, or a payment, does not run on the token alone. The message is `done`, and it carries a `confirmation`:
+
+```json
+{
+  "id": "msg_5d0b8a1c2e7f4a90",
+  "status": "done",
+  "reply": "Cancel order hg_1042 (Stride Runner, $120). This needs your OK first: https://harborgoods.example/oauth/confirm?id=cfm_4kq...",
+  "confirmation": {
+    "id": "cfm_4kq...",
+    "status": "pending",
+    "url": "https://harborgoods.example/oauth/confirm?id=cfm_4kq...",
+    "summary": "Cancel order hg_1042 (Stride Runner, $120).",
+    "authorization_details": [{ "type": "cancel_order", "order": "hg_1042" }],
+    "expires_at": "2026-10-17T18:10:00.000Z"
+  }
+}
+```
+
+1. Give the person `summary` and `url` as they are. Never say the action is done.
+2. The person approves or denies on the company's page.
+3. Read `GET /cap/v1/confirmations/{id}` with the same token and `CAP-From`, waiting `Retry-After` between reads, until `status` is `done`, `failed`, `denied`, or `expired`. `done` and `failed` carry `result.message`, written for the person.
+
+```json
+{ "id": "cfm_4kq...", "status": "done", "summary": "Cancel order hg_1042 (Stride Runner, $120).", "authorization_details": [{ "type": "cancel_order", "order": "hg_1042" }], "expires_at": "2026-10-17T18:10:00.000Z", "result": { "message": "Order hg_1042 is cancelled. The $120 refund goes back to your card in 3 to 5 days." } }
+```
+
+A request expires within 10 minutes if no one decides. To try again, send a new message.
+
 ## Errors
 
 A request the owner will not accept returns an HTTP error:
@@ -228,10 +260,16 @@ while res.status == working:
   wait res.retry_after
   res = GET {cap}/messages/{id}
 
-if res.status == done:
+if res.status == done and res.confirmation:
+  give the person res.confirmation.summary and res.confirmation.url
+  read {cap}/confirmations/{id} until it is no longer pending or working
+  tell the person the result
+elif res.status == done:
   use(res.reply)
 elif res.error.code == login_required:
   ask the person to log in, then send again with the token
+elif res.error.code == write_required:
+  ask the person to log in again and allow changes
 else:
   stop                     # failed is final for this message
 ```
@@ -242,7 +280,7 @@ An **owner** conforms if it:
 
 - [ ] Publishes `/agent.txt` starting with `Protocol: CAP/1.0`, with `Name`, `Chat`, `CAP`, and `OAuth` when it answers account questions
 - [ ] Returns `200` when it finished within its wait, otherwise `202` with `Location` and `Retry-After`
-- [ ] Returns only `id`, `status`, `reply` or `error`, `created_at`, and `finished_at`
+- [ ] Returns only `id`, `status`, `reply` or `error`, `created_at`, and `finished_at`, plus `confirmation` when it holds an action
 - [ ] Answers account questions only with a token for that account. Returns `login_required` without one
 - [ ] Returns `401` for a bad token, and `403` for a token used by a different agent
 - [ ] Publishes OAuth metadata, supports the code login with a `device_authorization_endpoint`, and binds each token to the `CAP-From` that logged in
@@ -265,3 +303,4 @@ A **caller** conforms if it:
 - [ ] Sends a short brief, never a password or another company's data
 - [ ] Sets `previous_message_id` only to continue the same conversation
 - [ ] Logs in only through the company's page, with the code login or the redirect login, never asks for the person's password, and never shows the `device_code`
+- [ ] Gives the person a `confirmation` link as it is, and never reports a confirmed action as done until its status is `done`

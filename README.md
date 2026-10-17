@@ -13,6 +13,7 @@ The company publishes one text file, `agent.txt`. The visiting agent reads it, s
 - [Concepts](concepts/README.md)
 - [Specification](spec.md)
 - [Usage](usage.md)
+- [Add login to your agent](owners.md)
 - [Reference server](reference/README.md)
 - [Store example](examples/store)
 - [Governance](GOVERNANCE.md), [Security](SECURITY.md), and [Changelog](CHANGELOG.md)
@@ -88,6 +89,8 @@ curl http://127.0.0.1:8088/agent.txt
 `GET /health` is the probe. Edit `reference/cap.json` to set the agent name, the chat URL, and how it answers: a fixed reply, an echo, or a POST to a URL you run. The secret for that URL stays in the environment and never appears in a reply.
 
 `node check.mjs` runs the conformance checks against a temporary database.
+
+To answer account questions, or make changes for a logged-in person, follow [Add login to your agent](owners.md).
 
 To deploy, build the image and keep the SQLite file on a volume:
 
