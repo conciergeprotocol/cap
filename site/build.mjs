@@ -87,6 +87,11 @@ function apply(t){root.classList.toggle('dark',t==='dark'||(t!=='light'&&media.m
 document.querySelectorAll('.theme button').forEach(function(b){b.addEventListener('click',function(){try{localStorage.setItem('cap_theme',b.dataset.theme)}catch(e){}apply(b.dataset.theme)})});
 media.addEventListener('change',function(){if(saved()==='system')apply('system')});
 apply(saved());
+var menu=document.querySelector('.menu'),header=document.querySelector('header');
+function setMenu(open){header.classList.toggle('open',open);menu.setAttribute('aria-expanded',String(open))}
+menu.addEventListener('click',function(){setMenu(!header.classList.contains('open'))});
+document.querySelectorAll('#site-menu a').forEach(function(a){a.addEventListener('click',function(){setMenu(false)})});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&header.classList.contains('open')){setMenu(false);menu.focus()}});
 document.querySelectorAll('[data-copy]').forEach(function(button){button.addEventListener('click',function(){
 var pre=document.getElementById(button.dataset.copy),text=pre.textContent,label=button.querySelector('span'),idle=label.textContent;
 function legacy(){var area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();var ok=false;try{ok=document.execCommand('copy')}catch(e){}area.remove();return ok}
@@ -134,7 +139,8 @@ const layout = ({ title, body, route }) => {
 <body>
 <header>
 <a class="brand" href="/">🧢 CAP <span class="badge">1.0 Draft</span></a>
-<div class="header-end">
+<button type="button" class="menu" aria-expanded="false" aria-controls="site-menu" aria-label="Menu">${icon('<path d="M4 6h16M4 12h16M4 18h16"/>')}${icon('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
+<div class="header-end" id="site-menu">
 <nav>${nav}<a href="${repo}">GitHub</a></nav>
 ${themeControl}
 </div>
