@@ -8,6 +8,10 @@
     {
       "source": "/cap.txt",
       "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+    },
+    {
+      "source": "/implement.txt",
+      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
     }
   ]
 }

@@ -1,0 +1,20 @@
+Implement the Concierge Agent Protocol (CAP) in this project, so other people's AI agents can ask our agent questions and get answers, instead of scraping our site. They never get our tools, keys, or data.
+
+Read these first:
+- Spec: https://conciergeprotocol.org/spec
+- Usage, with request and response examples: https://conciergeprotocol.org/usage
+- Reference server and examples: https://github.com/conciergeprotocol/cap
+
+Then:
+1. Find how this project can answer a question today: its content, search, database, or an existing AI agent. Tell me what you found and where CAP's answer should come from. Ask before you choose.
+2. Serve POST /cap/v1/messages and GET /cap/v1/messages/{id}, as the spec describes. Use this project's own framework, or run the reference server with an answer function.
+3. Publish /agent.txt at the site root:
+   Protocol: CAP/1.0
+   Name: {our agent's name}
+   Chat: {a page where a person can chat with it}
+   CAP: https://{our domain}/cap/v1
+4. Keep secrets out. A reply never includes API keys, tools, prompts, or another person's data, and agent.txt lists none of them.
+5. If people have accounts here and should ask about them, add login by following https://conciergeprotocol.org/owners. Otherwise skip this step.
+6. Test with curl: fetch /agent.txt, send a message, and read it back. Show me the responses.
+
+Keep the change small, and match this project's existing code style.

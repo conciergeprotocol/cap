@@ -1,23 +1,22 @@
 :root {
+  --bg: #fff;
   --fg: #111;
   --muted: #666;
   --line: #e5e5e5;
   --code: #f5f5f4;
   --accent: #0a58ca;
-  color-scheme: light dark;
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --fg: #eee;
-    --muted: #999;
-    --line: #2a2a2a;
-    --code: #1a1a1a;
-    --accent: #6ea8fe;
-  }
-  body {
-    background: #0b0b0b;
-  }
+/* Set before paint from the saved choice, or from the system when there is none. */
+:root.dark {
+  --bg: #0b0b0b;
+  --fg: #eee;
+  --muted: #999;
+  --line: #2a2a2a;
+  --code: #1a1a1a;
+  --accent: #6ea8fe;
+  color-scheme: dark;
 }
 
 * {
@@ -26,6 +25,7 @@
 
 body {
   margin: 0;
+  background: var(--bg);
   color: var(--fg);
   font: 16px/1.65 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
@@ -80,6 +80,94 @@ nav a {
 nav a:hover,
 nav a[aria-current='page'] {
   color: var(--fg);
+}
+
+.header-end {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: center;
+}
+
+.theme {
+  display: flex;
+  gap: 4px;
+  width: 112px;
+  padding: 4px;
+  border-radius: 8px;
+  background: var(--code);
+}
+
+.theme button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.theme button:hover {
+  color: var(--fg);
+}
+
+.theme button[aria-checked='true'] {
+  background: var(--bg);
+  color: var(--fg);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
+}
+
+.prompt {
+  margin: 28px 0;
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.copy {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--fg);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.copy:hover {
+  opacity: 0.88;
+}
+
+.prompt p {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.prompt details {
+  margin-top: 10px;
+  font-size: 14px;
+}
+
+.prompt summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.prompt pre {
+  margin-bottom: 0;
+  font-size: 13px;
+  white-space: pre-wrap;
 }
 
 main {

@@ -92,6 +92,8 @@ curl http://127.0.0.1:8088/agent.txt
 
 To answer account questions, or make changes for a logged-in person, follow [Add login to your agent](owners.md).
 
+To have a coding assistant do it, give it the prompt at [conciergeprotocol.org/implement.txt](https://conciergeprotocol.org/implement.txt).
+
 To deploy, build the image and keep the SQLite file on a volume:
 
 ```bash
