@@ -90,7 +90,9 @@ A message is visible only to the `CAP-From` that sent it, with the same grant or
 
 A public question needs no token. A question about an account needs the person to log in.
 
-Login is OAuth 2.1: the authorization code flow with PKCE. The visiting agent is a public client. It has no secret and does not register with the company first. The person types their password only on the company's page. The visiting agent receives a token bound to that person's account and to its own `CAP-From`, and sends it on each request. It never holds the person's password or the company's keys.
+Login is OAuth 2.1. The visiting agent is a public client. It has no secret and does not register with the company first. The person types their password only on the company's page. The visiting agent receives a token bound to that person's account and to its own `CAP-From`, and sends it on each request. It never holds the person's password or the company's keys.
+
+There are two ways to log in. Every caller can use the **code login** (the device authorization grant, RFC 8628), because it needs only HTTP requests: the agent shows the person a link, the person approves on the company's page, and the agent picks up the token. A caller that can receive a browser redirect may use the **redirect login** (the authorization code flow with PKCE) instead. An owner with an `OAuth` line supports the code login. The redirect login is optional.
 
 ### Discovery
 
@@ -101,11 +103,48 @@ OAuth: https://harborgoods.example/oauth
 GET https://harborgoods.example/.well-known/oauth-authorization-server/oauth
 ```
 
-The metadata includes `issuer`, `authorization_endpoint`, `token_endpoint`, `revocation_endpoint`, `code_challenge_methods_supported` with `S256`, and `client_id_metadata_document_supported: true`.
+The metadata includes `issuer`, `device_authorization_endpoint`, `token_endpoint`, and `revocation_endpoint`. An owner with the redirect login also lists `authorization_endpoint`, `code_challenge_methods_supported` with `S256`, and `client_id_metadata_document_supported: true`.
 
-### The visiting agent's client id
+### Log in with a code
 
-The visiting agent's `client_id` is an https URL it controls. That URL returns the agent's client metadata as JSON, an OAuth Client ID Metadata Document:
+1. The caller posts a form to the `device_authorization_endpoint` with `client_id` set to its `CAP-From`, such as `agent:example-assistant`. It may add `client_name`, a short name the person will recognize.
+
+```
+POST https://harborgoods.example/oauth/device
+Content-Type: application/x-www-form-urlencoded
+
+client_id=agent:example-assistant&client_name=Example Assistant
+```
+
+```json
+{
+  "device_code": "GmRhmhcxhwAzkoEqiMEg_DnyEysNkuNhszIySk9eS",
+  "user_code": "WDJB-MJHT",
+  "verification_uri": "https://harborgoods.example/oauth/device",
+  "verification_uri_complete": "https://harborgoods.example/oauth/device?user_code=WDJB-MJHT",
+  "expires_in": 600,
+  "interval": 5
+}
+```
+
+2. The caller gives the person `verification_uri_complete` and the `user_code`, and tells them to allow it only if the code matches. The caller keeps `device_code` to itself.
+3. The person opens the link, logs in on the company's page, checks the code, and allows or denies.
+4. Meanwhile the caller posts to the `token_endpoint` every `interval` seconds:
+
+```
+POST https://harborgoods.example/oauth/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=GmRhmh...&client_id=agent:example-assistant
+```
+
+Until the person decides, the response is `400` with `error: authorization_pending`. `slow_down` means add 5 seconds to the interval. `access_denied` and `expired_token` are final. Once the person allows, the response is `access_token`, `token_type: Bearer`, `expires_in`, and `refresh_token`. A device code yields a token once.
+
+The owner shows the `client_name` and the `CAP-From` on its page, says the name is not verified, and binds the token to that `CAP-From`. Codes expire within 10 minutes.
+
+### Log in with a redirect
+
+The caller's `client_id` is an https URL it controls. That URL returns the agent's client metadata as JSON, an OAuth Client ID Metadata Document:
 
 ```json
 {
@@ -116,9 +155,9 @@ The visiting agent's `client_id` is an https URL it controls. That URL returns t
 }
 ```
 
-`client_id` is the document's own URL. `cap_from` is the `CAP-From` the agent sends. The owner fetches the document when the person logs in, shows `client_name` and the host of `client_id` on its consent page, and binds the token to `cap_from`. An agent that runs on the person's own device lists a loopback redirect, such as `http://127.0.0.1/callback`, and the owner accepts it on any port (RFC 8252).
+`client_id` is the document's own URL. `cap_from` is the `CAP-From` the agent sends. The owner fetches the document when the person logs in, shows `client_name` and the host of `client_id` on its consent page, and binds the token to `cap_from`. An agent that runs on the person's own device lists a loopback redirect, such as `http://127.0.0.1/callback`, and the owner accepts it on any port (RFC 8252). A caller may also use this URL as its `client_id` in the code login. The owner then shows the name as verified by that host.
 
-### Log in
+The steps:
 
 1. The caller makes a random `code_verifier` and opens the `authorization_endpoint` for the person with `response_type=code`, `client_id`, `redirect_uri`, `state`, `code_challenge`, and `code_challenge_method=S256`.
 2. The person logs in on the company's page and consents. The owner redirects to `redirect_uri` with `code`, `state`, and `iss`. The `redirect_uri` must be one the client document lists. If it is not, the owner shows an error and does not redirect.
@@ -151,7 +190,7 @@ An owner conforms if it:
 4. Returns `202` with `Location` and `Retry-After` when it cannot finish within its wait.
 5. Keeps its limits private. When it will not take more from a caller, it returns `429` with `Retry-After`.
 6. Keeps finished messages for at least 24 hours.
-7. For account questions, publishes OAuth metadata, accepts a client id metadata document in place of registration, requires PKCE with `S256`, and binds each token to the document's `cap_from`.
+7. For account questions, publishes OAuth metadata and supports the code login, with no registration. Binds each token to the `CAP-From` that logged in. If it offers the redirect login, it accepts client id metadata documents and requires PKCE with `S256`.
 
 ## Caller rules
 
@@ -164,7 +203,7 @@ A caller conforms if it:
 5. Treats `failed` as final for that message. It sends a new one only when something changed, such as the person logging in.
 6. Sends a short brief in `context`. Never the person's password or another company's data.
 7. Sets `previous_message_id` to the last message when the person is continuing the same conversation, and leaves it off when they start a new one.
-8. Logs in only through the owner's authorization page, with PKCE and a client id document it controls. Never asks the person for their password.
+8. Logs in only through the owner's page, with the code login or the redirect login. Never asks the person for their password, and never sends the `device_code` to the person.
 
 ## Errors
 

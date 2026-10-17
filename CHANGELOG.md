@@ -2,6 +2,15 @@
 
 Breaking changes to the draft are listed here with what an owner or a caller has to change.
 
+## 1.0 Draft, October 16, 2026, code login
+
+A visiting agent can now log in with only HTTP. Owners with an `OAuth` line must support it. Callers no longer need a client document.
+
+- The code login is the OAuth device authorization grant (RFC 8628). Metadata lists `device_authorization_endpoint`. The caller posts `client_id=agent:{id}`, tells the person the `verification_uri_complete` and `user_code`, and polls the token endpoint.
+- The token is bound to that `CAP-From`. The owner shows the agent's name as not verified unless the `client_id` is a client document URL.
+- The redirect login (PKCE with a client document) is now optional for owners.
+- The reference server adds `/oauth/device` and an `oauth.device_interval` option.
+
 ## 1.0 Draft, October 16, 2026
 
 Account login is now fully defined. Owners that answered account questions with tokens issued some other way need to adopt this flow. Callers need a client document.

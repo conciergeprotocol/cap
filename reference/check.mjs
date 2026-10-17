@@ -188,6 +188,7 @@ const orderAnswer = async ({ message, account }) => {
 const oauthConfig = {
   accounts: [{ account: 'maya', password: 'maya-pass' }, { account: 'sam', password: 'sam-pass' }],
   allow_http_clients: true,
+  device_interval: 0,
 }
 const accountRoot = await start('account', {
   agent,
@@ -384,6 +385,78 @@ const shortLived = await loginAs(shortRootTokens, 'maya', 'maya-pass')
 await sleep(1100)
 const expiredToken = await post(shortRootTokens, "Where's my order?", { ...shopper, authorization: `Bearer ${shortLived.access_token}` })
 assert(expiredToken.status === 401, 'an expired access token is 401')
+
+// The code login needs nothing but HTTP requests from the visiting agent.
+const DEVICE = 'urn:ietf:params:oauth:grant-type:device_code'
+assert(meta.body.device_authorization_endpoint === `${accountRoot}/oauth/device`, 'metadata lists the device endpoint')
+assert(meta.body.grant_types_supported.includes(DEVICE), 'metadata lists the device grant')
+
+function approveDevice(rootUrl, fields) {
+  return fetch(`${rootUrl}/oauth/device/approve`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(fields),
+  })
+}
+const pollDevice = (rootUrl, deviceCode, clientIdValue = 'agent:shopper') =>
+  oauthForm(rootUrl, 'token', { grant_type: DEVICE, device_code: deviceCode, client_id: clientIdValue })
+
+const started = await oauthForm(accountRoot, 'device', { client_id: 'agent:shopper', client_name: 'Shopper' })
+assert(started.status === 200 && started.body.device_code && /^[B-Z]{4}-[B-Z]{4}$/.test(started.body.user_code), 'device login returns a device code and a user code')
+assert(started.body.verification_uri_complete === `${accountRoot}/oauth/device?user_code=${started.body.user_code}`, 'device login links to the approval page with the code')
+assert(started.body.expires_in === 600 && started.body.interval === 0, 'device login sets expires_in and interval')
+const noDeviceClient = await oauthForm(accountRoot, 'device', { client_id: 'not an agent' })
+assert(noDeviceClient.status === 400 && noDeviceClient.body.error === 'invalid_client', 'the code login needs an agent: id or a client document')
+
+const notYet = await pollDevice(accountRoot, started.body.device_code)
+assert(notYet.status === 400 && notYet.body.error === 'authorization_pending', 'polling before approval is authorization_pending')
+
+const approvalPage = await fetch(started.body.verification_uri_complete)
+const approvalHtml = await approvalPage.text()
+assert(approvalPage.status === 200 && approvalHtml.includes('Shopper') && approvalHtml.includes('not verified') && approvalHtml.includes(started.body.user_code), 'approval page shows the unverified name and the code')
+assert(!approvalHtml.includes(started.body.device_code), 'approval page never shows the device code')
+
+const badDevicePassword = await approveDevice(accountRoot, { user_code: started.body.user_code, username: 'maya', password: 'nope', decision: 'allow' })
+assert(badDevicePassword.status === 401, 'a wrong password does not approve the device login')
+assert((await pollDevice(accountRoot, started.body.device_code)).body.error === 'authorization_pending', 'still pending after a wrong password')
+
+const lowercase = started.body.user_code.toLowerCase().replace('-', ' ')
+const approved = await approveDevice(accountRoot, { user_code: lowercase, username: 'maya', password: 'maya-pass', decision: 'allow' })
+assert(approved.status === 200 && (await approved.text()).includes('logged in'), 'the person approves with the code in any case and spacing')
+const twice = await approveDevice(accountRoot, { user_code: started.body.user_code, username: 'sam', password: 'sam-pass', decision: 'allow' })
+assert(twice.status === 400, 'a code is approved once')
+
+const wrongDeviceClient = await pollDevice(accountRoot, started.body.device_code, 'agent:other')
+assert(wrongDeviceClient.body.error === 'invalid_grant', 'a device code works only for the agent that started it')
+const deviceToken = await pollDevice(accountRoot, started.body.device_code)
+assert(deviceToken.status === 200 && deviceToken.body.access_token.startsWith('cap_at_') && deviceToken.body.refresh_token, 'polling after approval returns the tokens')
+const deviceAgain = await pollDevice(accountRoot, started.body.device_code)
+assert(deviceAgain.body.error === 'invalid_grant', 'a device code yields a token once')
+
+const deviceMaya = { ...shopper, authorization: `Bearer ${deviceToken.body.access_token}` }
+const deviceOrder = await post(accountRoot, "Where's my order?", deviceMaya)
+assert(deviceOrder.body.status === 'done' && deviceOrder.body.reply.includes('poster'), 'the device token answers for the account that approved')
+const deviceOther = await post(accountRoot, "Where's my order?", { 'cap-from': 'agent:other', authorization: deviceMaya.authorization })
+assert(deviceOther.status === 403, 'the device token is bound to the CAP-From that started the login')
+
+const deviceRenew = await oauthForm(accountRoot, 'token', { grant_type: 'refresh_token', refresh_token: deviceToken.body.refresh_token, client_id: 'agent:shopper' })
+assert(deviceRenew.status === 200, 'a device login refreshes with its agent: client id')
+await oauthForm(accountRoot, 'revoke', { token: deviceRenew.body.refresh_token, client_id: 'agent:shopper' })
+assert((await post(accountRoot, "Where's my order?", { ...shopper, authorization: `Bearer ${deviceRenew.body.access_token}` })).status === 401, 'revoking ends the device login')
+
+const toDeny = await oauthForm(accountRoot, 'device', { client_id: 'agent:shopper' })
+await approveDevice(accountRoot, { user_code: toDeny.body.user_code, decision: 'deny' })
+assert((await pollDevice(accountRoot, toDeny.body.device_code)).body.error === 'access_denied', 'a denied device login is access_denied')
+
+const verifiedStart = await oauthForm(accountRoot, 'device', { client_id: clientId })
+const verifiedHtml = await (await fetch(verifiedStart.body.verification_uri_complete)).text()
+assert(verifiedStart.status === 200 && verifiedHtml.includes(clientBase.slice(7)) && !verifiedHtml.includes('not verified'), 'a client document makes the name verified by its host')
+
+const slowRoot = await start('slow-device', { agent, oauth: { ...oauthConfig, device_interval: 60 } }, { answer: orderAnswer })
+const slowStart = await oauthForm(slowRoot, 'device', { client_id: 'agent:shopper' })
+await pollDevice(slowRoot, slowStart.body.device_code)
+const tooFast = await pollDevice(slowRoot, slowStart.body.device_code)
+assert(tooFast.body.error === 'slow_down', 'polling faster than the interval is slow_down')
 
 // Limits stay private. The caller only sees 429 and Retry-After.
 const limitedRoot = await start('limited', { agent, handler: { type: 'echo' }, daily_limit: 2 })

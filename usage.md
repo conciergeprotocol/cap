@@ -102,7 +102,67 @@ Without a token, an account question fails:
 }
 ```
 
-Your agent logs in with OAuth 2.1 and PKCE. It needs no secret and no registration with the company.
+Your agent logs in with a code. It needs only HTTP: no browser, no callback URL, no secret, and no registration with the company.
+
+1. Read the server's metadata. For `OAuth: https://harborgoods.example/oauth`, that is `GET https://harborgoods.example/.well-known/oauth-authorization-server/oauth`.
+2. Start the login at its `device_authorization_endpoint`:
+
+```
+POST https://harborgoods.example/oauth/device
+Content-Type: application/x-www-form-urlencoded
+
+client_id=agent:your-agent-id&client_name=Example Assistant
+```
+
+```json
+{
+  "device_code": "GmRhmhcxhwAzkoEqiMEg_DnyEysNkuNhszIySk9eS",
+  "user_code": "WDJB-MJHT",
+  "verification_uri": "https://harborgoods.example/device",
+  "verification_uri_complete": "https://harborgoods.example/device?user_code=WDJB-MJHT",
+  "expires_in": 600,
+  "interval": 5
+}
+```
+
+3. Tell the person: "Open https://harborgoods.example/device?user_code=WDJB-MJHT and allow access. The code is WDJB-MJHT." Never show the `device_code`.
+4. Every `interval` seconds, poll the token endpoint:
+
+```
+POST https://harborgoods.example/oauth/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=<device_code>&client_id=agent:your-agent-id
+```
+
+`authorization_pending` means keep polling. `slow_down` means add 5 seconds to the interval. `access_denied` and `expired_token` end the login. When the person allows it, the response is the token:
+
+```json
+{ "access_token": "cap_at_...", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "cap_rt_..." }
+```
+
+The token is bound to that account and to your `CAP-From`. The company's page shows your name as not verified, because anyone can claim a name. To show a verified name, use the URL of a client document, described below, as the `client_id` instead.
+
+Store the token, and send the message again:
+
+```
+POST /cap/v1/messages
+Authorization: Bearer <access token>
+CAP-Version: 1.0
+CAP-From: agent:your-agent-id
+
+{ "message": "Where's my order?", "previous_message_id": "msg_16dcccae07e01cce" }
+```
+
+`previous_message_id` is optional here. It keeps the thread going after the login. A thread can gain a token, but it cannot continue without one or on another account.
+
+Only the same `CAP-From` and the same token can read that message later.
+
+When the access token expires, the request is `401`. Renew it with `grant_type=refresh_token&refresh_token=<refresh>&client_id=<client_id>` at the same token endpoint, using the same `client_id` you logged in with. You get a new refresh token, and the old one stops working. To log out, post `token=<token>&client_id=<client_id>` to the `revocation_endpoint`.
+
+### Log in with a redirect
+
+An owner may also offer a redirect login, when its metadata lists an `authorization_endpoint`. It suits agents that can open a browser and receive a callback.
 
 **Once, for your agent:** host a client document at an https URL you control. That URL is your `client_id`.
 
@@ -119,7 +179,7 @@ An agent that runs on the person's device can list `http://127.0.0.1/callback`. 
 
 **Each login:**
 
-1. Read the server's metadata. For `OAuth: https://harborgoods.example/oauth`, that is `GET https://harborgoods.example/.well-known/oauth-authorization-server/oauth`.
+1. Read the server's metadata, as above.
 2. Make a random `code_verifier`, and its `code_challenge`: base64url of its SHA-256.
 3. Open the `authorization_endpoint` for the person:
 
@@ -140,26 +200,7 @@ Content-Type: application/x-www-form-urlencoded
 grant_type=authorization_code&code=<code>&redirect_uri=<redirect_uri>&client_id=<client_id>&code_verifier=<verifier>
 ```
 
-```json
-{ "access_token": "cap_at_...", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "cap_rt_..." }
-```
-
-The token is bound to that account and to the `cap_from` in your document. Store it, and send the message again:
-
-```
-POST /cap/v1/messages
-Authorization: Bearer <access token>
-CAP-Version: 1.0
-CAP-From: agent:your-agent-id
-
-{ "message": "Where's my order?", "previous_message_id": "msg_16dcccae07e01cce" }
-```
-
-`previous_message_id` is optional here. It keeps the thread going after the login. A thread can gain a token, but it cannot continue without one or on another account.
-
-Only the same `CAP-From` and the same token can read that message later.
-
-When the access token expires, the request is `401`. Renew it with `grant_type=refresh_token&refresh_token=<refresh>&client_id=<client_id>` at the same token endpoint. You get a new refresh token, and the old one stops working. To log out, post `token=<token>&client_id=<client_id>` to the `revocation_endpoint`.
+The response is the same token, bound to the `cap_from` in your document. Send the message again, refresh, and log out as above.
 
 ## Errors
 
@@ -200,7 +241,8 @@ An **owner** conforms if it:
 - [ ] Returns only `id`, `status`, `reply` or `error`, `created_at`, and `finished_at`
 - [ ] Answers account questions only with a token for that account. Returns `login_required` without one
 - [ ] Returns `401` for a bad token, and `403` for a token used by a different agent
-- [ ] Publishes OAuth metadata, accepts a client id document in place of registration, requires PKCE with `S256`, and binds each token to the document's `cap_from`
+- [ ] Publishes OAuth metadata, supports the code login with a `device_authorization_endpoint`, and binds each token to the `CAP-From` that logged in
+- [ ] If it offers the redirect login, accepts a client id document in place of registration and requires PKCE with `S256`
 - [ ] Shows a message only to the agent and token that sent it
 - [ ] Returns the original message for a repeated `Idempotency-Key`
 - [ ] Keeps its limits private, and returns `429` with `Retry-After`
@@ -218,4 +260,4 @@ A **caller** conforms if it:
 - [ ] Treats `failed` as final for that message
 - [ ] Sends a short brief, never a password or another company's data
 - [ ] Sets `previous_message_id` only to continue the same conversation
-- [ ] Logs in through the company's page with PKCE and its own client document, and never asks for the person's password
+- [ ] Logs in only through the company's page, with the code login or the redirect login, never asks for the person's password, and never shows the `device_code`

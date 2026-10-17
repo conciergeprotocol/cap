@@ -36,6 +36,18 @@ CREATE TABLE IF NOT EXISTS oauth_codes (
   code_challenge TEXT NOT NULL,
   expires_at TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS oauth_devices (
+  device_hash TEXT PRIMARY KEY,
+  user_code TEXT NOT NULL UNIQUE,
+  oauth_client TEXT NOT NULL,
+  cap_from TEXT NOT NULL,
+  client_name TEXT NOT NULL,
+  verified_host TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL,
+  account TEXT NOT NULL DEFAULT '',
+  last_poll_at TEXT NOT NULL DEFAULT '',
+  expires_at TEXT NOT NULL
+);
 `
 
 // Columns added after the first release. Older databases get them on migrate.
@@ -162,6 +174,40 @@ function driver({ run, get, close }) {
       const row = await get('DELETE FROM oauth_codes WHERE code_hash = ? RETURNING *', [tokenHash(code)])
       if (!row || Date.parse(row.expires_at) <= Date.now()) return null
       return row
+    },
+    async insertDevice({ deviceCode, userCode, oauthClient, capFrom, clientName, verifiedHost, expiresAt }) {
+      await run(
+        `INSERT INTO oauth_devices (device_hash, user_code, oauth_client, cap_from, client_name, verified_host, status, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, 'pending', ?)`,
+        [tokenHash(deviceCode), userCode, oauthClient, capFrom, clientName, verifiedHost, expiresAt],
+      )
+    },
+    async deviceByUserCode(userCode) {
+      const row = await get('SELECT * FROM oauth_devices WHERE user_code = ?', [userCode])
+      if (!row || Date.parse(row.expires_at) <= Date.now()) return null
+      return row
+    },
+    async deviceByCode(deviceCode) {
+      if (!deviceCode) return null
+      return (await get('SELECT * FROM oauth_devices WHERE device_hash = ?', [tokenHash(deviceCode)])) || null
+    },
+    // Only a pending login can be decided, and only once.
+    async decideDevice(userCode, { status, account = '' }) {
+      const row = await get(
+        `UPDATE oauth_devices SET status = ?, account = ? WHERE user_code = ? AND status = 'pending' RETURNING *`,
+        [status, account, userCode],
+      )
+      return row || null
+    },
+    async touchDevice(deviceCode, at) {
+      await run('UPDATE oauth_devices SET last_poll_at = ? WHERE device_hash = ?', [at, tokenHash(deviceCode)])
+    },
+    // An approved login yields a token once: it is deleted as it is read.
+    async takeApprovedDevice(deviceCode) {
+      return (await get(
+        `DELETE FROM oauth_devices WHERE device_hash = ? AND status = 'approved' RETURNING *`,
+        [tokenHash(deviceCode)],
+      )) || null
     },
     async countSince(callerId, sinceIso) {
       const row = await get(

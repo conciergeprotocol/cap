@@ -2,7 +2,7 @@
 
 One process that speaks `/cap/v1`. SQLite by default, so a local run needs no database server and no account on any vendor. Set `DATABASE_URL` to a Postgres connection string when you deploy somewhere that already has Postgres.
 
-The spec does not require a database. This server keeps three tables (`messages`, `grants`, `oauth_codes`) because a slow answer and a login have to survive a restart. Another runtime can store them somewhere else. The HTTP contract does not change.
+The spec does not require a database. This server keeps four tables (`messages`, `grants`, `oauth_codes`, `oauth_devices`) because a slow answer and a login have to survive a restart. Another runtime can store them somewhere else. The HTTP contract does not change.
 
 ## Run locally
 
@@ -71,7 +71,12 @@ An `oauth` block turns on the built-in authorization server and adds the `OAuth`
 }
 ```
 
-It serves the OAuth metadata at `/.well-known/oauth-authorization-server/oauth`, a login and consent page at `/oauth/authorize`, `/oauth/token`, and `/oauth/revoke`. It accepts any visiting agent's client id document, requires PKCE with `S256`, rotates refresh tokens, and binds each token to the document's `cap_from`. Refresh tokens last 30 days. Revoking either token of a login ends both.
+It serves the OAuth metadata at `/.well-known/oauth-authorization-server/oauth`, `/oauth/token`, and `/oauth/revoke`, and both logins:
+
+- The code login: `POST /oauth/device` starts it, and the person enters the code on the page at `/oauth/device`. The `client_id` is the caller's `agent:` id, shown as not verified, or a client document URL. Codes last ten minutes and are approved once. `device_interval` (default 5) is the polling interval in seconds.
+- The redirect login: a login and consent page at `/oauth/authorize`. It accepts any visiting agent's client id document and requires PKCE with `S256`.
+
+Each token is bound to the `CAP-From` that logged in. Refresh tokens rotate and last 30 days. Revoking either token of a login ends both.
 
 `accounts` is for demos. A real owner checks its own user store by passing `boot({ login })`, an async function `({ username, password }) => accountId | null`. The account id is what the handler receives as `account`.
 

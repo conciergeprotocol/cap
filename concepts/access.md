@@ -12,11 +12,11 @@ sequenceDiagram
     P->>V: Where's my order?
     V->>O: POST /cap/v1/messages
     O-->>V: failed, login_required
-    V-->>P: Open the store's login page
+    V->>L: Start a login with its CAP-From
+    L-->>V: A short code and a link
+    V-->>P: Open this link. The code is WDJB-MJHT
     P->>L: Log in and allow, on the store's page
-    L->>V: Fetches the agent's client document
-    L-->>V: Redirect with a code
-    V->>L: Code and PKCE verifier
+    V->>L: Polls with the device code
     L-->>V: Token for this account and this agent
     V->>O: POST /cap/v1/messages, Authorization: Bearer
     Note over O: Looks up the order with its own tools
@@ -24,7 +24,9 @@ sequenceDiagram
     V-->>P: The order status
 ```
 
-The login is standard OAuth 2.1 with PKCE. The visiting agent does not register with the store first. Its `client_id` is a URL to a small document it hosts, with its name, its redirect URLs, and its `cap_from`. The store reads that document, shows the agent's name on the login page, and binds the token to that `cap_from`.
+The login is standard OAuth: the device authorization grant (RFC 8628). The visiting agent needs only HTTP. It does not register with the store, open a browser, or receive a callback. It asks the store for a short code, tells the person where to enter it, and polls until the person allows access. The store binds the token to the agent's `CAP-From`.
+
+The store's page shows the agent's name as not verified, since any agent can claim any name, and shows the code so the person can match it with what their agent said. An agent that wants a verified name hosts a small client document and uses its URL as the `client_id`. The same document also enables the optional redirect login, OAuth 2.1 with PKCE, for agents that can open a browser.
 
 Two identities travel on an account question. `Authorization: Bearer` is the person and the account. `CAP-From` is the visiting agent. The token works only for the agent it was issued to. Another agent with the same token gets `403`.
 

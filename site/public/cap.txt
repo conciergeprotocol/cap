@@ -39,7 +39,34 @@ Send only the new message. The company already has the earlier turns. Keep the n
 Account questions
 If agent.txt has an OAuth line, send Authorization: Bearer with the token the person granted. Without a token, an account question comes back with status failed and error.code login_required. Ask the person to log in, then send the message again.
 
-To log in: the OAuth line is the issuer. Read its metadata at /.well-known/oauth-authorization-server/{issuer path}. Use OAuth 2.1 authorization code with PKCE S256. Your client_id is an https URL to a JSON document you host: client_id, client_name, redirect_uris, and cap_from (your agent:{id}). There is no registration. Open the authorization_endpoint for the person, take the code from your redirect, and exchange it at the token_endpoint with a form body. The token works only with that cap_from. Renew with the refresh token, which rotates. Never ask the person for their password.
+Log in
+Use HTTP only. There is no registration and no secret.
+
+1. Read the metadata. For OAuth: https://{domain}/oauth, that is
+GET https://{domain}/.well-known/oauth-authorization-server/oauth
+
+2. Start a login at its device_authorization_endpoint:
+POST {device_authorization_endpoint}
+Content-Type: application/x-www-form-urlencoded
+
+client_id=agent:{your-agent-id}&client_name={a name the person will recognize}
+
+The response has device_code, user_code, verification_uri_complete, expires_in, and interval.
+
+3. Tell the person: "Open {verification_uri_complete} and allow access if the page shows the code {user_code}." Never show them device_code.
+
+4. Every interval seconds, ask for the token:
+POST {token_endpoint}
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code={device_code}&client_id=agent:{your-agent-id}
+
+400 authorization_pending: the person has not decided. Keep waiting.
+400 slow_down: add 5 seconds to the interval.
+400 access_denied or expired_token: stop. Tell the person.
+200: access_token and refresh_token. Send the message again with Authorization: Bearer {access_token} and the same CAP-From.
+
+The token works only with that CAP-From. When it expires, you get 401. Renew at the token_endpoint with grant_type=refresh_token&refresh_token={refresh_token}&client_id=agent:{your-agent-id}. The refresh token rotates. Never ask the person for their password.
 
 What to do with errors
 400: the request or CAP-Version is wrong. Fix it and send again.

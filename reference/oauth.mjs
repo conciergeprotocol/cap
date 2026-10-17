@@ -4,6 +4,10 @@ import { readBody, send } from './http.mjs'
 
 const CODE_TTL_MS = 10 * 60_000
 const REQUEST_TTL_MS = 10 * 60_000
+const DEVICE_TTL_SECONDS = 600
+const DEVICE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
+// No vowels or look-alikes, so a code never spells a word or misreads (RFC 8628, 6.1).
+const USER_CODE_ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ'
 const REFRESH_TTL_MS = 30 * 24 * 3_600_000
 const MAX_CLIENT_DOC = 16_000
 const CAP_FROM_RE = /^agent:([A-Za-z0-9_.-]{1,64})$/
@@ -102,9 +106,35 @@ export async function fetchClient(clientId, { allowHttpClients = false, fetchImp
   return { client: { clientId, name, host: url.host, redirectUris, capFrom: capFrom[1] } }
 }
 
+export function newUserCode() {
+  const bytes = randomBytes(8)
+  const chars = [...bytes].map((b) => USER_CODE_ALPHABET[b % USER_CODE_ALPHABET.length]).join('')
+  return `${chars.slice(0, 4)}-${chars.slice(4)}`
+}
+
+export function normalizeUserCode(input) {
+  const chars = String(input || '').toUpperCase().replace(/[^A-Z]/g, '')
+  return chars.length === 8 ? `${chars.slice(0, 4)}-${chars.slice(4)}` : ''
+}
+
 /**
- * OAuth 2.1 for account questions: authorization code with PKCE, client id
- * metadata documents, refresh rotation, and revocation.
+ * The client id for the code login: either the caller's own CAP-From, which the
+ * owner shows as unverified, or a client id metadata document URL.
+ */
+export async function resolveDeviceClient(clientId, clientName, options) {
+  const bare = String(clientId || '').match(CAP_FROM_RE)
+  if (bare) {
+    const name = typeof clientName === 'string' && clientName.trim() ? clientName.trim().slice(0, 80) : bare[0]
+    return { client: { clientId: bare[0], name, host: '', capFrom: bare[1] } }
+  }
+  const found = await fetchClient(clientId, options)
+  if (found.error) return found
+  return { client: { ...found.client } }
+}
+
+/**
+ * OAuth 2.1 for account questions: the device code login, authorization code
+ * with PKCE, client id metadata documents, refresh rotation, and revocation.
  *
  * `login({ username, password })` resolves to the account id, or null.
  */
@@ -117,6 +147,7 @@ export function createOAuth({
   allowHttpClients = false,
   hint = '',
   fetchImpl = fetch,
+  deviceInterval = 5,
 }) {
   const requests = new Map()
   const issuer = (origin) => `${origin}${path}`
@@ -125,11 +156,12 @@ export function createOAuth({
   function metadata(origin) {
     return {
       issuer: issuer(origin),
+      device_authorization_endpoint: `${issuer(origin)}/device`,
       authorization_endpoint: `${issuer(origin)}/authorize`,
       token_endpoint: `${issuer(origin)}/token`,
       revocation_endpoint: `${issuer(origin)}/revoke`,
       response_types_supported: ['code'],
-      grant_types_supported: ['authorization_code', 'refresh_token'],
+      grant_types_supported: [DEVICE_GRANT, 'authorization_code', 'refresh_token'],
       code_challenge_methods_supported: ['S256'],
       token_endpoint_auth_methods_supported: ['none'],
       revocation_endpoint_auth_methods_supported: ['none'],
@@ -225,6 +257,110 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
     back({ code })
   }
 
+  async function deviceStart(req, res, origin) {
+    const form = await readForm(req)
+    if (!form) return oauthError(res, 400, 'invalid_request', 'The body must be a form.')
+    const found = await resolveDeviceClient(form.get('client_id'), form.get('client_name'), { allowHttpClients, fetchImpl })
+    if (found.error) return oauthError(res, 400, 'invalid_client', found.error)
+    const { client } = found
+    const deviceCode = random()
+    let userCode = newUserCode()
+    for (let attempt = 0; await store.deviceByUserCode(userCode); attempt++) {
+      if (attempt > 5) return oauthError(res, 503, 'temporarily_unavailable', 'Try again.')
+      userCode = newUserCode()
+    }
+    await store.insertDevice({
+      deviceCode,
+      userCode,
+      oauthClient: client.clientId,
+      capFrom: client.capFrom,
+      clientName: client.name,
+      verifiedHost: client.host,
+      expiresAt: new Date(Date.now() + DEVICE_TTL_SECONDS * 1000).toISOString(),
+    })
+    const verification = `${issuer(origin)}/device`
+    send(res, 200, {
+      device_code: deviceCode,
+      user_code: userCode,
+      verification_uri: verification,
+      verification_uri_complete: `${verification}?user_code=${encodeURIComponent(userCode)}`,
+      expires_in: DEVICE_TTL_SECONDS,
+      interval: deviceInterval,
+    })
+  }
+
+  function devicePage(res, status, { userCode = '', device = null, error = '', done = '' }) {
+    const who = device
+      ? device.verified_host
+        ? `<p><strong>${escape(device.client_name)}</strong> (${escape(device.verified_host)}) wants to ask ${escape(agentName)} about your account.</p>`
+        : `<p><strong>${escape(device.client_name)}</strong> (agent:${escape(device.cap_from)}, name not verified) wants to ask ${escape(agentName)} about your account.</p>`
+      : ''
+    const body = done
+      ? `<h1>${escape(done)}</h1><p class="muted">Go back to your agent.</p>`
+      : `<h1>Log in to ${escape(agentName)}</h1>
+${who}
+<p class="muted">Allow this only if your agent just showed you this code. It will get answers about your account. It will not see your password.</p>
+${error ? `<p class="error">${escape(error)}</p>` : ''}
+${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
+<form method="post" action="${escape(path)}/device/approve">
+<label>Code <input name="user_code" value="${escape(userCode)}" autocomplete="off" required></label>
+<label>Username <input name="username" autocomplete="username" required></label>
+<label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+<div class="row"><button name="decision" value="allow">Log in and allow</button><button name="decision" value="deny" formnovalidate>Deny</button></div>
+</form>`
+    page(res, status, { title: `Log in to ${agentName}`, body })
+  }
+
+  async function deviceView(res, url) {
+    const userCode = normalizeUserCode(url.searchParams.get('user_code'))
+    const device = userCode ? await store.deviceByUserCode(userCode) : null
+    const status = device && device.status === 'pending' ? 200 : userCode ? 400 : 200
+    const error = userCode && (!device || device.status !== 'pending') ? 'That code is expired or already used.' : ''
+    devicePage(res, status, { userCode: device ? userCode : '', device: device && device.status === 'pending' ? device : null, error })
+  }
+
+  async function deviceApprove(req, res) {
+    const form = await readForm(req)
+    if (!form) return devicePage(res, 400, { error: 'The body must be a form.' })
+    const userCode = normalizeUserCode(form.get('user_code'))
+    const device = userCode ? await store.deviceByUserCode(userCode) : null
+    if (!device || device.status !== 'pending') {
+      return devicePage(res, 400, { userCode: form.get('user_code') || '', error: 'That code is expired or already used.' })
+    }
+    if (form.get('decision') !== 'allow') {
+      await store.decideDevice(userCode, { status: 'denied' })
+      return devicePage(res, 200, { done: 'Access denied' })
+    }
+    const account = await login({ username: form.get('username') || '', password: form.get('password') || '' })
+    if (!account) return devicePage(res, 401, { userCode, device, error: 'That username and password did not match.' })
+    const decided = await store.decideDevice(userCode, { status: 'approved', account })
+    if (!decided) return devicePage(res, 400, { error: 'That code is expired or already used.' })
+    devicePage(res, 200, { done: 'You are logged in' })
+  }
+
+  async function deviceToken(res, form) {
+    const deviceCode = form.get('device_code') || ''
+    const clientId = form.get('client_id') || ''
+    const device = await store.deviceByCode(deviceCode)
+    if (!device || device.oauth_client !== clientId) {
+      return oauthError(res, 400, 'invalid_grant', 'The device code is invalid or already used.')
+    }
+    if (Date.parse(device.expires_at) <= Date.now()) return oauthError(res, 400, 'expired_token', 'The login expired. Start again.')
+    if (device.status === 'denied') return oauthError(res, 400, 'access_denied', 'The person denied access.')
+    if (device.status === 'pending') {
+      const now = Date.now()
+      const last = device.last_poll_at ? Date.parse(device.last_poll_at) : 0
+      await store.touchDevice(deviceCode, new Date(now).toISOString())
+      if (last && now - last < deviceInterval * 1000) {
+        return oauthError(res, 400, 'slow_down', 'Poll less often.')
+      }
+      return oauthError(res, 400, 'authorization_pending', 'The person has not decided yet.')
+    }
+    const row = await store.takeApprovedDevice(deviceCode)
+    if (!row) return oauthError(res, 400, 'invalid_grant', 'The device code is invalid or already used.')
+    return issue(res, { account: row.account, capFrom: row.cap_from, oauthClient: row.oauth_client, grantId: random(16) })
+  }
+
   async function issue(res, { account, capFrom, oauthClient, grantId }) {
     const accessToken = `cap_at_${random()}`
     const refreshToken = `cap_rt_${random()}`
@@ -239,6 +375,8 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
     if (!form) return oauthError(res, 400, 'invalid_request', 'The body must be a form.')
     const clientId = form.get('client_id') || ''
     const grantType = form.get('grant_type')
+
+    if (grantType === DEVICE_GRANT) return deviceToken(res, form)
 
     if (grantType === 'authorization_code') {
       const row = await store.takeCode(form.get('code') || '')
@@ -262,7 +400,7 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
       return issue(res, { account: grant.account, capFrom: grant.client_id, oauthClient: grant.oauth_client, grantId: grant.grant_id })
     }
 
-    oauthError(res, 400, 'unsupported_grant_type', 'grant_type must be authorization_code or refresh_token.')
+    oauthError(res, 400, 'unsupported_grant_type', `grant_type must be ${DEVICE_GRANT}, authorization_code, or refresh_token.`)
   }
 
   // Always 200, so a caller cannot probe which tokens exist (RFC 7009).
@@ -287,6 +425,16 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
       if (req.method === 'GET') await authorizeStart(res, url, origin)
       else if (req.method === 'POST') await authorizeFinish(req, res, origin)
       else return false
+      return true
+    }
+    if (url.pathname === `${path}/device`) {
+      if (req.method === 'POST') await deviceStart(req, res, origin)
+      else if (req.method === 'GET') await deviceView(res, url)
+      else return false
+      return true
+    }
+    if (req.method === 'POST' && url.pathname === `${path}/device/approve`) {
+      await deviceApprove(req, res)
       return true
     }
     if (req.method === 'POST' && url.pathname === `${path}/token`) {

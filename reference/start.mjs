@@ -77,6 +77,7 @@ export async function boot(options = {}) {
       allowHttpClients: Boolean(oauthConfig?.allow_http_clients),
       hint: oauthConfig?.hint || '',
       fetchImpl: options.fetch,
+      deviceInterval: oauthConfig?.device_interval ?? 5,
     })
     : null
   const cap = createCapServer({
