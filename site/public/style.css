@@ -25,7 +25,7 @@
 
 /* Keeps anchored headings clear of the sticky header. */
 html {
-  scroll-padding-top: 140px;
+  scroll-padding-top: 96px;
 }
 
 body {
@@ -52,13 +52,15 @@ header {
   position: sticky;
   top: 0;
   z-index: 10;
-  padding-top: 20px;
-  padding-bottom: 20px;
+  max-width: 1040px;
+  padding-top: 14px;
+  padding-bottom: 14px;
   border-bottom: 1px solid var(--line);
   background: var(--bg);
 }
 
 .brand {
+  flex-shrink: 0;
   color: var(--fg);
   font-weight: 700;
   text-decoration: none;
@@ -84,6 +86,7 @@ nav {
 nav a {
   color: var(--muted);
   text-decoration: none;
+  white-space: nowrap;
 }
 
 nav a:hover,
@@ -93,8 +96,7 @@ nav a[aria-current='page'] {
 
 .header-end {
   display: flex;
-  flex-wrap: wrap;
-  gap: 12px 20px;
+  gap: 20px;
   align-items: center;
 }
 
@@ -121,11 +123,8 @@ header.open .menu svg:last-child {
   display: block;
 }
 
-@media (max-width: 720px) {
-  html {
-    scroll-padding-top: 96px;
-  }
-
+/* Below this width the brand, nav, and theme switch no longer fit on one row. */
+@media (max-width: 920px) {
   .menu {
     display: flex;
   }
