@@ -27,7 +27,24 @@ CREATE TABLE IF NOT EXISTS grants (
   account TEXT NOT NULL,
   client_id TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS oauth_codes (
+  code_hash TEXT PRIMARY KEY,
+  account TEXT NOT NULL,
+  oauth_client TEXT NOT NULL,
+  cap_from TEXT NOT NULL,
+  redirect_uri TEXT NOT NULL,
+  code_challenge TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
 `
+
+// Columns added after the first release. Older databases get them on migrate.
+const GRANT_COLUMNS = [
+  "ALTER TABLE grants ADD COLUMN kind TEXT NOT NULL DEFAULT 'access'",
+  "ALTER TABLE grants ADD COLUMN oauth_client TEXT NOT NULL DEFAULT ''",
+  "ALTER TABLE grants ADD COLUMN expires_at TEXT NOT NULL DEFAULT ''",
+  "ALTER TABLE grants ADD COLUMN grant_id TEXT NOT NULL DEFAULT ''",
+]
 
 export function tokenHash(token) {
   return createHash('sha256').update(token).digest('hex')
@@ -94,25 +111,57 @@ function driver({ run, get, close }) {
         if (sql) await run(sql)
       }
       // Databases created before follow-ups existed lack this column.
-      try {
-        await run('ALTER TABLE messages ADD COLUMN previous_id TEXT')
-      } catch {
-        // Already there.
+      for (const sql of ['ALTER TABLE messages ADD COLUMN previous_id TEXT', ...GRANT_COLUMNS]) {
+        try {
+          await run(sql)
+        } catch {
+          // Already there.
+        }
       }
     },
-    async upsertGrant({ token, account, clientId }) {
+    /**
+     * `clientId` is the CAP-From id the token is bound to. `oauthClient` is the
+     * client id URL that logged in, empty for tokens set in cap.json. Tokens from
+     * one login share a `grantId`, so revoking one revokes the rest.
+     */
+    async upsertGrant({ token, account, clientId, kind = 'access', oauthClient = '', expiresAt = '', grantId = '' }) {
       await run(
-        `INSERT INTO grants (token_hash, account, client_id) VALUES (?, ?, ?)
-         ON CONFLICT (token_hash) DO UPDATE SET account = excluded.account, client_id = excluded.client_id`,
-        [tokenHash(token), account, clientId],
+        `INSERT INTO grants (token_hash, account, client_id, kind, oauth_client, expires_at, grant_id) VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (token_hash) DO UPDATE SET account = excluded.account, client_id = excluded.client_id,
+           kind = excluded.kind, oauth_client = excluded.oauth_client, expires_at = excluded.expires_at,
+           grant_id = excluded.grant_id`,
+        [tokenHash(token), account, clientId, kind, oauthClient, expiresAt, grantId],
       )
     },
     async revokeGrant(token) {
       await run('DELETE FROM grants WHERE token_hash = ?', [tokenHash(token)])
     },
+    async revokeGrantId(grantId) {
+      if (grantId) await run('DELETE FROM grants WHERE grant_id = ?', [grantId])
+    },
     async grantByToken(token) {
       if (!token) return null
-      return await get('SELECT token_hash, account, client_id FROM grants WHERE token_hash = ?', [tokenHash(token)]) || null
+      const row = await get(
+        'SELECT token_hash, account, client_id, kind, oauth_client, expires_at, grant_id FROM grants WHERE token_hash = ?',
+        [tokenHash(token)],
+      )
+      if (!row) return null
+      if (row.expires_at && Date.parse(row.expires_at) <= Date.now()) return null
+      return row
+    },
+    async insertCode({ code, account, oauthClient, capFrom, redirectUri, codeChallenge, expiresAt }) {
+      await run(
+        `INSERT INTO oauth_codes (code_hash, account, oauth_client, cap_from, redirect_uri, code_challenge, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [tokenHash(code), account, oauthClient, capFrom, redirectUri, codeChallenge, expiresAt],
+      )
+    },
+    // A code works once: it is deleted as it is read.
+    async takeCode(code) {
+      if (!code) return null
+      const row = await get('DELETE FROM oauth_codes WHERE code_hash = ? RETURNING *', [tokenHash(code)])
+      if (!row || Date.parse(row.expires_at) <= Date.now()) return null
+      return row
     },
     async countSince(callerId, sinceIso) {
       const row = await get(

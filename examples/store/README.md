@@ -101,19 +101,19 @@ curl -X POST http://127.0.0.1:8810/cap/v1/messages \
 
 ## 5. The person logs in
 
-The agent sends the person to the `OAuth` server from `agent.txt`. This route is a local stand-in for a real login page. It is not part of `/cap/v1`.
+The agent reads the `OAuth` line from `agent.txt`, then the server's metadata:
 
 ```bash
-curl -X POST http://127.0.0.1:8810/oauth/token \
-  -H 'content-type: application/json' \
-  -d '{"account":"maya","client":"shopper"}'
+curl http://127.0.0.1:8810/.well-known/oauth-authorization-server/oauth
 ```
+
+On the demo page, click **Log in**. The page makes a PKCE verifier and sends you to the store's login page at `/oauth/authorize`. The demo accounts are `maya` / `maya` and `sam` / `sam`. After you allow access, the store redirects back with a code, and the page exchanges it at `/oauth/token`:
 
 ```json
-{ "access_token": "grant_be25a77ad64b26e0", "token_type": "Bearer", "account": "maya" }
+{ "access_token": "cap_at_...", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "cap_rt_..." }
 ```
 
-The token is bound to Maya and to `agent:shopper`. The same token with a different `CAP-From` is `403`.
+The page's `client_id` is `http://127.0.0.1:8810/client.json`. A real visiting agent hosts that document itself. The store hosts it here only because the demo page plays the agent. The document's `cap_from` is `agent:shopper`, so the token works only with that `CAP-From`. The same token with a different `CAP-From` is `403`. The page never sees the password.
 
 ## 6. The same question with the token
 
@@ -122,7 +122,7 @@ curl -X POST http://127.0.0.1:8810/cap/v1/messages \
   -H 'content-type: application/json' \
   -H 'cap-version: 1.0' \
   -H 'cap-from: agent:shopper' \
-  -H 'authorization: Bearer grant_be25a77ad64b26e0' \
+  -H 'authorization: Bearer <access token>' \
   -d '{"message":"Where'\''s my order?"}'
 ```
 

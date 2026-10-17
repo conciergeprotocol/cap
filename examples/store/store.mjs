@@ -40,11 +40,27 @@ async function answer({ message, context, history, account }) {
   return { reply: search(message, context) }
 }
 
+// The demo page plays the visiting agent, so this process also hosts that
+// agent's client document. A real visiting agent hosts its own.
+function clientDocument(base) {
+  return {
+    client_id: `${base}/client.json`,
+    client_name: 'Harbor Goods demo page',
+    redirect_uris: [`${base}/`],
+    cap_from: 'agent:shopper',
+  }
+}
+
 export async function startStore(port = Number(process.env.STORE_PORT || 8810)) {
+  let base = ''
   const app = await boot({
     config: {
-      agent: { name: 'Harbor Goods', status: 'active', chat: '', oauth: '' },
-      demo_oauth: true,
+      agent: { name: 'Harbor Goods', status: 'active', chat: '' },
+      oauth: {
+        accounts: [{ account: 'maya', password: 'maya' }, { account: 'sam', password: 'sam' }],
+        allow_http_clients: true,
+        hint: 'Demo accounts: maya / maya and sam / sam.',
+      },
       retry_after: 1,
     },
     sqlitePath: ':memory:',
@@ -57,12 +73,16 @@ export async function startStore(port = Number(process.env.STORE_PORT || 8810)) 
         res.end(page)
         return true
       }
+      if (req.method === 'GET' && url.pathname === '/client.json') {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(clientDocument(base)))
+        return true
+      }
       return false
     },
   })
   await new Promise((resolve) => app.server.listen(port, '127.0.0.1', resolve))
-  const base = `http://127.0.0.1:${app.server.address().port}`
+  base = `http://127.0.0.1:${app.server.address().port}`
   app.config.agent.chat = `${base}/chat`
-  app.config.agent.oauth = `${base}/oauth`
   return { ...app, base, close: () => new Promise((resolve) => app.server.close(resolve)) }
 }

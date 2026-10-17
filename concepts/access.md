@@ -12,14 +12,19 @@ sequenceDiagram
     P->>V: Where's my order?
     V->>O: POST /cap/v1/messages
     O-->>V: failed, login_required
-    V-->>P: Log in to the store
-    P->>L: Log in and consent
+    V-->>P: Open the store's login page
+    P->>L: Log in and allow, on the store's page
+    L->>V: Fetches the agent's client document
+    L-->>V: Redirect with a code
+    V->>L: Code and PKCE verifier
     L-->>V: Token for this account and this agent
     V->>O: POST /cap/v1/messages, Authorization: Bearer
     Note over O: Looks up the order with its own tools
     O-->>V: done, the order status
     V-->>P: The order status
 ```
+
+The login is standard OAuth 2.1 with PKCE. The visiting agent does not register with the store first. Its `client_id` is a URL to a small document it hosts, with its name, its redirect URLs, and its `cap_from`. The store reads that document, shows the agent's name on the login page, and binds the token to that `cap_from`.
 
 Two identities travel on an account question. `Authorization: Bearer` is the person and the account. `CAP-From` is the visiting agent. The token works only for the agent it was issued to. Another agent with the same token gets `403`.
 

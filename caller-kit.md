@@ -127,7 +127,13 @@ Request errors throw a `CapError` with the spec's `code`, the HTTP status, and t
 
 ### Account questions
 
-The spec names an `OAuth` server but does not yet say how a visiting agent registers with it or proves its `CAP-From`. The first release only sends a token the application already holds, through the `tokens` store. The login flow ships after the spec settles it. See the open questions below.
+The spec's [access section](spec.md#access) defines the login: OAuth 2.1 with PKCE, and a client id that is a URL to the agent's own client document. The client implements it:
+
+- `cap.login(target, { clientId, redirectUri, open })` reads the metadata, makes the PKCE pair and `state`, and calls `open(url)` so the application can show the company's login page. It resolves when the application passes the redirect back to `cap.finishLogin(url)`, which checks `state`, exchanges the code, and saves the tokens in the store.
+- `ask` sends the stored access token. On `401`, it renews once with the refresh token, saves the new pair, and retries. If renewal fails, it deletes the tokens and returns the `401` as an error.
+- `cap.logout(target)` revokes the refresh token and clears the store.
+
+The client does not host the client document. The application hosts it, and the MCP server ships one at a fixed URL for local use.
 
 ## MCP server
 
@@ -176,12 +182,19 @@ When there is no door, `cap_ask` says so plainly, so the model falls back to its
 1. Client: discover, ask, polling, threads, errors. Published as `0.1.0`.
 2. MCP server on the client. Setup snippets for Claude Desktop, Cursor, and VS Code. Listed in the MCP Registry.
 3. A 60-second demo: one agent asks Cosmic and a design partner in the same conversation.
-4. Login flow for account questions, once the spec defines it.
+4. Login flow for account questions in the client and the MCP server.
 5. A Python client with the same surface.
 
 ## Open questions for the spec
 
-1. **OAuth client registration.** A visiting agent is not known to the owner in advance. Options are dynamic client registration (RFC 7591), or a client ID that is a URL the agent controls, as in OAuth Client ID Metadata Documents. The spec should pick one so every caller logs in the same way.
-2. **Binding a token to `CAP-From`.** The spec says the token is bound to the visiting agent. It does not say how the owner checks that the agent sending the token is the one it was issued to. Sender-constrained tokens (DPoP, RFC 9449) are the standard answer.
-3. **Verifying `CAP-From`.** Any caller can claim any `agent:` id. That is fine for rate limits on public questions. A signed identity, such as HTTP Message Signatures with a published key, could come later without changing the wire format.
-4. **Same-site redirects.** The spec says a redirect off the company's domain is no door. It should say explicitly that `example.com` to `www.example.com` is allowed, since many sites do it.
+Settled in the spec:
+
+- **OAuth client registration.** The client id is a URL to the agent's own client document. There is no registration step.
+- **Binding a token to `CAP-From`.** The client document names its `cap_from`, and the owner binds the token to it. A token used with another `CAP-From` is `403`.
+- **Same-site redirects.** `example.com` to `www.example.com` is followed.
+
+Still open:
+
+1. **Stolen tokens.** A bearer token copied from the agent works until it expires or is revoked. DPoP (RFC 9449) is optional in the spec today. The MCP server should support it from the start, so owners can require it later.
+2. **Verifying `CAP-From` on public questions.** Without a token, any caller can claim any `agent:` id. That is fine for rate limits. A signed identity, such as HTTP Message Signatures with a key named in the client document, could come later without changing the wire format.
+3. **Hosting the MCP server's client document.** A local MCP server needs a client id URL with a loopback redirect. `https://conciergeprotocol.org/clients/mcp.json` is the natural home, and its `cap_from` would be shared by every install.

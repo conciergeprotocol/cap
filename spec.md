@@ -23,7 +23,7 @@ One domain has one agent. A person uses the chat page. An agent fetches the file
 
 The chat page and the CAP URL may be hosted for the company. The company's own domain still serves `agent.txt`.
 
-A caller fetches `/agent.txt`. It treats a redirect off the company's domain, an HTML body, or a file without a `CAP` line as no front door.
+A caller fetches `/agent.txt`. It treats a redirect off the company's domain, an HTML body, or a file without a `CAP` line as no front door. A redirect within the same site, such as `example.com` to `www.example.com`, is followed.
 
 ## Message
 
@@ -90,7 +90,49 @@ A message is visible only to the `CAP-From` that sent it, with the same grant or
 
 A public question needs no token. A question about an account needs the person to log in.
 
-The person logs in at the `OAuth` server and consents. The token is bound to that person's account and to the visiting agent that received it. The visiting agent stores the token and sends it on each request. It never holds the person's password or the company's keys.
+Login is OAuth 2.1: the authorization code flow with PKCE. The visiting agent is a public client. It has no secret and does not register with the company first. The person types their password only on the company's page. The visiting agent receives a token bound to that person's account and to its own `CAP-From`, and sends it on each request. It never holds the person's password or the company's keys.
+
+### Discovery
+
+The `OAuth` line is the authorization server's issuer. The caller reads the server's metadata (RFC 8414), with `/.well-known/oauth-authorization-server` inserted between the host and the issuer's path:
+
+```
+OAuth: https://harborgoods.example/oauth
+GET https://harborgoods.example/.well-known/oauth-authorization-server/oauth
+```
+
+The metadata includes `issuer`, `authorization_endpoint`, `token_endpoint`, `revocation_endpoint`, `code_challenge_methods_supported` with `S256`, and `client_id_metadata_document_supported: true`.
+
+### The visiting agent's client id
+
+The visiting agent's `client_id` is an https URL it controls. That URL returns the agent's client metadata as JSON, an OAuth Client ID Metadata Document:
+
+```json
+{
+  "client_id": "https://assistant.example/cap-client.json",
+  "client_name": "Example Assistant",
+  "redirect_uris": ["https://assistant.example/cap/callback"],
+  "cap_from": "agent:example-assistant"
+}
+```
+
+`client_id` is the document's own URL. `cap_from` is the `CAP-From` the agent sends. The owner fetches the document when the person logs in, shows `client_name` and the host of `client_id` on its consent page, and binds the token to `cap_from`. An agent that runs on the person's own device lists a loopback redirect, such as `http://127.0.0.1/callback`, and the owner accepts it on any port (RFC 8252).
+
+### Log in
+
+1. The caller makes a random `code_verifier` and opens the `authorization_endpoint` for the person with `response_type=code`, `client_id`, `redirect_uri`, `state`, `code_challenge`, and `code_challenge_method=S256`.
+2. The person logs in on the company's page and consents. The owner redirects to `redirect_uri` with `code`, `state`, and `iss`. The `redirect_uri` must be one the client document lists. If it is not, the owner shows an error and does not redirect.
+3. The caller posts to the `token_endpoint` as a form: `grant_type=authorization_code`, `code`, `redirect_uri`, `client_id`, and `code_verifier`. The response is `access_token`, `token_type: Bearer`, `expires_in`, and `refresh_token`.
+
+A code works once and expires within 10 minutes.
+
+### Use, renew, and revoke
+
+An account request carries `Authorization: Bearer` and the `CAP-From` the token was issued to. Another `CAP-From` gets `403`. An expired or revoked token gets `401`.
+
+The caller renews with `grant_type=refresh_token`, `refresh_token`, and `client_id`. The owner returns a new refresh token, and the old one stops working. The caller revokes with the `revocation_endpoint` (RFC 7009), sending `token` and `client_id`. Revoking stops that agent, and nothing else has to rotate.
+
+The token endpoint returns OAuth's own errors, such as `invalid_grant`, not CAP's. An owner may define scopes. An owner may require sender-constrained tokens with DPoP (RFC 9449), so a copied token is useless without the agent's key. Its metadata then lists `dpop_signing_alg_values_supported`, and the caller sends a DPoP proof with each token request and CAP request.
 
 Two identities travel on an account request:
 
@@ -109,6 +151,7 @@ An owner conforms if it:
 4. Returns `202` with `Location` and `Retry-After` when it cannot finish within its wait.
 5. Keeps its limits private. When it will not take more from a caller, it returns `429` with `Retry-After`.
 6. Keeps finished messages for at least 24 hours.
+7. For account questions, publishes OAuth metadata, accepts a client id metadata document in place of registration, requires PKCE with `S256`, and binds each token to the document's `cap_from`.
 
 ## Caller rules
 
@@ -121,6 +164,7 @@ A caller conforms if it:
 5. Treats `failed` as final for that message. It sends a new one only when something changed, such as the person logging in.
 6. Sends a short brief in `context`. Never the person's password or another company's data.
 7. Sets `previous_message_id` to the last message when the person is continuing the same conversation, and leaves it off when they start a new one.
+8. Logs in only through the owner's authorization page, with PKCE and a client id document it controls. Never asks the person for their password.
 
 ## Errors
 

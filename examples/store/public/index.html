@@ -47,8 +47,7 @@
           <button class="secondary" id="cheaper">Something cheaper?</button>
           <button class="secondary" id="order">Where's my order?</button>
           <button class="secondary" id="fresh">New conversation</button>
-          <button class="secondary" id="maya">Log in as Maya</button>
-          <button class="secondary" id="sam">Log in as Sam</button>
+          <button class="secondary" id="login">Log in</button>
           <button class="secondary" id="logout">Log out</button>
         </div>
       </section>
@@ -61,7 +60,9 @@
     </main>
     <script>
       const $ = (id) => document.getElementById(id)
-      let token = ''
+      const clientId = location.origin + '/client.json'
+      const redirectUri = location.origin + '/'
+      let token = sessionStorage.getItem('cap_token') || ''
       let timer = null
       let lastId = ''
 
@@ -106,30 +107,73 @@
         }))
       }
 
-      async function login(account) {
-        const response = await fetch('/oauth/token', {
+      const b64url = (bytes) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+
+      // Find the OAuth server the way any visiting agent would: agent.txt, then its metadata.
+      async function oauthMetadata() {
+        const card = await (await fetch('/agent.txt')).text()
+        const issuer = new URL(card.match(/^OAuth: (.+)$/m)[1])
+        return (await fetch(issuer.origin + '/.well-known/oauth-authorization-server' + issuer.pathname)).json()
+      }
+
+      async function login() {
+        const meta = await oauthMetadata()
+        const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)))
+        const state = b64url(crypto.getRandomValues(new Uint8Array(16)))
+        const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))))
+        sessionStorage.setItem('cap_login', JSON.stringify({ verifier, state, token_endpoint: meta.token_endpoint }))
+        const url = new URL(meta.authorization_endpoint)
+        url.search = new URLSearchParams({
+          response_type: 'code', client_id: clientId, redirect_uri: redirectUri, state,
+          code_challenge: challenge, code_challenge_method: 'S256',
+        })
+        location.assign(url)
+      }
+
+      async function finishLogin() {
+        const params = new URLSearchParams(location.search)
+        const saved = JSON.parse(sessionStorage.getItem('cap_login') || 'null')
+        if (!params.has('state') || !saved) return
+        sessionStorage.removeItem('cap_login')
+        history.replaceState(null, '', '/')
+        if (params.get('state') !== saved.state || !params.get('code')) {
+          $('who').textContent = 'Login did not finish.'
+          return
+        }
+        const response = await fetch(saved.token_endpoint, {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ account, client: 'shopper' }),
+          headers: { 'content-type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ grant_type: 'authorization_code', code: params.get('code'), redirect_uri: redirectUri, client_id: clientId, code_verifier: saved.verifier }),
         })
         const body = await response.json()
-        if (token) lastId = ''
         token = body.access_token || ''
-        $('who').textContent = token ? 'Logged in as ' + account + '. This page holds the token.' : 'Login failed.'
+        if (token) sessionStorage.setItem('cap_token', token)
+      }
+
+      function showWho() {
+        $('who').textContent = token ? 'Logged in. This page holds the token, never the password.' : 'Not logged in.'
       }
 
       $('send').addEventListener('click', () => send($('message').value))
       $('cheaper').addEventListener('click', () => send('Something cheaper?'))
       $('order').addEventListener('click', () => send("Where's my order?"))
       $('fresh').addEventListener('click', () => { lastId = ''; $('out').hidden = true })
-      $('maya').addEventListener('click', () => login('maya'))
-      $('sam').addEventListener('click', () => login('sam'))
+      $('login').addEventListener('click', login)
       $('logout').addEventListener('click', async () => {
-        if (token) await fetch('/oauth/revoke', { method: 'POST', headers: headers() })
+        if (token) {
+          const meta = await oauthMetadata()
+          await fetch(meta.revocation_endpoint, {
+            method: 'POST',
+            headers: { 'content-type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({ token, client_id: clientId }),
+          })
+        }
         token = ''
         lastId = ''
-        $('who').textContent = 'Not logged in.'
+        sessionStorage.removeItem('cap_token')
+        showWho()
       })
+      finishLogin().then(showWho)
     </script>
   </body>
 </html>

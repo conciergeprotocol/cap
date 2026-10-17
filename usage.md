@@ -102,7 +102,49 @@ Without a token, an account question fails:
 }
 ```
 
-Send the person to the `OAuth` server from `agent.txt`. They log in there and consent. Your agent receives an access token bound to that account and to your agent. Store it, and send the message again:
+Your agent logs in with OAuth 2.1 and PKCE. It needs no secret and no registration with the company.
+
+**Once, for your agent:** host a client document at an https URL you control. That URL is your `client_id`.
+
+```json
+{
+  "client_id": "https://assistant.example/cap-client.json",
+  "client_name": "Example Assistant",
+  "redirect_uris": ["https://assistant.example/cap/callback"],
+  "cap_from": "agent:your-agent-id"
+}
+```
+
+An agent that runs on the person's device can list `http://127.0.0.1/callback`. The company accepts it on any port.
+
+**Each login:**
+
+1. Read the server's metadata. For `OAuth: https://harborgoods.example/oauth`, that is `GET https://harborgoods.example/.well-known/oauth-authorization-server/oauth`.
+2. Make a random `code_verifier`, and its `code_challenge`: base64url of its SHA-256.
+3. Open the `authorization_endpoint` for the person:
+
+```
+https://harborgoods.example/oauth/authorize?response_type=code
+  &client_id=https://assistant.example/cap-client.json
+  &redirect_uri=https://assistant.example/cap/callback
+  &state=<random>&code_challenge=<challenge>&code_challenge_method=S256
+```
+
+4. The person logs in on the company's page and allows access. The company redirects to your `redirect_uri` with `code`, `state`, and `iss`. Check that `state` is the one you sent.
+5. Exchange the code:
+
+```
+POST https://harborgoods.example/oauth/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&code=<code>&redirect_uri=<redirect_uri>&client_id=<client_id>&code_verifier=<verifier>
+```
+
+```json
+{ "access_token": "cap_at_...", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "cap_rt_..." }
+```
+
+The token is bound to that account and to the `cap_from` in your document. Store it, and send the message again:
 
 ```
 POST /cap/v1/messages
@@ -116,6 +158,8 @@ CAP-From: agent:your-agent-id
 `previous_message_id` is optional here. It keeps the thread going after the login. A thread can gain a token, but it cannot continue without one or on another account.
 
 Only the same `CAP-From` and the same token can read that message later.
+
+When the access token expires, the request is `401`. Renew it with `grant_type=refresh_token&refresh_token=<refresh>&client_id=<client_id>` at the same token endpoint. You get a new refresh token, and the old one stops working. To log out, post `token=<token>&client_id=<client_id>` to the `revocation_endpoint`.
 
 ## Errors
 
@@ -156,6 +200,7 @@ An **owner** conforms if it:
 - [ ] Returns only `id`, `status`, `reply` or `error`, `created_at`, and `finished_at`
 - [ ] Answers account questions only with a token for that account. Returns `login_required` without one
 - [ ] Returns `401` for a bad token, and `403` for a token used by a different agent
+- [ ] Publishes OAuth metadata, accepts a client id document in place of registration, requires PKCE with `S256`, and binds each token to the document's `cap_from`
 - [ ] Shows a message only to the agent and token that sent it
 - [ ] Returns the original message for a repeated `Idempotency-Key`
 - [ ] Keeps its limits private, and returns `429` with `Retry-After`
@@ -173,3 +218,4 @@ A **caller** conforms if it:
 - [ ] Treats `failed` as final for that message
 - [ ] Sends a short brief, never a password or another company's data
 - [ ] Sets `previous_message_id` only to continue the same conversation
+- [ ] Logs in through the company's page with PKCE and its own client document, and never asks for the person's password

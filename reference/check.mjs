@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createHash, randomBytes } from 'node:crypto'
 import { createServer } from 'node:http'
 import { boot } from './start.mjs'
 
@@ -179,23 +180,146 @@ assert(t4.status === 409 && t4.body.error.code === 'conflict', 'thread over the 
 
 // One agent that answers public questions and, with a grant, account questions.
 const ORDERS = { maya: 'Your 18x24 poster shipped. Track it at https://carrier.example/track/ord_maya', sam: 'Your mug is packing.' }
+const orderAnswer = async ({ message, account }) => {
+  if (!/order/i.test(message)) return { reply: 'We are open Saturday 11am to 9pm.' }
+  if (!account) return { error: { code: 'login_required', message: 'Log in to ask about your order.' } }
+  return { reply: ORDERS[account] || 'No order on this account.' }
+}
+const oauthConfig = {
+  accounts: [{ account: 'maya', password: 'maya-pass' }, { account: 'sam', password: 'sam-pass' }],
+  allow_http_clients: true,
+}
 const accountRoot = await start('account', {
-  agent: { ...agent, oauth: 'https://harborgoods.example/oauth' },
-  demo_oauth: true,
+  agent,
+  oauth: oauthConfig,
   grants: [{ token: 'grant_demo', account: 'maya', client: 'shopper' }],
-}, {
-  answer: async ({ message, account }) => {
-    if (!/order/i.test(message)) return { reply: 'We are open Saturday 11am to 9pm.' }
-    if (!account) return { error: { code: 'login_required', message: 'Log in to ask about your order.' } }
-    return { reply: ORDERS[account] || 'No order on this account.' }
-  },
+}, { answer: orderAnswer })
+
+// The visiting agent hosts its own client document. No registration with the owner.
+const clientDocs = createServer((req, res) => {
+  const base = `http://${req.headers.host}`
+  const docs = {
+    '/client.json': { client_id: `${base}/client.json`, client_name: 'Shopper', redirect_uris: ['http://127.0.0.1/callback'], cap_from: 'agent:shopper' },
+    '/wrong-id.json': { client_id: `${base}/client.json`, redirect_uris: ['http://127.0.0.1/callback'], cap_from: 'agent:shopper' },
+    '/no-from.json': { client_id: `${base}/no-from.json`, redirect_uris: ['http://127.0.0.1/callback'] },
+  }
+  const doc = docs[req.url]
+  res.writeHead(doc ? 200 : 404, { 'content-type': 'application/json' })
+  res.end(JSON.stringify(doc || {}))
 })
+const clientBase = `http://127.0.0.1:${await listen(clientDocs)}`
+const clientId = `${clientBase}/client.json`
+const redirectUri = 'http://127.0.0.1:5555/callback'
+
+function pkce() {
+  const verifier = randomBytes(32).toString('base64url')
+  return { verifier, challenge: createHash('sha256').update(verifier).digest('base64url') }
+}
+
+async function startLogin(rootUrl, params = {}) {
+  const { verifier, challenge } = pkce()
+  const url = new URL(`${rootUrl}/oauth/authorize`)
+  url.search = new URLSearchParams({
+    response_type: 'code', client_id: clientId, redirect_uri: redirectUri, state: 's1',
+    code_challenge: challenge, code_challenge_method: 'S256', ...params,
+  })
+  const res = await fetch(url, { redirect: 'manual' })
+  const html = await res.text()
+  return { res, html, verifier, request: html.match(/name="request" value="([^"]+)"/)?.[1] || '' }
+}
+
+function submitLogin(rootUrl, request, fields) {
+  return fetch(`${rootUrl}/oauth/authorize`, {
+    method: 'POST',
+    redirect: 'manual',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ request, ...fields }),
+  })
+}
+
+function oauthForm(rootUrl, path, fields) {
+  return json(`${rootUrl}/oauth/${path}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams(fields),
+  })
+}
+
+async function codeFor(rootUrl, username, password) {
+  const login = await startLogin(rootUrl)
+  const res = await submitLogin(rootUrl, login.request, { username, password, decision: 'allow' })
+  return { code: new URL(res.headers.get('location')).searchParams.get('code'), verifier: login.verifier }
+}
+
+async function loginAs(rootUrl, username, password) {
+  const { code, verifier } = await codeFor(rootUrl, username, password)
+  const exchange = { grant_type: 'authorization_code', code, redirect_uri: redirectUri, client_id: clientId, code_verifier: verifier }
+  return (await oauthForm(rootUrl, 'token', exchange)).body
+}
 
 const shopper = { 'cap-from': 'agent:shopper' }
 const maya = { ...shopper, authorization: 'Bearer grant_demo' }
 
 const accountCard = await (await fetch(`${accountRoot}/agent.txt`)).text()
-assert(accountCard.includes('OAuth: https://harborgoods.example/oauth'), 'account card has the oauth line')
+assert(accountCard.includes(`OAuth: ${accountRoot}/oauth`), 'account card has the oauth line')
+
+const meta = await json(`${accountRoot}/.well-known/oauth-authorization-server/oauth`)
+assert(meta.status === 200 && meta.body.issuer === `${accountRoot}/oauth`, 'oauth metadata at the RFC 8414 path')
+assert(meta.body.code_challenge_methods_supported.includes('S256'), 'metadata lists S256')
+assert(meta.body.client_id_metadata_document_supported === true, 'metadata accepts client id documents')
+assert(meta.body.token_endpoint === `${accountRoot}/oauth/token` && meta.body.revocation_endpoint === `${accountRoot}/oauth/revoke`, 'metadata endpoints')
+
+const consent = await startLogin(accountRoot)
+assert(consent.res.status === 200 && consent.request, 'authorize shows the login page')
+assert(consent.html.includes('Shopper') && consent.html.includes(clientBase.slice(7)), 'login page names the visiting agent and its host')
+assert(!consent.html.includes('maya-pass'), 'login page does not leak passwords')
+
+const evilRedirect = await startLogin(accountRoot, { redirect_uri: 'https://evil.example/callback' })
+assert(evilRedirect.res.status === 400 && !evilRedirect.res.headers.get('location'), 'an unlisted redirect_uri is refused without redirecting')
+const wrongDoc = await startLogin(accountRoot, { client_id: `${clientBase}/wrong-id.json` })
+assert(wrongDoc.res.status === 400, 'a document naming another client_id is refused')
+const noFromDoc = await startLogin(accountRoot, { client_id: `${clientBase}/no-from.json` })
+assert(noFromDoc.res.status === 400, 'a document without cap_from is refused')
+const noPkce = await startLogin(accountRoot, { code_challenge: '' })
+const noPkceBack = new URL(noPkce.res.headers.get('location') || 'http://x/')
+assert(noPkce.res.status === 302 && noPkceBack.searchParams.get('error') === 'invalid_request' && noPkceBack.searchParams.get('state') === 's1', 'missing PKCE redirects with invalid_request')
+
+const badPassword = await submitLogin(accountRoot, consent.request, { username: 'sam', password: 'nope', decision: 'allow' })
+assert(badPassword.status === 401 && (await badPassword.text()).includes('did not match'), 'a wrong password stays on the login page')
+const allowed = await submitLogin(accountRoot, consent.request, { username: 'sam', password: 'sam-pass', decision: 'allow' })
+const back = new URL(allowed.headers.get('location') || 'http://x/')
+assert(allowed.status === 302 && back.origin + back.pathname === redirectUri, 'login redirects to the loopback redirect on its own port')
+assert(back.searchParams.get('code') && back.searchParams.get('state') === 's1' && back.searchParams.get('iss') === `${accountRoot}/oauth`, 'redirect carries code, state, and iss')
+const reusedRequest = await submitLogin(accountRoot, consent.request, { username: 'sam', password: 'sam-pass', decision: 'allow' })
+assert(reusedRequest.status === 400, 'a login request works once')
+
+const denyLogin = await startLogin(accountRoot)
+const denied = new URL((await submitLogin(accountRoot, denyLogin.request, { decision: 'deny' })).headers.get('location'))
+assert(denied.searchParams.get('error') === 'access_denied', 'deny redirects with access_denied')
+
+const exchange = (code, verifier) => ({ grant_type: 'authorization_code', code, redirect_uri: redirectUri, client_id: clientId, code_verifier: verifier })
+const guessed = await oauthForm(accountRoot, 'token', exchange(back.searchParams.get('code'), pkce().verifier))
+assert(guessed.status === 400 && guessed.body.error === 'invalid_grant', 'a wrong code_verifier is invalid_grant')
+const afterGuess = await oauthForm(accountRoot, 'token', exchange(back.searchParams.get('code'), consent.verifier))
+assert(afterGuess.body.error === 'invalid_grant', 'a code is gone after one try')
+
+const fresh = await codeFor(accountRoot, 'sam', 'sam-pass')
+const wrongClient = await oauthForm(accountRoot, 'token', { ...exchange(fresh.code, fresh.verifier), client_id: `${clientBase}/other.json` })
+assert(wrongClient.body.error === 'invalid_grant', 'a code works only for the client it was issued to')
+const issuedCode = await codeFor(accountRoot, 'sam', 'sam-pass')
+const issued = await oauthForm(accountRoot, 'token', exchange(issuedCode.code, issuedCode.verifier))
+assert(issued.status === 200 && issued.body.token_type === 'Bearer' && issued.body.expires_in === 3600, 'token response')
+assert(issued.body.access_token.startsWith('cap_at_') && issued.body.refresh_token.startsWith('cap_rt_'), 'access and refresh tokens')
+const reusedCode = await oauthForm(accountRoot, 'token', exchange(issuedCode.code, issuedCode.verifier))
+assert(reusedCode.body.error === 'invalid_grant', 'a used code is invalid_grant')
+const notForm = await json(`${accountRoot}/oauth/token`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+assert(notForm.status === 400 && notForm.body.error === 'invalid_request', 'the token endpoint takes a form')
+
+const sam = { ...shopper, authorization: `Bearer ${issued.body.access_token}` }
+const samAsOther = await post(accountRoot, "Where's my order?", { 'cap-from': 'agent:other', authorization: sam.authorization })
+assert(samAsOther.status === 403, 'an OAuth token works only with the cap_from it was issued to')
+const refreshAsBearer = await post(accountRoot, "Where's my order?", { ...shopper, authorization: `Bearer ${issued.body.refresh_token}` })
+assert(refreshAsBearer.status === 401, 'a refresh token is not an access token')
 
 const hours = await post(accountRoot, 'When are you open?', shopper)
 assert(hours.body.status === 'done' && hours.body.reply.includes('Saturday'), 'public question needs no token')
@@ -217,14 +341,6 @@ assert(!order.body.reply.includes('mug'), 'context cannot switch the account')
 const noTokenRead = await json(`${accountRoot}/cap/v1/messages/${order.body.id}`, { headers: headers(shopper) })
 assert(noTokenRead.status === 404, 'account message is not visible without the grant')
 
-const issued = await json(`${accountRoot}/oauth/token`, {
-  method: 'POST',
-  headers: { 'content-type': 'application/json' },
-  body: JSON.stringify({ account: 'sam', client: 'shopper' }),
-})
-assert(issued.status === 200 && issued.body.access_token.startsWith('grant_'), 'demo oauth issues a token')
-const sam = { ...shopper, authorization: `Bearer ${issued.body.access_token}` }
-
 const samReadsMaya = await json(`${accountRoot}/cap/v1/messages/${order.body.id}`, { headers: headers(sam) })
 assert(samReadsMaya.status === 404, 'another account cannot read the message')
 
@@ -241,10 +357,33 @@ assert(otherAccount.status === 404, 'an account thread cannot continue on anothe
 const mayaReads = await json(`${accountRoot}/cap/v1/messages/${order.body.id}`, { headers: headers(maya) })
 assert(mayaReads.status === 200 && mayaReads.body.reply.includes('poster'), 'the same grant can read the message')
 
-const revoke = await json(`${accountRoot}/oauth/revoke`, { method: 'POST', headers: { authorization: 'Bearer grant_demo' } })
+const revoke = await oauthForm(accountRoot, 'revoke', { token: 'grant_demo', client_id: '' })
 assert(revoke.status === 200, 'revoke')
 const afterRevoke = await json(`${accountRoot}/cap/v1/messages/${order.body.id}`, { headers: headers(maya) })
 assert(afterRevoke.status === 401, 'revoked token is 401')
+
+const renewed = await oauthForm(accountRoot, 'token', { grant_type: 'refresh_token', refresh_token: issued.body.refresh_token, client_id: clientId })
+assert(renewed.status === 200 && renewed.body.refresh_token !== issued.body.refresh_token, 'refresh returns a new refresh token')
+const replayedRefresh = await oauthForm(accountRoot, 'token', { grant_type: 'refresh_token', refresh_token: issued.body.refresh_token, client_id: clientId })
+assert(replayedRefresh.body.error === 'invalid_grant', 'an old refresh token stops working')
+const refreshWrongClient = await oauthForm(accountRoot, 'token', { grant_type: 'refresh_token', refresh_token: renewed.body.refresh_token, client_id: `${clientBase}/other.json` })
+assert(refreshWrongClient.body.error === 'invalid_grant', 'refresh works only for its own client')
+const samRenewed = { ...shopper, authorization: `Bearer ${renewed.body.access_token}` }
+const renewedOrder = await post(accountRoot, "Where's my order?", samRenewed)
+assert(renewedOrder.body.reply === 'Your mug is packing.', 'the renewed token answers for the same account')
+
+const strangerRevoke = await oauthForm(accountRoot, 'revoke', { token: renewed.body.refresh_token, client_id: `${clientBase}/other.json` })
+assert(strangerRevoke.status === 200, 'revoke answers 200 whatever the token')
+assert((await post(accountRoot, "Where's my order?", samRenewed)).body.status === 'done', 'another client cannot revoke the token')
+await oauthForm(accountRoot, 'revoke', { token: renewed.body.refresh_token, client_id: clientId })
+const afterLogout = await post(accountRoot, "Where's my order?", samRenewed)
+assert(afterLogout.status === 401, 'revoking the refresh token also ends its access token')
+
+const shortRootTokens = await start('short-tokens', { agent, oauth: { ...oauthConfig, access_token_seconds: 1 } }, { answer: orderAnswer })
+const shortLived = await loginAs(shortRootTokens, 'maya', 'maya-pass')
+await sleep(1100)
+const expiredToken = await post(shortRootTokens, "Where's my order?", { ...shopper, authorization: `Bearer ${shortLived.access_token}` })
+assert(expiredToken.status === 401, 'an expired access token is 401')
 
 // Limits stay private. The caller only sees 429 and Retry-After.
 const limitedRoot = await start('limited', { agent, handler: { type: 'echo' }, daily_limit: 2 })
@@ -272,6 +411,7 @@ for (const app of running) {
   await app.store.close()
 }
 hook.close()
+clientDocs.close()
 rmSync(dir, { recursive: true, force: true })
 
 if (failures.length) {

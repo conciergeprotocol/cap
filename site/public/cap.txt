@@ -39,6 +39,8 @@ Send only the new message. The company already has the earlier turns. Keep the n
 Account questions
 If agent.txt has an OAuth line, send Authorization: Bearer with the token the person granted. Without a token, an account question comes back with status failed and error.code login_required. Ask the person to log in, then send the message again.
 
+To log in: the OAuth line is the issuer. Read its metadata at /.well-known/oauth-authorization-server/{issuer path}. Use OAuth 2.1 authorization code with PKCE S256. Your client_id is an https URL to a JSON document you host: client_id, client_name, redirect_uris, and cap_from (your agent:{id}). There is no registration. Open the authorization_endpoint for the person, take the code from your redirect, and exchange it at the token_endpoint with a form body. The token works only with that cap_from. Renew with the refresh token, which rotates. Never ask the person for their password.
+
 What to do with errors
 400: the request or CAP-Version is wrong. Fix it and send again.
 401: the token is invalid, expired, or revoked.

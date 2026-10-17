@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from 'node:crypto'
 import { startStore } from './store.mjs'
 
 const secret = 'orders_db_demo_7c1'
@@ -20,12 +21,35 @@ function send(message, headers = shopper, context) {
   return call('/cap/v1/messages', { method: 'POST', headers, body: JSON.stringify({ message, context }) })
 }
 
+// The same steps the demo page takes in a browser: PKCE, the store's login page, the token exchange.
 async function login(account) {
-  const { body } = await call('/oauth/token', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ account, client: 'shopper' }),
+  const card = await (await fetch(`${store.base}/agent.txt`)).text()
+  const issuer = new URL(card.match(/^OAuth: (.+)$/m)[1])
+  const meta = await (await fetch(`${issuer.origin}/.well-known/oauth-authorization-server${issuer.pathname}`)).json()
+  const verifier = randomBytes(32).toString('base64url')
+  const clientId = `${store.base}/client.json`
+  const redirectUri = `${store.base}/`
+  const authorize = new URL(meta.authorization_endpoint)
+  authorize.search = new URLSearchParams({
+    response_type: 'code', client_id: clientId, redirect_uri: redirectUri, state: 'demo',
+    code_challenge: createHash('sha256').update(verifier).digest('base64url'), code_challenge_method: 'S256',
   })
+  const html = await (await fetch(authorize)).text()
+  assert(html.includes('Harbor Goods demo page'), 'login page names the visiting agent')
+  const request = html.match(/name="request" value="([^"]+)"/)[1]
+  const allowed = await fetch(meta.authorization_endpoint, {
+    method: 'POST',
+    redirect: 'manual',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ request, username: account, password: account, decision: 'allow' }),
+  })
+  const code = new URL(allowed.headers.get('location')).searchParams.get('code')
+  const { body } = await call(new URL(meta.token_endpoint).pathname, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: redirectUri, client_id: clientId, code_verifier: verifier }),
+  })
+  assert(body.access_token, JSON.stringify(body))
   return { ...shopper, authorization: `Bearer ${body.access_token}` }
 }
 

@@ -2,7 +2,7 @@
 
 One process that speaks `/cap/v1`. SQLite by default, so a local run needs no database server and no account on any vendor. Set `DATABASE_URL` to a Postgres connection string when you deploy somewhere that already has Postgres.
 
-The spec does not require a database. This server keeps two tables (`messages`, `grants`) because a slow answer has to survive a restart. Another runtime can store them somewhere else. The HTTP contract does not change.
+The spec does not require a database. This server keeps three tables (`messages`, `grants`, `oauth_codes`) because a slow answer and a login have to survive a restart. Another runtime can store them somewhere else. The HTTP contract does not change.
 
 ## Run locally
 
@@ -62,15 +62,32 @@ A message is readable only by the `CAP-From` that sent it, with the same token o
 
 ## Logins
 
-Tokens are stored as a hash. `CAP-From` must be the agent the token was issued to. An invalid or revoked token is `401`. A token used by a different agent is `403`.
+An `oauth` block turns on the built-in authorization server and adds the `OAuth` line to `agent.txt`:
+
+```json
+"oauth": {
+  "accounts": [{ "account": "maya", "password_env": "MAYA_PASSWORD" }],
+  "access_token_seconds": 3600
+}
+```
+
+It serves the OAuth metadata at `/.well-known/oauth-authorization-server/oauth`, a login and consent page at `/oauth/authorize`, `/oauth/token`, and `/oauth/revoke`. It accepts any visiting agent's client id document, requires PKCE with `S256`, rotates refresh tokens, and binds each token to the document's `cap_from`. Refresh tokens last 30 days. Revoking either token of a login ends both.
+
+`accounts` is for demos. A real owner checks its own user store by passing `boot({ login })`, an async function `({ username, password }) => accountId | null`. The account id is what the handler receives as `account`.
+
+`"allow_http_clients": true` accepts client documents on `http` and on `localhost`, for local testing. Leave it off on a public deploy, where client ids must be https URLs on public hosts. The server fetches each client document when a person starts a login, with a five-second timeout, no redirects, and a 16 KB limit. Run it behind egress rules if it can reach private services.
+
+Login requests waiting on the consent page are held in memory for ten minutes. Run one process, or pin a login to one process, if you deploy more than one.
+
+Tokens are stored as a hash. `CAP-From` must be the agent the token was issued to. An invalid, expired, or revoked token is `401`. A token used by a different agent is `403`.
+
+Fixed tokens, for tests and scripts, can go in `grants`:
 
 ```json
 "grants": [{ "token": "grant_demo", "account": "maya", "client": "shopper" }]
 ```
 
-Put real tokens in the environment or in a file that is not committed. `cap.json` in this folder ships with no grants.
-
-`"demo_oauth": true` adds `POST /oauth/token` with `{ "account", "client" }`, which returns a bearer token, and `POST /oauth/revoke`. Those routes are a local stand-in for a real login page. They are not part of `/cap/v1`. Leave them off on a public deploy.
+Put real tokens and passwords in the environment or in a file that is not committed. `cap.json` in this folder ships with no grants and no accounts.
 
 ## Deploy
 
