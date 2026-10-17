@@ -23,6 +23,11 @@
   box-sizing: border-box;
 }
 
+/* Keeps anchored headings clear of the sticky header. */
+html {
+  scroll-padding-top: 140px;
+}
+
 body {
   margin: 0;
   background: var(--bg);
@@ -44,9 +49,13 @@ header {
   gap: 12px 24px;
   align-items: center;
   justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 10;
   padding-top: 20px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--line);
+  background: var(--bg);
 }
 
 .brand {
@@ -113,6 +122,10 @@ header.open .menu svg:last-child {
 }
 
 @media (max-width: 720px) {
+  html {
+    scroll-padding-top: 96px;
+  }
+
   .menu {
     display: flex;
   }
@@ -128,6 +141,11 @@ header.open .menu svg:last-child {
 
   header.open .header-end {
     display: flex;
+  }
+
+  header.open {
+    max-height: 100vh;
+    overflow-y: auto;
   }
 
   nav {
