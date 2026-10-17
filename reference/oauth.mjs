@@ -333,7 +333,13 @@ ${hint ? `<p class="muted">${escape(hint)}</p>` : ''}
     }
     const account = await login({ username: form.get('username') || '', password: form.get('password') || '' })
     if (!account) return devicePage(res, 401, { userCode, device, error: 'That username and password did not match.' })
-    const decided = await store.decideDevice(userCode, { status: 'approved', account })
+    // An agent that cannot keep polling asks once the person says so, so the
+    // token stays collectable for a full window after approval.
+    const decided = await store.decideDevice(userCode, {
+      status: 'approved',
+      account,
+      expiresAt: new Date(Date.now() + DEVICE_TTL_SECONDS * 1000).toISOString(),
+    })
     if (!decided) return devicePage(res, 400, { error: 'That code is expired or already used.' })
     devicePage(res, 200, { done: 'You are logged in' })
   }

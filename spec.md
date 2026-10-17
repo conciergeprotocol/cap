@@ -33,6 +33,7 @@ A caller fetches `/agent.txt`. It treats a redirect off the company's domain, an
 | `status`      | `working`, `done`, or `failed`                                           |
 | `reply`       | Text. Set only when `status` is `done`. Links go in the text             |
 | `error`       | `{ code, message }`. Set only when `status` is `failed`                  |
+| `confirmation` | Optional. Set with `done` when an action waits for the person (see [Confirm an action](#confirm-an-action)) |
 | `created_at`  |                                                                          |
 | `finished_at` | Set when `status` is `done` or `failed`                                  |
 
@@ -49,6 +50,7 @@ A caller fetches `/agent.txt`. It treats a redirect off the company's domain, an
 ```
 POST /cap/v1/messages
 GET  /cap/v1/messages/{id}
+GET  /cap/v1/confirmations/{id}   (only for owners that confirm actions)
 ```
 
 Every request carries `CAP-Version: 1.0` and `CAP-From: agent:{id}`, naming the calling agent. A request for a logged-in person also carries `Authorization: Bearer` with an OAuth access token.
@@ -82,7 +84,7 @@ The previous message must be final. If it is still `working`, the owner returns 
 
 ### Read a message
 
-`GET /cap/v1/messages/{id}` returns `200` with the message. While it is `working`, the response sets `Retry-After`.
+`GET /cap/v1/messages/{id}` returns `200` with the message. While it is `working`, the response sets `Retry-After`. An owner may hold a read open, under 30 seconds, and answer as soon as the message finishes. It may do the same for a confirmation read and for a code login's token request. A caller sets its timeout to allow that, and sends the next read right after a response that is still `working` or `pending` comes back after a hold.
 
 A message is visible only to the `CAP-From` that sent it, with the same grant or none. Anyone else gets `404`. The owner keeps a finished message for at least 24 hours. After that, a read is `404` and the caller asks again.
 
@@ -107,7 +109,7 @@ The metadata includes `issuer`, `device_authorization_endpoint`, `token_endpoint
 
 ### Log in with a code
 
-1. The caller posts a form to the `device_authorization_endpoint` with `client_id` set to its `CAP-From`, such as `agent:example-assistant`. It may add `client_name`, a short name the person will recognize.
+1. The caller posts a form to the `device_authorization_endpoint` with `client_id` set to its `CAP-From`, such as `agent:example-assistant`. It may add `client_name`, a short name the person will recognize, and `scope` (see [Access scope](#access-scope)).
 
 ```
 POST https://harborgoods.example/oauth/device
@@ -138,7 +140,7 @@ Content-Type: application/x-www-form-urlencoded
 grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=GmRhmh...&client_id=agent:example-assistant
 ```
 
-Until the person decides, the response is `400` with `error: authorization_pending`. `slow_down` means add 5 seconds to the interval. `access_denied` and `expired_token` are final. Once the person allows, the response is `access_token`, `token_type: Bearer`, `expires_in`, and `refresh_token`. A device code yields a token once.
+Until the person decides, the response is `400` with `error: authorization_pending`. `slow_down` means add 5 seconds to the interval. `access_denied` and `expired_token` are final. Once the person allows, the response is `access_token`, `token_type: Bearer`, `expires_in`, `refresh_token`, and `scope`. A device code yields a token once.
 
 The owner shows the `client_name` and the `CAP-From` on its page, says the name is not verified, and binds the token to that `CAP-From`. Codes expire within 10 minutes.
 
@@ -159,11 +161,45 @@ The caller's `client_id` is an https URL it controls. That URL returns the agent
 
 The steps:
 
-1. The caller makes a random `code_verifier` and opens the `authorization_endpoint` for the person with `response_type=code`, `client_id`, `redirect_uri`, `state`, `code_challenge`, and `code_challenge_method=S256`.
+1. The caller makes a random `code_verifier` and opens the `authorization_endpoint` for the person with `response_type=code`, `client_id`, `redirect_uri`, `state`, `code_challenge`, `code_challenge_method=S256`, and optionally `scope`.
 2. The person logs in on the company's page and consents. The owner redirects to `redirect_uri` with `code`, `state`, and `iss`. The `redirect_uri` must be one the client document lists. If it is not, the owner shows an error and does not redirect.
 3. The caller posts to the `token_endpoint` as a form: `grant_type=authorization_code`, `code`, `redirect_uri`, `client_id`, and `code_verifier`. The response is `access_token`, `token_type: Bearer`, `expires_in`, and `refresh_token`.
 
 A code works once and expires within 10 minutes.
+
+### Access scope
+
+A login reads by default. A caller that needs the owner's agent to make changes for the person asks for `scope=write`, which includes read. An owner that offers changes lists `scopes_supported: ["read", "write"]` in its metadata, and returns `invalid_scope` for a scope it does not know.
+
+The owner's page says what the caller is asking for. When the caller asks to write, the person can allow changes, allow read only, or deny. The token response's `scope` is what the person granted: `read`, or `read write`. It is never more than the caller asked for, and a renewed token keeps it.
+
+Write access lets the owner's agent act within what the person could do themselves. The owner decides which actions that covers, and may give write tokens a shorter `expires_in`. Actions that are hard to undo, such as deletes or payments, should need the person to confirm each one on the owner's page.
+
+### Confirm an action
+
+A write token does not let an agent delete or pay on its own. When a message asks for such an action, the owner does not do it. It holds the action, answers `done` with a `reply` that says what is waiting, and adds `confirmation`:
+
+```json
+{
+  "id": "msg_9b1e44c0a7d2f310",
+  "status": "done",
+  "reply": "Deleting the post \"Hello World\" needs your OK: https://harborgoods.example/confirm?id=cfm_4kq...",
+  "confirmation": {
+    "id": "cfm_4kq...",
+    "status": "pending",
+    "url": "https://harborgoods.example/confirm?id=cfm_4kq...",
+    "summary": "Delete the post \"Hello World\" from Blog.",
+    "authorization_details": [{ "type": "delete_post", "post": "hello-world" }],
+    "expires_at": "2026-10-17T06:07:58Z"
+  }
+}
+```
+
+1. The caller gives the person `url` and `summary`. It never says the action is done.
+2. The person opens the link, logged in on the owner's page, and approves or denies. The owner runs an approved action once, as the person, and never twice.
+3. The caller reads `GET /cap/v1/confirmations/{id}` with the same token and `CAP-From`, waiting `Retry-After` between reads. `status` is `pending`, `working`, `done`, `failed`, `denied`, or `expired`. `done` and `failed` may carry `result.message`, written for the person.
+
+A confirmation is visible only to the `CAP-From` and account that asked for it. It expires within 10 minutes if no one decides. `authorization_details` describes the action in the owner's own types, in the style of Rich Authorization Requests (RFC 9396). The pattern is the one OpenID CIBA uses for approving an action out of band, applied to one action.
 
 ### Use, renew, and revoke
 
@@ -171,7 +207,7 @@ An account request carries `Authorization: Bearer` and the `CAP-From` the token 
 
 The caller renews with `grant_type=refresh_token`, `refresh_token`, and `client_id`. The owner returns a new refresh token, and the old one stops working. The caller revokes with the `revocation_endpoint` (RFC 7009), sending `token` and `client_id`. Revoking stops that agent, and nothing else has to rotate.
 
-The token endpoint returns OAuth's own errors, such as `invalid_grant`, not CAP's. An owner may define scopes. An owner may require sender-constrained tokens with DPoP (RFC 9449), so a copied token is useless without the agent's key. Its metadata then lists `dpop_signing_alg_values_supported`, and the caller sends a DPoP proof with each token request and CAP request.
+The token endpoint returns OAuth's own errors, such as `invalid_grant`, not CAP's. An owner may require sender-constrained tokens with DPoP (RFC 9449), so a copied token is useless without the agent's key. Its metadata then lists `dpop_signing_alg_values_supported`, and the caller sends a DPoP proof with each token request and CAP request.
 
 Two identities travel on an account request:
 
@@ -204,6 +240,7 @@ A caller conforms if it:
 6. Sends a short brief in `context`. Never the person's password or another company's data.
 7. Sets `previous_message_id` to the last message when the person is continuing the same conversation, and leaves it off when they start a new one.
 8. Logs in only through the owner's page, with the code login or the redirect login. Never asks the person for their password, and never sends the `device_code` to the person.
+9. Gives the person a `confirmation` link as it is, and never reports a confirmed action as done until its status is `done`.
 
 ## Errors
 
@@ -217,7 +254,7 @@ A caller conforms if it:
 | `version_not_supported` | 400  | `CAP-Version` is not implemented                                            |
 | `unauthorized`          | 401  | The bearer token is invalid, expired, or revoked                            |
 | `forbidden`             | 403  | The token was issued to a different agent than `CAP-From`                   |
-| `not_found`             | 404  | The message, or `previous_message_id`, does not exist, has expired, or is not visible to this caller |
+| `not_found`             | 404  | The message, confirmation, or `previous_message_id` does not exist, has expired, or is not visible to this caller |
 | `conflict`              | 409  | `previous_message_id` is still `working`, or the thread is too long          |
 | `rate_limited`          | 429  | The owner will not take more from this caller now. `Retry-After` is set     |
 | `unavailable`           | 503  | The agent is not answering                                                  |

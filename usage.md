@@ -114,6 +114,8 @@ Content-Type: application/x-www-form-urlencoded
 client_id=agent:your-agent-id&client_name=Example Assistant
 ```
 
+The login reads by default. If the person wants changes made and the metadata lists `write` in `scopes_supported`, add `&scope=write`. The person can still allow read only.
+
 ```json
 {
   "device_code": "GmRhmhcxhwAzkoEqiMEg_DnyEysNkuNhszIySk9eS",
@@ -138,8 +140,10 @@ grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=<device_code
 `authorization_pending` means keep polling. `slow_down` means add 5 seconds to the interval. `access_denied` and `expired_token` end the login. When the person allows it, the response is the token:
 
 ```json
-{ "access_token": "cap_at_...", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "cap_rt_..." }
+{ "access_token": "cap_at_...", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "cap_rt_...", "scope": "read" }
 ```
+
+`scope` is what the person granted: `read`, or `read write`.
 
 The token is bound to that account and to your `CAP-From`. The company's page shows your name as not verified, because anyone can claim a name. To show a verified name, use the URL of a client document, described below, as the `client_id` instead.
 

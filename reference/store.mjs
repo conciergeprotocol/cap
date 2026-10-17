@@ -192,10 +192,11 @@ function driver({ run, get, close }) {
       return (await get('SELECT * FROM oauth_devices WHERE device_hash = ?', [tokenHash(deviceCode)])) || null
     },
     // Only a pending login can be decided, and only once.
-    async decideDevice(userCode, { status, account = '' }) {
+    async decideDevice(userCode, { status, account = '', expiresAt = null }) {
       const row = await get(
-        `UPDATE oauth_devices SET status = ?, account = ? WHERE user_code = ? AND status = 'pending' RETURNING *`,
-        [status, account, userCode],
+        `UPDATE oauth_devices SET status = ?, account = ?, expires_at = COALESCE(?, expires_at)
+         WHERE user_code = ? AND status = 'pending' RETURNING *`,
+        [status, account, expiresAt, userCode],
       )
       return row || null
     },

@@ -2,6 +2,15 @@
 
 Breaking changes to the draft are listed here with what an owner or a caller has to change.
 
+## 1.0 Draft, October 16, 2026, access scope
+
+Logins can now ask to make changes. Nothing breaks: a login without `scope` reads, as before.
+
+- A caller may send `scope=write` with either login. Owners that offer it list `scopes_supported: ["read", "write"]`.
+- The person can allow changes, allow read only, or deny. The token response's `scope` says what was granted, and a renewed token keeps it.
+- Owners may give write tokens a shorter lifetime and should have the person confirm actions that are hard to undo.
+- A held action comes back as `confirmation` on a `done` message, with a `url` for the person and a `summary`. The caller polls `GET /cap/v1/confirmations/{id}` until it is `done`, `failed`, `denied`, or `expired`. The owner runs an approved action once.
+
 ## 1.0 Draft, October 16, 2026, code login
 
 A visiting agent can now log in with only HTTP. Owners with an `OAuth` line must support it. Callers no longer need a client document.

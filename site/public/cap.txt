@@ -51,11 +51,13 @@ Content-Type: application/x-www-form-urlencoded
 
 client_id=agent:{your-agent-id}&client_name={a name the person will recognize}
 
+Logins read by default. If the person wants changes made, such as creating or editing content, add &scope=write when the metadata's scopes_supported lists write. The person may still allow read only. If the reply says this login cannot make changes, log in again with scope=write.
+
 The response has device_code, user_code, verification_uri_complete, expires_in, and interval.
 
 3. Tell the person: "Open {verification_uri_complete} and allow access if the page shows the code {user_code}." Never show them device_code.
 
-4. Every interval seconds, ask for the token:
+4. Keep your turn open and poll in the foreground, so you can continue as soon as the person allows access. Every interval seconds, ask for the token:
 POST {token_endpoint}
 Content-Type: application/x-www-form-urlencoded
 
@@ -64,7 +66,13 @@ grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code={device_code
 400 authorization_pending: the person has not decided. Keep waiting.
 400 slow_down: add 5 seconds to the interval.
 400 access_denied or expired_token: stop. Tell the person.
-200: access_token and refresh_token. Send the message again with Authorization: Bearer {access_token} and the same CAP-From.
+200: access_token, refresh_token, and scope (what the person granted: read, or read write). Send the message again with Authorization: Bearer {access_token} and the same CAP-From.
+If you cannot keep polling, ask the person to tell you once they have allowed access, then ask for the token once.
+
+Confirm an action
+Some changes, such as deletes, wait for the person. Then the done message also has confirmation, with id, url, and summary. Give the person the url and summary, and say it happens once they approve. Never say it is done yet. Then read:
+GET {CAP}/confirmations/{id}
+with the same headers and token, waiting Retry-After between reads. status pending: keep waiting. done: tell the person it is done. denied or expired: tell the person nothing changed. failed: tell the person it did not go through, with result.message if set.
 
 The token works only with that CAP-From. When it expires, you get 401. Renew at the token_endpoint with grant_type=refresh_token&refresh_token={refresh_token}&client_id=agent:{your-agent-id}. The refresh token rotates. Never ask the person for their password.
 
