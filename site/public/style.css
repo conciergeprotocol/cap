@@ -123,7 +123,7 @@ header.open .menu svg:last-child {
   display: block;
 }
 
-/* Below this width the brand, nav, and theme switch no longer fit on one row. */
+/* Below this width the brand and nav no longer fit on one row. */
 @media (max-width: 920px) {
   .menu {
     display: flex;
@@ -380,4 +380,16 @@ footer {
 
 footer a {
   color: var(--muted);
+}
+
+.footer-end {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-end p {
+  margin: 0;
 }

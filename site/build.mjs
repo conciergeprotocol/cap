@@ -170,7 +170,6 @@ const layout = ({ title, body, route }) => {
 <button type="button" class="menu" aria-expanded="false" aria-controls="site-menu" aria-label="Menu">${icon('<path d="M4 6h16M4 12h16M4 18h16"/>')}${icon('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
 <div class="header-end" id="site-menu">
 <nav>${nav}<a href="${repo}">GitHub</a></nav>
-${themeControl}
 </div>
 </header>
 <main>
@@ -178,7 +177,10 @@ ${withPrompt(body, route)}
 </main>
 <footer>
 <p>Concierge Agent Protocol 1.0 Draft. Spec text under <a href="${repo}/blob/main/LICENSE-SPEC">CC BY 4.0</a>, code under <a href="${repo}/blob/main/LICENSE">Apache 2.0</a>.</p>
+<div class="footer-end">
 <p><a href="/governance">Governance</a> · <a href="/security">Security</a> · <a href="/changelog">Changelog</a> · <a href="/cap.txt">cap.txt</a> · <a href="/implement.txt">implement.txt</a></p>
+${themeControl}
+</div>
 </footer>
 <script>${pageScript}</script>
 </body>
