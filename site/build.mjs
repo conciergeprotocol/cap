@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFil
 import { dirname, join, posix } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Marked } from 'marked'
+import { createCssVariablesTheme, createHighlighter } from 'shiki'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const out = join(root, 'site', 'dist')
@@ -47,6 +48,27 @@ const resolveLink = (href, src) => {
   return `${repo}/${isDir ? 'tree' : 'blob'}/main/${target}${anchor}`
 }
 
+const shikiLang = {
+  js: 'javascript',
+  javascript: 'javascript',
+  ts: 'typescript',
+  typescript: 'typescript',
+  json: 'json',
+  sh: 'bash',
+  bash: 'bash',
+  shell: 'bash',
+  html: 'html'
+}
+
+let highlighter
+
+const highlight = (text, lang) => {
+  const name = shikiLang[lang]
+  if (!highlighter || !name) return escape(text)
+  const html = highlighter.codeToHtml(text.replace(/\n$/, ''), { lang: name, theme: 'css-variables' })
+  return html.replace(/^<pre[^>]*><code>/, '').replace(/<\/code><\/pre>$/, '')
+}
+
 const languages = {
   js: 'JavaScript',
   javascript: 'JavaScript',
@@ -77,7 +99,7 @@ const render = (page) => {
         const id = `code-${++codeId}`
         const label = languages[lang] || ''
         const bar = label ? `<div class="codeblock-bar">${escape(label)}</div>` : ''
-        return `<div class="codeblock">${bar}<div class="codeblock-body"><pre id="${id}"><code>${escape(text)}</code></pre><button type="button" class="code-copy" data-codecopy="${id}" aria-label="Copy">${icon('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>')}<span class="code-copy-idle">Copy</span><span class="code-copy-done" hidden>Copied!</span></button></div></div>\n`
+        return `<div class="codeblock">${bar}<div class="codeblock-body"><pre id="${id}"><code>${highlight(text, lang)}</code></pre><button type="button" class="code-copy" data-codecopy="${id}" aria-label="Copy">${icon('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>')}<span class="code-copy-idle">Copy</span><span class="code-copy-done" hidden>Copied!</span></button></div></div>\n`
       }
     }
   })
@@ -187,6 +209,11 @@ ${themeControl}
 </html>
 `
 }
+
+highlighter = await createHighlighter({
+  themes: [createCssVariablesTheme()],
+  langs: ['javascript', 'typescript', 'json', 'bash', 'html']
+})
 
 rmSync(out, { recursive: true, force: true })
 mkdirSync(out, { recursive: true })

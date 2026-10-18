@@ -280,12 +280,24 @@ pre code {
 }
 
 .codeblock {
+  --shiki-foreground: #fff;
+  --shiki-color-text: #fff;
+  --shiki-background: transparent;
+  --shiki-token-constant: #86efac;
+  --shiki-token-string: #86efac;
+  --shiki-token-comment: #6b7280;
+  --shiki-token-keyword: #93c5fd;
+  --shiki-token-parameter: #f9a8d4;
+  --shiki-token-function: #fff;
+  --shiki-token-string-expression: #86efac;
+  --shiki-token-punctuation: #e5e7eb;
+  --shiki-token-link: #93c5fd;
   margin: 1.4em 0;
   overflow: hidden;
   border-radius: 12px;
   background: #111827;
   box-shadow: 0 4px 6px rgb(0 0 0 / 0.12);
-  color: #e5e7eb;
+  color: var(--shiki-foreground);
 }
 
 :root.dark .codeblock {

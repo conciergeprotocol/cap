@@ -6,6 +6,7 @@
     "build": "node site/build.mjs"
   },
   "devDependencies": {
-    "marked": "^16.0.0"
+    "marked": "^16.0.0",
+    "shiki": "^4.5.0"
   }
 }
