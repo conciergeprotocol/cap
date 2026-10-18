@@ -11,6 +11,7 @@ const pages = [
   { src: 'README.md', route: '/', file: 'index.html', nav: 'Overview' },
   { src: 'spec.md', route: '/spec', file: 'spec.html', nav: 'Spec' },
   { src: 'usage.md', route: '/usage', file: 'usage.html', nav: 'Usage' },
+  { src: 'callers.md', route: '/callers', file: 'callers.html', nav: 'Call a door' },
   { src: 'owners.md', route: '/owners', file: 'owners.html', nav: 'Add login' },
   { src: 'concepts/README.md', route: '/concepts', file: 'concepts.html', nav: 'Concepts' },
   { src: 'concepts/messages.md', route: '/concepts/messages', file: 'concepts/messages.html' },

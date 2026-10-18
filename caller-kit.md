@@ -1,6 +1,6 @@
 # Caller kit
 
-**Status: Proposal.** Two packages that let any agent call any front door in one line. They live in a new repository, `conciergeprotocol/js`, under Apache 2.0.
+**Status: Shipped.** The public page is [Call a door](callers.md). The packages are in [conciergeprotocol/js](https://github.com/conciergeprotocol/js), under Apache 2.0.
 
 | Package | What it is |
 | --- | --- |

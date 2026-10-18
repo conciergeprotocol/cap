@@ -13,6 +13,7 @@ The company publishes one text file, `agent.txt`. The visiting agent reads it, s
 - [Concepts](concepts/README.md)
 - [Specification](spec.md)
 - [Usage](usage.md)
+- [Call a door](callers.md)
 - [Add login to your agent](owners.md)
 - [Reference server](reference/README.md)
 - [Store example](examples/store)
