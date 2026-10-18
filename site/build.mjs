@@ -47,7 +47,22 @@ const resolveLink = (href, src) => {
   return `${repo}/${isDir ? 'tree' : 'blob'}/main/${target}${anchor}`
 }
 
+const languages = {
+  js: 'JavaScript',
+  javascript: 'JavaScript',
+  ts: 'TypeScript',
+  typescript: 'TypeScript',
+  json: 'JSON',
+  sh: 'Shell',
+  bash: 'Shell',
+  shell: 'Shell',
+  html: 'HTML',
+  text: 'Text',
+  mermaid: 'Mermaid'
+}
+
 const render = (page) => {
+  let codeId = 0
   const marked = new Marked({
     gfm: true,
     walkTokens: (token) => {
@@ -57,6 +72,12 @@ const render = (page) => {
       heading({ tokens, depth }) {
         const html = this.parser.parseInline(tokens)
         return `<h${depth} id="${slug(html)}">${html}</h${depth}>\n`
+      },
+      code({ text, lang }) {
+        const id = `code-${++codeId}`
+        const label = languages[lang] || ''
+        const bar = label ? `<div class="codeblock-bar">${escape(label)}</div>` : ''
+        return `<div class="codeblock">${bar}<div class="codeblock-body"><pre id="${id}"><code>${escape(text)}</code></pre><button type="button" class="code-copy" data-codecopy="${id}" aria-label="Copy">${icon('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>')}<span class="code-copy-idle">Copy</span><span class="code-copy-done" hidden>Copied!</span></button></div></div>\n`
       }
     }
   })
@@ -93,6 +114,12 @@ function setMenu(open){header.classList.toggle('open',open);menu.setAttribute('a
 menu.addEventListener('click',function(){setMenu(!header.classList.contains('open'))});
 document.querySelectorAll('#site-menu a').forEach(function(a){a.addEventListener('click',function(){setMenu(false)})});
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&header.classList.contains('open')){setMenu(false);menu.focus()}});
+document.querySelectorAll('[data-codecopy]').forEach(function(button){button.addEventListener('click',function(){
+var pre=document.getElementById(button.getAttribute('data-codecopy')),text=pre.textContent,idle=button.querySelector('.code-copy-idle'),doneLabel=button.querySelector('.code-copy-done');
+function show(){button.classList.add('is-copied');idle.hidden=true;doneLabel.hidden=false;setTimeout(function(){button.classList.remove('is-copied');idle.hidden=false;doneLabel.hidden=true},1000)}
+function legacy(){var area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();var ok=false;try{ok=document.execCommand('copy')}catch(e){}area.remove();return ok}
+if(navigator.clipboard){navigator.clipboard.writeText(text).then(show,function(){if(legacy())show()})}else if(legacy())show()
+})});
 document.querySelectorAll('[data-copy]').forEach(function(button){button.addEventListener('click',function(){
 var pre=document.getElementById(button.dataset.copy),text=pre.textContent,label=button.querySelector('span'),idle=label.textContent;
 function legacy(){var area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();var ok=false;try{ok=document.execCommand('copy')}catch(e){}area.remove();return ok}
