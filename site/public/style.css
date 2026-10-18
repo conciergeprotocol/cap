@@ -94,6 +94,21 @@ nav a[aria-current='page'] {
   color: var(--fg);
 }
 
+.github {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin-left: 8px;
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.github:hover {
+  color: var(--fg);
+}
+
 .header-end {
   display: flex;
   gap: 20px;
@@ -124,7 +139,7 @@ header.open .menu svg:last-child {
 }
 
 /* Below this width the brand and nav no longer fit on one row. */
-@media (max-width: 920px) {
+@media (max-width: 640px) {
   .menu {
     display: flex;
   }
@@ -156,6 +171,11 @@ header.open .menu svg:last-child {
   nav a {
     padding: 10px 0;
     border-bottom: 1px solid var(--line);
+  }
+
+  .github {
+    align-self: flex-start;
+    margin: 8px 0 0;
   }
 }
 
