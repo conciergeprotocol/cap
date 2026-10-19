@@ -53,7 +53,7 @@ npm install @conciergeprotocol/mcp
 }
 ```
 
-`CAP_FROM` names the caller. When it is unset, the server uses `agent:cap-mcp`.
+`CAP_FROM` names the caller. When it is unset, the server uses `agent:cap-mcp`. Hosts can also find the server in the MCP registry as `io.github.conciergeprotocol/mcp`.
 
 | Tool | What it does |
 | --- | --- |
