@@ -4,6 +4,9 @@
   "outputDirectory": "site/dist",
   "framework": null,
   "cleanUrls": true,
+  "redirects": [
+    { "source": "/owners", "destination": "/login", "permanent": true }
+  ],
   "functions": {
     "api/check.js": {
       "maxDuration": 30

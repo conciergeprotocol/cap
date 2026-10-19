@@ -2,7 +2,7 @@
 
 **The front door to your website, for every AI agent.**
 
-Soon everyone will have an agent that visits websites for them. CAP gives your company a concierge to greet it. The concierge is your agent, working for you at your front door: the visiting agent asks, your agent answers with your own tools, and nothing else leaves the building. Share results, not credentials.
+People have an agent that visits websites for them. CAP gives your company a concierge to greet it. The concierge is your agent, working for you at your front door: the visiting agent asks, your agent answers with your own tools, and nothing else leaves the building. Share results, not credentials.
 
 The company publishes one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. No tools, MCP servers, or API keys change hands.
 
@@ -14,7 +14,7 @@ The company publishes one text file, `agent.txt`. The visiting agent reads it, s
 - [Specification](spec.md)
 - [Usage](usage.md)
 - [Call a door](callers.md)
-- [Add login to your agent](owners.md)
+- [Add login to your agent](login.md)
 - [Reference server](reference/README.md)
 - [Store example](examples/store)
 - [Next.js example](examples/next)
@@ -93,7 +93,7 @@ curl http://127.0.0.1:8088/agent.txt
 
 `node check.mjs` runs the conformance checks against a temporary database.
 
-To answer account questions, or make changes for a logged-in person, follow [Add login to your agent](owners.md).
+To answer account questions, or make changes for a logged-in person, follow [Add login to your agent](login.md).
 
 To have a coding assistant do it, give it the prompt at [conciergeprotocol.org/implement.txt](https://conciergeprotocol.org/implement.txt).
 

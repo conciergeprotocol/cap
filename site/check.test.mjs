@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
 import { checkDoor, isPublicAddress, parseHost, sameSite } from './check.mjs'
+import { checkPageBody } from './check-page.mjs'
 
 test('parseHost accepts a domain and rejects everything else', () => {
   assert.equal(parseHost('CosmicJS.com').hostname, 'cosmicjs.com')
@@ -40,6 +41,7 @@ test('a door that answers and hides the message passes', async () => {
     },
   })
   assert.equal(result.passed, true)
+  assert.equal(result.domain, 'example.com')
   assert.deepEqual(result.checks.map((check) => check.id), ['host', 'card', 'reply', 'private'])
   assert.ok(seen.some((line) => line.includes('agent:cap-check-other')))
 })
@@ -50,6 +52,7 @@ test('the CAP line has to stay on the same site', async () => {
     request: async () => ({ ok: true, status: 200, headers: {}, body: 'Protocol: CAP/1.0\nCAP: https://other.example/cap/v1\n' }),
   })
   assert.equal(result.passed, false)
+  assert.equal(result.domain, 'example.com')
   assert.equal(result.checks.at(-1).id, 'card')
 })
 
@@ -97,6 +100,25 @@ test('a message another caller can read fails', async () => {
   })
   assert.equal(result.passed, false)
   assert.equal(result.checks.at(-1).id, 'private')
+})
+
+test('a host the check rejects has no address to share', async () => {
+  const result = await checkDoor('localhost')
+  assert.equal(result.passed, false)
+  assert.equal(result.domain, undefined)
+})
+
+test('the check page keeps the domain in the address and offers a share after the result', () => {
+  const html = checkPageBody()
+  assert.match(html, /Nothing is stored/)
+  assert.match(html, /history\.replaceState/)
+  assert.match(html, /Copy link/)
+  assert.match(html, /has a CAP front door/)
+  assert.match(html, /implement\.txt/)
+  assert.match(html, /navigator\.share/)
+  assert.match(html, /x\.com\/intent\/post/)
+  assert.match(html, /linkedin\.com\/sharing\/share-offsite/)
+  assert.match(html, /if \(preset\) run\(\)/)
 })
 
 test('a private address is not fetched', async () => {

@@ -1,6 +1,6 @@
 # Introducing the Concierge Agent Protocol
 
-People are starting to send their own agents to company websites. "Find me running shoes in size 12, black sweatpants, and a black hoodie in my style." "Where's my order?" Today that agent has two options. It can read the pages, or it can be handed the company's tools.
+People send their own agents to company websites. "Find me running shoes in size 12, black sweatpants, and a black hoodie in my style." "Where's my order?" Today that agent has two options. It can read the pages, or it can be handed the company's tools.
 
 Reading pages works when the site is small and the answer is printed on it. It stops working when the catalog is too large to read, when the page is stale, and every time the question is about the person's own account. Order status is not on a public page.
 

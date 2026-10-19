@@ -510,3 +510,35 @@ footer a {
 .check-results p {
   margin: 4px 0 0;
 }
+
+.check-share {
+  margin-top: 20px;
+}
+
+.check-share p {
+  margin: 0 0 12px;
+}
+
+.check-share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.check-action {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.check-action:hover {
+  border-color: var(--fg);
+}

@@ -2,7 +2,7 @@ import { CALLER, QUESTION } from './check.mjs'
 
 export function checkPageBody() {
   return `<h1>Check a door</h1>
-<p>Enter a domain. This page reads <code>agent.txt</code>, sends one public question, and reports what passed. The question is "${QUESTION}" from <code>${CALLER}</code>. Nothing is stored.</p>
+<p>Enter a domain. This page reads <code>agent.txt</code>, sends one public question, and reports what passed. The question is "${QUESTION}" from <code>${CALLER}</code>. Nothing is stored. The address keeps the domain, so the same check can be opened again.</p>
 <form class="check-form">
 <label for="domain">Domain</label>
 <input id="domain" name="domain" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="cosmicjs.com" required>
@@ -10,19 +10,103 @@ export function checkPageBody() {
 </form>
 <p class="check-status" role="status"></p>
 <ol class="check-results"></ol>
+<div class="check-share" hidden></div>
 <script>
 (function () {
   var form = document.querySelector('.check-form')
   var input = document.getElementById('domain')
   var status = document.querySelector('.check-status')
   var results = document.querySelector('.check-results')
+  var share = document.querySelector('.check-share')
   var button = form.querySelector('button')
   var preset = new URLSearchParams(location.search).get('domain')
   if (preset) input.value = preset
-  form.addEventListener('submit', function (event) {
-    event.preventDefault()
+
+  function pageUrl(domain) {
+    return location.origin + '/check?domain=' + encodeURIComponent(domain)
+  }
+
+  function remember(domain) {
+    var next = '/check?domain=' + encodeURIComponent(domain)
+    if (location.pathname + location.search !== next) history.replaceState(null, '', next)
+    input.value = domain
+  }
+
+  function action(label, tag) {
+    var el = document.createElement(tag || 'button')
+    if (!tag) el.type = 'button'
+    el.className = 'check-action'
+    el.textContent = label
+    return el
+  }
+
+  function copyText(text, control) {
+    var idle = control.textContent
+    function done(ok) {
+      control.textContent = ok ? 'Copied' : 'Copy the link'
+      setTimeout(function () { control.textContent = idle }, 2000)
+    }
+    function legacy() {
+      var area = document.createElement('textarea')
+      area.value = text
+      area.setAttribute('readonly', '')
+      area.style.position = 'fixed'
+      area.style.opacity = '0'
+      document.body.appendChild(area)
+      area.select()
+      var ok = false
+      try { ok = document.execCommand('copy') } catch (e) {}
+      area.remove()
+      return ok
+    }
+    if (navigator.clipboard) navigator.clipboard.writeText(text).then(function () { done(true) }, function () { done(legacy()) })
+    else done(legacy())
+  }
+
+  function showShare(domain, passed) {
+    share.replaceChildren()
+    share.hidden = false
+    var note = document.createElement('p')
+    var actions = document.createElement('div')
+    actions.className = 'check-share-actions'
+    var url = pageUrl(domain)
+    var copy = action('Copy link')
+    copy.addEventListener('click', function () { copyText(url, copy) })
+    actions.append(copy)
+    if (passed) {
+      var text = domain + ' has a CAP front door.'
+      note.textContent = text
+      if (navigator.share) {
+        var native = action('Share')
+        native.addEventListener('click', function () {
+          navigator.share({ title: text, text: text, url: url }).catch(function () {})
+        })
+        actions.append(native)
+      }
+      var post = action('X', 'a')
+      post.href = 'https://x.com/intent/post?text=' + encodeURIComponent(text + ' ' + url)
+      post.target = '_blank'
+      post.rel = 'noopener'
+      var linkedin = action('LinkedIn', 'a')
+      linkedin.href = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(url)
+      linkedin.target = '_blank'
+      linkedin.rel = 'noopener'
+      actions.append(post, linkedin)
+    } else {
+      note.append('Fix the failed rows, then open this page again. To add CAP, start from ')
+      var guide = document.createElement('a')
+      guide.href = '/implement.txt'
+      guide.textContent = 'implement.txt'
+      note.append(guide, '.')
+    }
+    share.append(note, actions)
+  }
+
+  function run() {
     button.disabled = true
     status.textContent = 'Checking.'
+    share.hidden = true
+    share.replaceChildren()
     results.replaceChildren()
     fetch('/api/check', {
       method: 'POST',
@@ -33,6 +117,7 @@ export function checkPageBody() {
         status.textContent = (data && data.error && data.error.message) || 'The check could not run.'
         return
       }
+      if (data.domain) remember(data.domain)
       status.textContent = data.passed ? 'This door passes.' : 'This door does not pass yet.'
       data.checks.forEach(function (check) {
         var item = document.createElement('li')
@@ -47,12 +132,19 @@ export function checkPageBody() {
         item.append(title, state, detail)
         results.append(item)
       })
+      if (data.domain) showShare(data.domain, data.passed)
     }).catch(function () {
       status.textContent = 'The check could not run.'
     }).then(function () {
       button.disabled = false
     })
+  }
+
+  form.addEventListener('submit', function (event) {
+    event.preventDefault()
+    run()
   })
+  if (preset) run()
 })()
 </script>`
 }

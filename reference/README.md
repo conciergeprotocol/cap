@@ -86,7 +86,7 @@ To hold an action for the person's OK, `answer` returns `{ confirm: { summary, a
 
 With the `http` handler, the hook returns `confirm` next to `reply`, and after approval it receives `{ "confirmed": { "account", "authorization_details", "caller" } }` and returns `{ "message": "..." }`.
 
-[Add login to your agent](../owners.md) walks through both, with code.
+[Add login to your agent](../login.md) walks through both, with code.
 
 `accounts` is for demos. A real owner checks its own user store by passing `boot({ login })`, an async function `({ username, password }) => accountId | null`. The account id is what the handler receives as `account`.
 

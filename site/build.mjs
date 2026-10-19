@@ -14,7 +14,7 @@ const pages = [
   { src: 'spec.md', route: '/spec', file: 'spec.html', nav: 'Spec' },
   { src: 'usage.md', route: '/usage', file: 'usage.html', nav: 'Usage' },
   { src: 'callers.md', route: '/callers', file: 'callers.html', nav: 'Call a door' },
-  { src: 'owners.md', route: '/owners', file: 'owners.html', nav: 'Add login' },
+  { src: 'login.md', route: '/login', file: 'login.html', nav: 'Add login' },
   { src: 'concepts/README.md', route: '/concepts', file: 'concepts.html' },
   { src: 'concepts/messages.md', route: '/concepts/messages', file: 'concepts/messages.html' },
   { src: 'concepts/access.md', route: '/concepts/access', file: 'concepts/access.html' },
@@ -161,7 +161,7 @@ const promptBlock = `<section class="prompt">
 `
 
 // On the home page the prompt follows the introduction. On the owner guide it opens the first section.
-const promptAnchor = { '/': '<ul', '/owners': '<h2' }
+const promptAnchor = { '/': '<ul', '/login': '<h2' }
 const withPrompt = (body, route) => {
   if (!promptAnchor[route]) return body
   const at = body.indexOf(promptAnchor[route])

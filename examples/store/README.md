@@ -234,4 +234,4 @@ Open the link, log in as `maya`, and approve. The store runs the cancel once, as
 }
 ```
 
-`answer` returns `confirm` in place of a reply, and `act` in `store.mjs` runs the cancel after approval. [Add login to your agent](../../owners.md) explains both.
+`answer` returns `confirm` in place of a reply, and `act` in `store.mjs` runs the cancel after approval. [Add login to your agent](../../login.md) explains both.

@@ -78,9 +78,13 @@ export async function checkDoor(input, deps = {}) {
   const request = deps.request || pinnedRequest
   const deadline = Date.now() + BUDGET_MS
   const checks = []
-  const stop = (check) => ({ passed: false, checks: checks.concat(check) })
-
   const host = parseHost(input)
+  const stop = (check) => {
+    const result = { passed: false, checks: checks.concat(check) }
+    if (host.ok) result.domain = host.hostname
+    return result
+  }
+
   if (!host.ok) return stop({ id: 'host', title: 'Public https host', pass: false, detail: host.detail })
   const addresses = await resolve(host.hostname)
   if (!addresses.ok) return stop({ id: 'host', title: 'Public https host', pass: false, detail: addresses.detail })
@@ -97,7 +101,7 @@ export async function checkDoor(input, deps = {}) {
   const privacy = await hiddenFromOthers(card.cap, card.addresses, reply.id, request, deadline)
   if (!privacy.ok) return stop({ id: 'private', title: 'Private to the caller', pass: false, detail: privacy.detail })
   checks.push({ id: 'private', title: 'Private to the caller', pass: true, detail: privacy.detail })
-  return { passed: true, checks }
+  return { passed: true, domain: host.hostname, checks }
 }
 
 export async function resolvePublic(hostname) {

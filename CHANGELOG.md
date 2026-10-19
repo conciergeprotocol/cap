@@ -11,7 +11,7 @@ Logins can now ask to make changes. Nothing breaks: a login without `scope` read
 - Owners may give write tokens a shorter lifetime and should have the person confirm actions that are hard to undo.
 - A held action comes back as `confirmation` on a `done` message, with a `url` for the person and a `summary`. The caller polls `GET /cap/v1/confirmations/{id}` until it is `done`, `failed`, `denied`, or `expired`. The owner runs an approved action once.
 - The reference server implements both: `oauth.write`, `oauth.write_access_token_seconds`, `scope` for the handler, `confirm` from the handler, `boot({ act })`, and a confirm page at `/oauth/confirm`. The store example adds gift wrap with a write login and a cancel that waits for the person's OK.
-- New guide for owners: [Add login to your agent](owners.md).
+- New guide for owners: [Add login to your agent](login.md).
 
 ## 1.0 Draft, October 16, 2026, code login
 
