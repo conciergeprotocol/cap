@@ -2,7 +2,7 @@
 
 **The front door to your website, for every AI agent.**
 
-More and more people are using agents to visit websites for them, and to interact with services on their behalf. Today those agents read pages built for people and guess at the answer. CAP gives your company a concierge to greet them. The visitor's agent asks for what the person wants, and your concierge answers from your own catalog, docs, and records. Anything that needs the person, like paying or signing in, still happens on your site. Share results, not credentials.
+More and more people are using agents to visit websites for them, and to interact with services on their behalf. Today those agents read pages built for people and guess at the answer. CAP gives your company a concierge to greet them. The visitor's agent asks for what the person wants, and your concierge answers from your own catalog, docs, and records.
 
 You publish one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. Your tools, keys, and data stay on your servers.
 
@@ -21,8 +21,6 @@ You publish one text file, `agent.txt`. The visiting agent reads it, sends a mes
 - [Check a door](https://conciergeprotocol.org/check)
 - [Governance](GOVERNANCE.md), [Security](SECURITY.md), and [Changelog](CHANGELOG.md)
 
-
-
 ## Two examples
 
 **Public.** "Find me running shoes in size 12, black sweatpants, and a black hoodie in my style." The person's agent finds `agent.txt`, sends the request with a short style brief, and the store's agent searches its own catalog. The reply is products, sizes in stock, prices, and links. Checkout stays on the store's site. A person on the store's chat page gets the same agent.
@@ -39,8 +37,6 @@ Websites were built for people. Browsing one means rendering pages, getting past
 - Follow-ups send only the new question.
 - An invited call, named by `CAP-From`, instead of a scrape that can be blocked.
 - A token the person grants for account questions, never a password.
-
-
 
 ## When to publish an agent
 
@@ -117,8 +113,6 @@ Name: Harbor Goods
 Chat: https://harborgoods.example/chat
 CAP: https://cap.harborgoods.example/cap/v1
 ```
-
-
 
 ## Contributing
 
