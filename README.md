@@ -2,7 +2,7 @@
 
 **The front door to your website, for every AI agent.**
 
-More and more people send agents to websites to shop, book, and manage accounts for them.
+More and more people send agents to websites to learn about a company and its policies, shop, book, and manage accounts.
 
 **Without CAP.** Those agents scrape pages built for people, burn tokens on markup, and guess. Or they load an MCP server, an API, and a skill for every site until their configuration is bloated with tools.
 
