@@ -185,7 +185,7 @@ export function createCapServer({
         agent.chat ? `Chat: ${agent.chat}` : '',
         `CAP: ${origin}/cap/v1`,
         oauthLine ? `OAuth: ${oauthLine}` : '',
-        agent.spec ? `Spec: ${agent.spec}` : '',
+        `Spec: ${agent.spec || 'https://conciergeprotocol.org/cap.txt'}`,
       ].filter(Boolean)
       send(res, 200, null, { type: 'text/plain; charset=utf-8', raw: `${lines.join('\n')}\n` })
       return

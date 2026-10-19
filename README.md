@@ -68,10 +68,10 @@ Name: Harbor Goods
 Chat: https://harborgoods.example/chat
 CAP: https://harborgoods.example/cap/v1
 OAuth: https://harborgoods.example/oauth
-Spec: https://harborgoods.example/cap.txt
+Spec: https://conciergeprotocol.org/cap.txt
 ```
 
-`Protocol` comes first and names the format. `Name` is the public agent. `Chat` is the page a person opens. `CAP` is the base URL for `/cap/v1`. `OAuth` is the login server for account questions. Leave it off when the agent answers only public questions. `Spec` points at a short caller card. Leave it off when you have no public URL for one.
+`Protocol` comes first and names the format. `Name` is the public agent. `Chat` is the page a person opens. `CAP` is the base URL for `/cap/v1`. `OAuth` is the login server for account questions. Leave it off when the agent answers only public questions. `Spec` points at the hosted caller card. Use it as written rather than hosting your own copy.
 
 The chat page and the CAP URL can live on another host. The company's domain still serves this file. Only the `CAP` line changes when the server moves.
 

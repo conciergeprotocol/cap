@@ -93,6 +93,7 @@ assert(card.status === 200 && card.headers.get('content-type').includes('text/pl
 assert(cardText.startsWith('Protocol: CAP/1.0\n'), 'agent.txt protocol line')
 assert(cardText.includes('Name: Harbor Goods'), 'agent.txt name')
 assert(cardText.includes(`CAP: ${root}/cap/v1`), 'agent.txt cap url')
+assert(cardText.includes('Spec: https://conciergeprotocol.org/cap.txt'), 'agent.txt points at the hosted caller card')
 assert(!cardText.includes('OAuth:'), 'public card has no oauth line')
 
 const badVersion = await post(root, 'hi', { 'cap-version': '9' })

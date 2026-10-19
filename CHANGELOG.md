@@ -2,6 +2,14 @@
 
 Breaking changes to the draft are listed here with what an owner or a caller has to change.
 
+## 1.0 Draft, October 19, 2026, hosted caller card
+
+`Spec` now points at one hosted card. Nothing breaks: a door with its own card still works.
+
+- Owners should set `Spec: https://conciergeprotocol.org/cap.txt` instead of copying the card to their domain. The hosted card covers every CAP 1.x door.
+- A caller may skip fetching the card when it already knows CAP.
+- The reference server writes the hosted `Spec` line by default. `agent.spec` still overrides it.
+
 ## 1.0 Draft, October 16, 2026, access scope
 
 Logins can now ask to make changes. Nothing breaks: a login without `scope` reads, as before.

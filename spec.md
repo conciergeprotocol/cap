@@ -14,10 +14,10 @@ Name: Harbor Goods
 Chat: https://harborgoods.example/chat
 CAP: https://harborgoods.example/cap/v1
 OAuth: https://harborgoods.example/oauth
-Spec: https://harborgoods.example/cap.txt
+Spec: https://conciergeprotocol.org/cap.txt
 ```
 
-`Protocol` is the first line. It names this format, so a caller can tell this file apart from an unrelated `agent.txt`. A caller that finds no `Protocol` line uses the file only when it has a `CAP` line. `Name` is the public agent. `Chat` is the page a person opens. `CAP` is the base URL for the two endpoints. `OAuth` is the authorization server for questions about a customer's account. Leave it off when the agent answers only public questions. `Spec` is a short caller card. Leave it off when you have no public URL for one. The file lists no tools, MCP servers, prompts, or credentials.
+`Protocol` is the first line. It names this format, so a caller can tell this file apart from an unrelated `agent.txt`. A caller that finds no `Protocol` line uses the file only when it has a `CAP` line. `Name` is the public agent. `Chat` is the page a person opens. `CAP` is the base URL for the two endpoints. `OAuth` is the authorization server for questions about a customer's account. Leave it off when the agent answers only public questions. `Spec` is a short caller card. Use the hosted card at `https://conciergeprotocol.org/cap.txt`. It covers every CAP 1.x door and is updated in one place, so do not copy it to your own domain. A caller may skip fetching it when it already knows CAP. Notes for your door belong in your agent's replies, not in a separate card. The file lists no tools, MCP servers, prompts, or credentials.
 
 One domain has one agent. A person uses the chat page. An agent fetches the file. Both reach the same agent and get the same answers.
 
