@@ -213,6 +213,19 @@ header.open .menu svg:last-child {
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.12);
 }
 
+.film {
+  margin: 28px 0 8px;
+}
+
+.film video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #0d1013;
+}
+
 .prompt {
   margin: 28px 0;
   padding: 18px 20px;

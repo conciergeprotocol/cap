@@ -160,9 +160,15 @@ const promptBlock = `<section class="prompt">
 </section>
 `
 
-// On the home page the prompt follows the introduction. On the owner guide it opens the first section.
+const film = `<figure class="film"><video controls playsinline preload="metadata" poster="https://pub-1b7812378e144e32836e6e2387f1c233.r2.dev/cap-thumbnail.png"><source src="https://pub-1b7812378e144e32836e6e2387f1c233.r2.dev/cap-explainer.mp4" type="video/mp4"></video></figure>\n`
+
+// On the home page the film follows the introduction, then the prompt. On the owner guide the prompt opens the first section.
 const promptAnchor = { '/': '<ul', '/login': '<h2' }
 const withPrompt = (body, route) => {
+  if (route === '/') {
+    const intro = body.indexOf('stay on your servers.</p>')
+    if (intro !== -1) body = body.slice(0, intro + 'stay on your servers.</p>'.length) + '\n' + film + body.slice(intro + 'stay on your servers.</p>'.length)
+  }
   if (!promptAnchor[route]) return body
   const at = body.indexOf(promptAnchor[route])
   return at === -1 ? body + promptBlock : body.slice(0, at) + promptBlock + body.slice(at)
