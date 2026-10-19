@@ -110,7 +110,10 @@ test('a host the check rejects has no address to share', async () => {
 
 test('the check page keeps the domain in the address and offers a share after the result', () => {
   const html = checkPageBody()
+  assert.match(html, /Is your website CAP-able\?/)
   assert.match(html, /Nothing is stored/)
+  assert.match(html, /check-bar/)
+  assert.match(html, /Asking what it can help with/)
   assert.match(html, /history\.replaceState/)
   assert.match(html, /Copy link/)
   assert.match(html, /has a CAP front door/)

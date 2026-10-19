@@ -229,6 +229,6 @@ for (const page of pages) {
 }
 
 const checkFile = join(out, 'check.html')
-writeFileSync(checkFile, layout({ title: 'Check a door', body: checkPageBody(), route: '/check' }))
+writeFileSync(checkFile, layout({ title: 'Is your website CAP-able?', body: checkPageBody(), route: '/check' }))
 
 console.log(`Built ${pages.length + 1} pages into site/dist`)

@@ -1,7 +1,7 @@
 import { CALLER, QUESTION } from './check.mjs'
 
 export function checkPageBody() {
-  return `<h1>Check a door</h1>
+  return `<h1>Is your website CAP-able?</h1>
 <p>Enter a domain. This page reads <code>agent.txt</code>, sends one public question, and reports what passed. The question is "${QUESTION}" from <code>${CALLER}</code>. Nothing is stored. The address keeps the domain, so the same check can be opened again.</p>
 <form class="check-form">
 <label for="domain">Domain</label>
@@ -9,6 +9,7 @@ export function checkPageBody() {
 <button type="submit">Check</button>
 </form>
 <p class="check-status" role="status"></p>
+<div class="check-bar" hidden><span></span></div>
 <ol class="check-results"></ol>
 <div class="check-share" hidden></div>
 <script>
@@ -19,6 +20,13 @@ export function checkPageBody() {
   var results = document.querySelector('.check-results')
   var share = document.querySelector('.check-share')
   var button = form.querySelector('button')
+  var bar = document.querySelector('.check-bar')
+  var timers = []
+  var steps = [
+    ['host', 'Public https host', 'Checking the public host.'],
+    ['card', 'agent.txt', 'Reading agent.txt.'],
+    ['reply', 'A public reply', 'Asking what it can help with. This can take about 25 seconds.']
+  ]
   var preset = new URLSearchParams(location.search).get('domain')
   if (preset) input.value = preset
 
@@ -102,17 +110,65 @@ export function checkPageBody() {
     share.append(note, actions)
   }
 
+  function clearTimers() {
+    timers.forEach(clearTimeout)
+    timers = []
+  }
+
+  function focus(id, sentence) {
+    status.textContent = sentence
+    Array.prototype.forEach.call(results.children, function (item) {
+      var on = item.dataset.id === id
+      if (on) item.dataset.active = 'true'
+      else delete item.dataset.active
+      var state = item.querySelector('.check-state')
+      if (state) state.textContent = on ? 'Checking' : 'Waiting'
+    })
+  }
+
+  function showPending() {
+    clearTimers()
+    results.replaceChildren()
+    steps.forEach(function (step) {
+      var item = document.createElement('li')
+      item.dataset.pass = 'pending'
+      item.dataset.id = step[0]
+      var title = document.createElement('strong')
+      title.textContent = step[1]
+      var state = document.createElement('span')
+      state.className = 'check-state'
+      state.textContent = 'Waiting'
+      item.append(title, state)
+      results.append(item)
+    })
+    var later = document.createElement('li')
+    later.dataset.pass = 'pending'
+    later.dataset.id = 'private'
+    var laterTitle = document.createElement('strong')
+    laterTitle.textContent = 'Private to the caller'
+    var laterState = document.createElement('span')
+    laterState.className = 'check-state'
+    laterState.textContent = 'Waiting'
+    later.append(laterTitle, laterState)
+    results.append(later)
+    focus(steps[0][0], steps[0][2])
+    timers.push(setTimeout(function () { focus(steps[1][0], steps[1][2]) }, 2000))
+    timers.push(setTimeout(function () { focus(steps[2][0], steps[2][2]) }, 4500))
+  }
+
   function run() {
     button.disabled = true
-    status.textContent = 'Checking.'
+    button.textContent = 'Checking'
+    bar.hidden = false
     share.hidden = true
     share.replaceChildren()
-    results.replaceChildren()
+    showPending()
     fetch('/api/check', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ domain: input.value })
     }).then(function (res) { return res.json() }).then(function (data) {
+      results.replaceChildren()
       if (!data || !data.checks) {
         status.textContent = (data && data.error && data.error.message) || 'The check could not run.'
         return
@@ -134,9 +190,13 @@ export function checkPageBody() {
       })
       if (data.domain) showShare(data.domain, data.passed)
     }).catch(function () {
+      results.replaceChildren()
       status.textContent = 'The check could not run.'
     }).then(function () {
+      clearTimers()
+      bar.hidden = true
       button.disabled = false
+      button.textContent = 'Check'
     })
   }
 

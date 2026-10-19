@@ -471,6 +471,39 @@ footer a {
   color: var(--muted);
 }
 
+.check-bar {
+  height: 3px;
+  margin: 4px 0 8px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.check-bar span {
+  display: block;
+  height: 100%;
+  width: 35%;
+  background: var(--accent);
+  animation: check-slide 1.2s ease-in-out infinite;
+}
+
+@keyframes check-slide {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(320%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .check-bar span {
+    width: 100%;
+    animation: none;
+    opacity: 0.7;
+  }
+}
+
+.check-results li[data-active='true'] .check-state {
+  color: var(--accent);
+}
+
 .check-results {
   margin: 8px 0 0;
   padding: 0;
