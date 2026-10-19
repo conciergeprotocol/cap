@@ -183,13 +183,27 @@ const layout = ({ title, body, route }) => {
     .map((page) => `<a href="${page.route}"${page.route === route ? ' aria-current="page"' : ''}>${page.nav}</a>`)
     .join('')
   const pageTitle = route === '/' ? 'Concierge Agent Protocol (CAP)' : `${escape(title)} · Concierge Agent Protocol`
+  const description = 'Concierge Agent Protocol (CAP): the front door to your website, for every AI agent. Share results, not credentials.'
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${pageTitle}</title>
-<meta name="description" content="Concierge Agent Protocol (CAP): the front door to your website, for every AI agent. Share results, not credentials.">
+<meta name="description" content="${description}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Concierge Agent Protocol">
+<meta property="og:title" content="${pageTitle}">
+<meta property="og:description" content="${description}">
+<meta property="og:url" content="https://conciergeprotocol.org${route}">
+<meta property="og:image" content="${filmPoster}">
+<meta property="og:image:width" content="1920">
+<meta property="og:image:height" content="1080">
+<meta property="og:image:alt" content="CAP: the front door to your website, for every AI agent.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${pageTitle}">
+<meta name="twitter:description" content="${description}">
+<meta name="twitter:image" content="${filmPoster}">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/icon.png" type="image/png">
 <link rel="apple-touch-icon" href="/icon.png">
