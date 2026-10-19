@@ -426,3 +426,87 @@ footer a {
 .footer-end p {
   margin: 0;
 }
+
+.check-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  align-items: center;
+  margin: 24px 0 8px;
+}
+
+.check-form label {
+  grid-column: 1 / -1;
+  font-weight: 600;
+}
+
+.check-form input {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+
+.check-form button {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--fg);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.check-form button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.check-status {
+  min-height: 1.65em;
+  color: var(--muted);
+}
+
+.check-results {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.check-results li {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.check-results strong {
+  margin-right: 8px;
+}
+
+.check-state {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.check-results li[data-pass='true'] .check-state {
+  color: #15803d;
+}
+
+:root.dark .check-results li[data-pass='true'] .check-state {
+  color: #86efac;
+}
+
+.check-results li[data-pass='false'] .check-state {
+  color: #b91c1c;
+}
+
+:root.dark .check-results li[data-pass='false'] .check-state {
+  color: #fca5a5;
+}
+
+.check-results p {
+  margin: 4px 0 0;
+}

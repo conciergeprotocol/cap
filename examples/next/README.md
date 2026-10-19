@@ -33,3 +33,5 @@ curl -X POST http://127.0.0.1:3000/cap/v1/messages \
 If `answer` is still working when the wait ends, the response is `202` with `Location` and `Retry-After`. Read that URL with the same `CAP-From`. A message is visible only to the agent that sent it. The same `Idempotency-Key` returns the original message and does not answer again.
 
 Messages stay in memory for the life of the process. A real app keeps a finished message for at least 24 hours in its own store.
+
+A deployed door can be checked at [conciergeprotocol.org/check](https://conciergeprotocol.org/check).

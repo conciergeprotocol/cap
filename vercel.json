@@ -4,6 +4,11 @@
   "outputDirectory": "site/dist",
   "framework": null,
   "cleanUrls": true,
+  "functions": {
+    "api/check.js": {
+      "maxDuration": 30
+    }
+  },
   "headers": [
     {
       "source": "/cap.txt",

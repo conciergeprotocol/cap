@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFil
 import { dirname, join, posix } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Marked } from 'marked'
+import { checkPageBody } from './check-page.mjs'
 import { createCssVariablesTheme, createHighlighter } from 'shiki'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -227,4 +228,7 @@ for (const page of pages) {
   writeFileSync(file, layout({ title, body, route: page.route }))
 }
 
-console.log(`Built ${pages.length} pages into site/dist`)
+const checkFile = join(out, 'check.html')
+writeFileSync(checkFile, layout({ title: 'Check a door', body: checkPageBody(), route: '/check' }))
+
+console.log(`Built ${pages.length + 1} pages into site/dist`)

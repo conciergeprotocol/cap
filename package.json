@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node site/build.mjs"
+    "build": "node site/build.mjs",
+    "test": "node --test site/check.test.mjs"
   },
   "devDependencies": {
     "marked": "^16.0.0",

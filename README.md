@@ -18,6 +18,7 @@ The company publishes one text file, `agent.txt`. The visiting agent reads it, s
 - [Reference server](reference/README.md)
 - [Store example](examples/store)
 - [Next.js example](examples/next)
+- [Check a door](https://conciergeprotocol.org/check)
 - [Governance](GOVERNANCE.md), [Security](SECURITY.md), and [Changelog](CHANGELOG.md)
 
 ## Two examples
