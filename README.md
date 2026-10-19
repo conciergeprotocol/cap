@@ -2,9 +2,9 @@
 
 **The front door to your website, for every AI agent.**
 
-More and more people are using agents to visit websites for them, and to interact with services on their behalf. CAP gives your company a concierge to greet those agents. The visitor's agent asks for what they want and brings your answer back. The person pays and signs in on your site. Share results, not credentials.
+More and more people are using agents to visit websites for them, and to interact with services on their behalf. Today those agents read pages built for people and guess at the answer. CAP gives your company a concierge to greet them. The visitor's agent asks for what the person wants, and your concierge answers from your own catalog, docs, and records. Anything that needs the person, like paying or signing in, still happens on your site. Share results, not credentials.
 
-The company publishes one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. No tools, MCP servers, or API keys change hands.
+You publish one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. Your tools, keys, and data stay on your servers.
 
 **Status: Draft. Version 1.0.** Read it at [conciergeprotocol.org](https://conciergeprotocol.org). Feedback is welcome in [issues](https://github.com/conciergeprotocol/cap/issues).
 
