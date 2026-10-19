@@ -10,7 +10,7 @@ More and more people send agents to websites to shop, book, and manage accounts 
 
 **How it works.** You publish one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. Your tools, keys, and data stay on your servers.
 
-![CAP: the front door to your website](https://pub-1b7812378e144e32836e6e2387f1c233.r2.dev/cap-thumbnail.png)
+![CAP: the front door to your website](https://media.conciergeprotocol.org/cap-thumbnail.png)
 
 **Status: Draft. Version 1.0.** Read it at [conciergeprotocol.org](https://conciergeprotocol.org). Feedback is welcome in [issues](https://github.com/conciergeprotocol/cap/issues).
 
