@@ -2,9 +2,11 @@
 
 **The front door to your website, for every AI agent.**
 
-More and more people are using agents to visit websites for them. Those agents also shop, book, and manage accounts on their behalf. Today they click through pages built for people and guess, or they bloat their configuration with infinite tools across multiple services. CAP gives your company a concierge to greet them. The visitor's agent asks for what the person wants, and your concierge answers from your own catalog, docs, and records.
+More and more people are using agents to visit websites for them. Those agents also shop, book, and manage accounts on their behalf.
 
-You publish one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. Your tools, keys, and data stay on your servers.
+**Before CAP.** They click through pages built for people and guess, or they bloat their configuration with infinite tools across multiple services.
+
+**After CAP.** Your company has a concierge to greet them. The visitor's agent asks for what the person wants, and your concierge answers from your own catalog, docs, and records. You publish one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. Your tools, keys, and data stay on your servers.
 
 [![CAP: the front door to your website](https://pub-1b7812378e144e32836e6e2387f1c233.r2.dev/cap-thumbnail.png)](https://pub-1b7812378e144e32836e6e2387f1c233.r2.dev/cap-explainer.mp4)
 
