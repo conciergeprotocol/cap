@@ -160,14 +160,17 @@ const promptBlock = `<section class="prompt">
 </section>
 `
 
-const film = `<figure class="film"><video controls playsinline preload="metadata" poster="https://pub-1b7812378e144e32836e6e2387f1c233.r2.dev/cap-thumbnail.png"><source src="https://pub-1b7812378e144e32836e6e2387f1c233.r2.dev/cap-explainer.mp4" type="video/mp4"></video></figure>\n`
+const filmSrc = 'https://pub-1b7812378e144e32836e6e2387f1c233.r2.dev/cap-explainer.mp4'
+const film = `<figure class="film"><video controls playsinline preload="metadata" poster="https://pub-1b7812378e144e32836e6e2387f1c233.r2.dev/cap-thumbnail.png"><source src="${filmSrc}" type="video/mp4"></video></figure>\n`
 
-// On the home page the film follows the introduction, then the prompt. On the owner guide the prompt opens the first section.
+// On the home page the README thumbnail becomes the player, then the prompt follows. On the owner guide the prompt opens the first section.
 const promptAnchor = { '/': '<ul', '/login': '<h2' }
 const withPrompt = (body, route) => {
   if (route === '/') {
-    const intro = body.indexOf('stay on your servers.</p>')
-    if (intro !== -1) body = body.slice(0, intro + 'stay on your servers.</p>'.length) + '\n' + film + body.slice(intro + 'stay on your servers.</p>'.length)
+    const at = body.indexOf(filmSrc)
+    const start = at === -1 ? -1 : body.lastIndexOf('<p>', at)
+    const end = at === -1 ? -1 : body.indexOf('</p>', at)
+    if (start !== -1 && end !== -1) body = body.slice(0, start) + film + body.slice(end + '</p>'.length)
   }
   if (!promptAnchor[route]) return body
   const at = body.indexOf(promptAnchor[route])
