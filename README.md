@@ -2,13 +2,15 @@
 
 **The front door to your website, for every AI agent.**
 
-More and more people are using agents to visit websites for them. Those agents also shop, book, and manage accounts on their behalf.
+More and more people send agents to websites to shop, book, and manage accounts for them.
 
-**Before CAP.** They click through pages built for people and guess, or they bloat their configuration with infinite tools across multiple services.
+**Without CAP.** Those agents scrape pages built for people, burn tokens on markup, and guess. Or they load an MCP server, an API, and a skill for every site until their configuration is bloated with tools.
 
-**After CAP.** Your company has a concierge to greet them. The visitor's agent asks for what the person wants, and your concierge answers from your own catalog, docs, and records. You publish one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. Your tools, keys, and data stay on your servers.
+**With CAP.** Your website has a concierge. The visiting agent asks for what the person wants, and your concierge answers from your own catalog, docs, and records. One question, one verified answer.
 
-[![CAP: the front door to your website](https://pub-1b7812378e144e32836e6e2387f1c233.r2.dev/cap-thumbnail.png)](https://pub-1b7812378e144e32836e6e2387f1c233.r2.dev/cap-explainer.mp4)
+**How it works.** You publish one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. Your tools, keys, and data stay on your servers.
+
+![CAP: the front door to your website](https://pub-1b7812378e144e32836e6e2387f1c233.r2.dev/cap-thumbnail.png)
 
 **Status: Draft. Version 1.0.** Read it at [conciergeprotocol.org](https://conciergeprotocol.org). Feedback is welcome in [issues](https://github.com/conciergeprotocol/cap/issues).
 
@@ -24,6 +26,8 @@ More and more people are using agents to visit websites for them. Those agents a
 - [Next.js example](examples/next)
 - [Check a door](https://conciergeprotocol.org/check)
 - [Governance](GOVERNANCE.md), [Security](SECURITY.md), and [Changelog](CHANGELOG.md)
+
+
 
 ## Two examples
 
@@ -41,6 +45,8 @@ Websites were built for people. Browsing one means rendering pages, getting past
 - Follow-ups send only the new question.
 - An invited call, named by `CAP-From`, instead of a scrape that can be blocked.
 - A token the person grants for account questions, never a password.
+
+
 
 ## When to publish an agent
 
@@ -117,6 +123,8 @@ Name: Harbor Goods
 Chat: https://harborgoods.example/chat
 CAP: https://cap.harborgoods.example/cap/v1
 ```
+
+
 
 ## Contributing
 
