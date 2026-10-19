@@ -6,7 +6,7 @@ More and more people send agents to websites to shop, book, and manage accounts 
 
 **Without CAP.** Those agents scrape pages built for people, burn tokens on markup, and guess. Or they load an MCP server, an API, and a skill for every site until their configuration is bloated with tools.
 
-**With CAP.** Your website has a concierge. The visiting agent asks for what the person wants, and your concierge answers from your own catalog, docs, and records. Behind the door, it uses your internal tools: your MCP servers, APIs, and databases. The visiting agent never loads them. One question, one verified answer.
+**With CAP.** Your website has a concierge. The visiting agent asks for what the person wants, and your concierge answers from your own catalog, docs, and records. Behind the door, it uses your internal tools: your MCP servers, APIs, and databases. The visiting agent never loads them. One question, one answer from the source.
 
 **How it works.** You publish one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. Your tools, keys, and data stay on your servers.
 
@@ -27,7 +27,23 @@ More and more people send agents to websites to shop, book, and manage accounts 
 - [Check a door](https://conciergeprotocol.org/check)
 - [Governance](GOVERNANCE.md), [Security](SECURITY.md), and [Changelog](CHANGELOG.md)
 
+## Try it from your assistant
 
+Assistants do not read `agent.txt` on their own yet. The CAP MCP server lets Claude, Cursor, VS Code, or any MCP host ask a front door today:
+
+```json
+{
+  "mcpServers": {
+    "cap": {
+      "command": "npx",
+      "args": ["-y", "@conciergeprotocol/mcp"],
+      "env": { "CAP_FROM": "agent:my-assistant" }
+    }
+  }
+}
+```
+
+Then ask your assistant about any site that publishes `agent.txt`. The [checker](https://conciergeprotocol.org/check) tells you whether a site has one. Code that calls doors directly uses `@conciergeprotocol/client`. Both are in [Call a door](callers.md).
 
 ## Two examples
 
@@ -37,7 +53,7 @@ More and more people send agents to websites to shop, book, and manage accounts 
 
 ## Why visiting agents use it
 
-Websites were built for people. Browsing one means rendering pages, getting past banners and bot blocks, and spending tokens on markup to find one fact. With CAP the visiting agent asks once:
+Browsing a site means rendering pages, getting past banners and bot blocks, and spending tokens on markup to find one fact. With CAP the visiting agent asks once:
 
 - One URL from `agent.txt`, instead of guessing which pages matter.
 - The company's own answer from its record, instead of an inference from a page.
@@ -46,7 +62,7 @@ Websites were built for people. Browsing one means rendering pages, getting past
 - An invited call, named by `CAP-From`, instead of a scrape that can be blocked.
 - A token the person grants for account questions, never a password.
 
-
+The reply is the company's own claim, not a neutral review. The visiting agent still decides what to tell the person. What it gets is the company's record instead of its own guess from a page.
 
 ## When to publish an agent
 
@@ -119,12 +135,12 @@ Set `PORT` when the host assigns one. Set `DATABASE_URL` to a Postgres connectio
 Point the company's file at that origin:
 
 ```text
+Protocol: CAP/1.0
 Name: Harbor Goods
 Chat: https://harborgoods.example/chat
 CAP: https://cap.harborgoods.example/cap/v1
+Spec: https://conciergeprotocol.org/cap.txt
 ```
-
-
 
 ## Contributing
 

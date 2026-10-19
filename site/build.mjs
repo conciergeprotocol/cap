@@ -189,7 +189,7 @@ const layout = ({ title, body, route }) => {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${pageTitle}</title>
-<meta name="description" content="The front door to your website, for every AI agent. Share results, not credentials.">
+<meta name="description" content="Concierge Agent Protocol (CAP): the front door to your website, for every AI agent. Share results, not credentials.">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/icon.png" type="image/png">
 <link rel="apple-touch-icon" href="/icon.png">

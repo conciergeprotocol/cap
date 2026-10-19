@@ -6,7 +6,7 @@ CAP lets an agent ask a company's agent a question and get the answer back. The 
 
 ## Front door
 
-A company publishes one text file at `https://{domain}/agent.txt`, next to `robots.txt`.
+A company publishes one text file at `https://{domain}/agent.txt`, next to `robots.txt`. It lives at the root rather than under `/.well-known/` so that any site owner can publish it the same way they publish `robots.txt`, on hosts that do not serve dot-directories. The `Protocol` line tells it apart from other files with the same name.
 
 ```text
 Protocol: CAP/1.0
