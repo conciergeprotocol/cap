@@ -17,6 +17,7 @@ The company publishes one text file, `agent.txt`. The visiting agent reads it, s
 - [Add login to your agent](owners.md)
 - [Reference server](reference/README.md)
 - [Store example](examples/store)
+- [Next.js example](examples/next)
 - [Governance](GOVERNANCE.md), [Security](SECURITY.md), and [Changelog](CHANGELOG.md)
 
 ## Two examples
