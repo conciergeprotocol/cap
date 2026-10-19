@@ -6,7 +6,7 @@ More and more people send agents to websites to shop, book, and manage accounts 
 
 **Without CAP.** Those agents scrape pages built for people, burn tokens on markup, and guess. Or they load an MCP server, an API, and a skill for every site until their configuration is bloated with tools.
 
-**With CAP.** Your website has a concierge. The visiting agent asks for what the person wants, and your concierge answers from your own catalog, docs, and records. One question, one verified answer.
+**With CAP.** Your website has a concierge. The visiting agent asks for what the person wants, and your concierge answers from your own catalog, docs, and records. Behind the door, it uses your internal tools: your MCP servers, APIs, and databases. The visiting agent never loads them. One question, one verified answer.
 
 **How it works.** You publish one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. Your tools, keys, and data stay on your servers.
 
