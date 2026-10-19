@@ -2,7 +2,7 @@
 
 **The front door to your website, for every AI agent.**
 
-More and more people are using agents that visit websites for them. CAP gives your company a concierge to greet those agents. The concierge is your agent, working for you at your front door: the visiting agent asks, your agent answers with your own tools, and nothing else leaves the building. Share results, not credentials.
+More and more people are using agents to visit websites for them. CAP gives your company a concierge to greet those agents. The concierge is your agent, working for you at your front door: the visiting agent asks, your agent answers with your own tools, and nothing else leaves the building. Share results, not credentials.
 
 The company publishes one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. No tools, MCP servers, or API keys change hands.
 
@@ -21,6 +21,8 @@ The company publishes one text file, `agent.txt`. The visiting agent reads it, s
 - [Check a door](https://conciergeprotocol.org/check)
 - [Governance](GOVERNANCE.md), [Security](SECURITY.md), and [Changelog](CHANGELOG.md)
 
+
+
 ## Two examples
 
 **Public.** "Find me running shoes in size 12, black sweatpants, and a black hoodie in my style." The person's agent finds `agent.txt`, sends the request with a short style brief, and the store's agent searches its own catalog. The reply is products, sizes in stock, prices, and links. Checkout stays on the store's site. A person on the store's chat page gets the same agent.
@@ -37,6 +39,8 @@ Websites were built for people. Browsing one means rendering pages, getting past
 - Follow-ups send only the new question.
 - An invited call, named by `CAP-From`, instead of a scrape that can be blocked.
 - A token the person grants for account questions, never a password.
+
+
 
 ## When to publish an agent
 
@@ -113,6 +117,8 @@ Name: Harbor Goods
 Chat: https://harborgoods.example/chat
 CAP: https://cap.harborgoods.example/cap/v1
 ```
+
+
 
 ## Contributing
 
