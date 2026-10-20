@@ -20,7 +20,8 @@ Version 1.0 becomes final when several independent owners serve it in production
 
 1. Open an issue that describes the problem before proposing wording.
 2. Open a pull request that changes `spec.md` and the reference server together. From `reference/`, `node check.mjs` must pass.
-3. A maintainer merges after at least one week of public review for any change to the wire format.
+3. Sign off each commit (`git commit -s`) under the [Developer Certificate of Origin](https://developercertificate.org).
+4. A maintainer merges after at least one week of public review for any change to the wire format.
 
 Editorial fixes, such as typos and clearer wording with the same meaning, can merge without the review period.
 
@@ -30,7 +31,12 @@ Maintainers review and merge pull requests and publish releases. They are listed
 
 Maintainers decide by rough consensus in the issue or pull request. When consensus is not reached, the maintainers decide and record the reason in the thread.
 
+## Stewardship
+
+Tony Spiro is the steward of CAP. He holds the copyright in the original specification and the CAP trademarks, and appoints maintainers. Maintainers do not acquire ownership of the name or the project by being added to the GitHub organization. See [TRADEMARKS.md](TRADEMARKS.md).
+
 ## Licenses
 
 - The specification text and documentation are licensed under [CC BY 4.0](LICENSE-SPEC).
 - The reference server, examples, and other code are licensed under [Apache 2.0](LICENSE).
+- The CAP name and logo are not covered by these licenses. See [TRADEMARKS.md](TRADEMARKS.md).
