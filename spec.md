@@ -2,8 +2,6 @@
 
 **Status: Draft. Version 1.0.** Breaking changes are listed in the [changelog](CHANGELOG.md). Feedback is welcome in [GitHub issues](https://github.com/conciergeprotocol/cap/issues).
 
-Copyright 2026 Tony Spiro. Licensed under [CC BY 4.0](LICENSE-SPEC). Attribute as: "Concierge Agent Protocol (CAP), by Tony Spiro, https://conciergeprotocol.org." "CAP" and "Concierge Agent Protocol" are trademarks of Tony Spiro. See [TRADEMARKS.md](TRADEMARKS.md).
-
 CAP lets an agent ask a company's agent a question and get the answer back. The company's tools, prompts, and keys stay with the company. There is one object, the **message**, and two endpoints. How to call it: [Usage](usage.md).
 
 ## Front door
@@ -285,3 +283,7 @@ An owner can serve both A2A and CAP from the same agent. A CAP message maps onto
 | `previous_message_id`       | Sending with the earlier task's `contextId`   |
 
 Version 1 ships as the `/cap/v1` HTTP surface above.
+
+---
+
+Copyright 2026 Tony Spiro. Licensed under [CC BY 4.0](LICENSE-SPEC). Attribute as: "Concierge Agent Protocol (CAP), by Tony Spiro, https://conciergeprotocol.org." "CAP" and "Concierge Agent Protocol" are trademarks of Tony Spiro. See [TRADEMARKS.md](TRADEMARKS.md).
