@@ -6,6 +6,15 @@ If your company already has user accounts, plan on an afternoon with the referen
 
 The visiting agent never gets your keys, your tools, or the person's password. It gets a token for one account, bound to its own `CAP-From`, and the replies your agent writes.
 
+<ol class="steps">
+<li><span class="n">1</span><strong>Find the door</strong><p>The visiting agent reads <code>agent.txt</code></p></li>
+<li><span class="n">2</span><strong>Ask</strong><p>It sends one message. Your agent answers from your own content.</p></li>
+<li><span class="n">3</span><strong>Log in</strong><p>An account question comes back as <code>login_required</code>, and the person approves on your page.</p></li>
+<li><span class="n">4</span><strong>Ask again</strong><p>The same agent sends its token. It can read that account, and change it only if the person allowed changes.</p></li>
+</ol>
+
+See it running: the [store example](examples/store) is a shop you click through, from a product question to a login to a cancel that waits for your OK. The [Next.js example](examples/next) is the same door as a route in an app, without the login pages. The [reference server](reference/README.md) is the login itself.
+
 ## What you build
 
 | Piece | What it does | Required |
