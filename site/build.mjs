@@ -86,6 +86,7 @@ const languages = {
 
 const render = (page) => {
   let codeId = 0
+  const headings = []
   const marked = new Marked({
     gfm: true,
     walkTokens: (token) => {
@@ -94,7 +95,9 @@ const render = (page) => {
     renderer: {
       heading({ tokens, depth }) {
         const html = this.parser.parseInline(tokens)
-        return `<h${depth} id="${slug(html)}">${html}</h${depth}>\n`
+        const id = slug(html)
+        if (depth === 2 || depth === 3) headings.push({ depth, id, text: html.replace(/<[^>]+>/g, '') })
+        return `<h${depth} id="${id}">${html}</h${depth}>\n`
       },
       code({ text, lang }) {
         const id = `code-${++codeId}`
@@ -106,7 +109,16 @@ const render = (page) => {
   })
   const markdown = readFileSync(join(root, page.src), 'utf8')
   const title = (markdown.match(/^#\s+(.+)$/m)?.[1] ?? 'Concierge Agent Protocol').replace(/[^\p{L}\p{N}\s().,:-]/gu, '').trim()
-  return { title, body: marked.parse(markdown) }
+  return { title, body: marked.parse(markdown), headings }
+}
+
+const pageToc = (headings) => {
+  if (headings.filter((heading) => heading.depth === 2).length < 2) return ''
+  const links = headings
+    .map((heading) => `<a href="#${heading.id}"${heading.depth === 3 ? ' class="toc-sub"' : ''}>${heading.text}</a>`)
+    .join('')
+  const up = icon('<path d="M12 19V5M5 12l7-7 7 7"/>')
+  return `<nav class="toc" aria-label="On this page"><p>On this page</p><div class="toc-links">${links}</div><a class="toc-top" href="#top">${up}Back to top</a></nav>`
 }
 
 const icon = (paths) =>
@@ -148,7 +160,32 @@ var pre=document.getElementById(button.dataset.copy),text=pre.textContent,label=
 function legacy(){var area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();var ok=false;try{ok=document.execCommand('copy')}catch(e){}area.remove();return ok}
 function done(ok){if(!ok){pre.closest('details').open=true;getSelection().selectAllChildren(pre)}label.textContent=ok?'Copied. Paste it into your AI assistant':'Copy the selected prompt below';setTimeout(function(){label.textContent=idle},2500)}
 if(navigator.clipboard){navigator.clipboard.writeText(text).then(function(){done(true)},function(){done(legacy())})}else{done(legacy())}
-})})
+})});
+var headerEl=document.querySelector('header');
+function pinHeader(){if(headerEl)document.documentElement.style.setProperty('--header-h',headerEl.offsetHeight+'px')}
+pinHeader();
+window.addEventListener('resize',pinHeader);
+var toc=document.querySelector('.toc');
+if(toc){
+var scroller=toc.querySelector('.toc-links')||toc;
+var back=toc.querySelector('.toc-top');
+var links=Array.prototype.slice.call(scroller.querySelectorAll('a'));
+var heads=links.map(function(a){return document.getElementById(a.getAttribute('href').slice(1))}).filter(Boolean);
+var currentId='';
+if(back) back.addEventListener('click',function(event){event.preventDefault();if(location.hash)history.pushState(null,'',location.pathname+location.search);window.scrollTo(0,0)});
+function markToc(){
+var line=headerEl?headerEl.offsetHeight+48:113,current=null;
+heads.forEach(function(head){if(head.getBoundingClientRect().top<=line)current=head});
+links.forEach(function(a){a.removeAttribute('aria-current')});
+if(!current)return;
+var on=links.filter(function(a){return a.getAttribute('href')==='#'+current.id})[0];
+if(!on)return;
+on.setAttribute('aria-current','true');
+if(current.id!==currentId){currentId=current.id;var top=on.offsetTop,bottom=top+on.offsetHeight,view=scroller.clientHeight;if(top<scroller.scrollTop)scroller.scrollTop=top;else if(bottom>scroller.scrollTop+view)scroller.scrollTop=bottom-view}
+}
+document.addEventListener('scroll',markToc,{passive:true});
+markToc();
+}
 })()`
 
 const implementPrompt = readFileSync(join(root, 'site', 'public', 'implement.txt'), 'utf8').trim()
@@ -177,7 +214,7 @@ const withPrompt = (body, route) => {
   return at === -1 ? body + promptBlock : body.slice(0, at) + promptBlock + body.slice(at)
 }
 
-const layout = ({ title, body, route }) => {
+const layout = ({ title, body, route, toc = '' }) => {
   const nav = pages
     .filter((page) => page.nav)
     .map((page) => `<a href="${page.route}"${page.route === route ? ' aria-current="page"' : ''}>${page.nav}</a>`)
@@ -219,6 +256,9 @@ const layout = ({ title, body, route }) => {
 <a class="github" href="${repo}" aria-label="GitHub"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.56 9.56 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg></a>
 </div>
 </header>
+<div class="frame">
+${toc}
+<div class="column">
 <main>
 ${withPrompt(body, route)}
 </main>
@@ -229,6 +269,8 @@ ${withPrompt(body, route)}
 ${themeControl}
 </div>
 </footer>
+</div>
+</div>
 <script>${pageScript}</script>
 </body>
 </html>
@@ -245,10 +287,10 @@ mkdirSync(out, { recursive: true })
 cpSync(join(root, 'site', 'public'), out, { recursive: true })
 
 for (const page of pages) {
-  const { title, body } = render(page)
+  const { title, body, headings } = render(page)
   const file = join(out, page.file)
   mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, layout({ title, body, route: page.route }))
+  writeFileSync(file, layout({ title, body, route: page.route, toc: pageToc(headings) }))
 }
 
 const checkFile = join(out, 'check.html')

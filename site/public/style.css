@@ -1,4 +1,5 @@
 :root {
+  --header-h: 65px;
   --bg: #fff;
   --fg: #111;
   --muted: #666;
@@ -25,7 +26,7 @@
 
 /* Keeps anchored headings clear of the sticky header. */
 html {
-  scroll-padding-top: 96px;
+  scroll-padding-top: calc(var(--header-h) + 16px);
 }
 
 body {
@@ -35,12 +36,28 @@ body {
   font: 16px/1.65 -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
-header,
-main,
-footer {
+header {
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.frame {
   max-width: 820px;
   margin: 0 auto;
   padding: 0 20px;
+}
+
+.frame:has(.toc) {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 820px);
+  column-gap: 48px;
+  justify-content: center;
+  max-width: 1140px;
+  padding: 0 24px;
+}
+
+.column {
+  min-width: 0;
 }
 
 header {
@@ -52,7 +69,7 @@ header {
   position: sticky;
   top: 0;
   z-index: 10;
-  max-width: 1040px;
+  max-width: 1140px;
   padding-top: 14px;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--line);
@@ -76,21 +93,21 @@ header {
   font-weight: 500;
 }
 
-nav {
+header nav {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 16px;
   font-size: 14px;
 }
 
-nav a {
+header nav a {
   color: var(--muted);
   text-decoration: none;
   white-space: nowrap;
 }
 
-nav a:hover,
-nav a[aria-current='page'] {
+header nav a:hover,
+header nav a[aria-current='page'] {
   color: var(--fg);
 }
 
@@ -162,13 +179,13 @@ header.open .menu svg:last-child {
     overflow-y: auto;
   }
 
-  nav {
+  header nav {
     flex-direction: column;
     gap: 0;
     font-size: 16px;
   }
 
-  nav a {
+  header nav a {
     padding: 10px 0;
     border-bottom: 1px solid var(--line);
   }
@@ -315,9 +332,88 @@ header.open .menu svg:last-child {
   white-space: pre-wrap;
 }
 
+.toc {
+  position: sticky;
+  top: var(--header-h);
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - var(--header-h) - 24px);
+  padding-top: 28px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.toc-links {
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.toc p {
+  margin: 0 0 8px;
+  padding-left: 12px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.toc a {
+  display: block;
+  padding: 5px 8px 5px 12px;
+  border-left: 2px solid var(--line);
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.toc a.toc-sub {
+  padding-left: 24px;
+  font-size: 12px;
+}
+
+.toc a:hover,
+.toc a[aria-current='true'] {
+  color: var(--fg);
+}
+
+.toc a[aria-current='true'] {
+  border-left-color: var(--fg);
+  font-weight: 600;
+}
+
+.toc a.toc-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  border-left-color: transparent;
+  font-size: 12px;
+}
+
+.toc a.toc-top svg {
+  width: 14px;
+  height: 14px;
+}
+
 main {
-  padding-top: 24px;
+  padding-top: 28px;
   padding-bottom: 48px;
+}
+
+@media (max-width: 1099px) {
+  .toc {
+    display: none;
+  }
+
+  .frame:has(.toc) {
+    display: block;
+    max-width: 820px;
+    padding: 0 20px;
+  }
 }
 
 a {
@@ -325,6 +421,7 @@ a {
 }
 
 h1 {
+  margin-top: 0;
   font-size: 2rem;
   line-height: 1.25;
 }

@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "build": "node site/build.mjs",
+    "dev": "node site/serve.mjs",
     "test": "node --test site/check.test.mjs"
   },
   "devDependencies": {
