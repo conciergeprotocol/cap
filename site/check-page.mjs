@@ -5,7 +5,7 @@ export function checkPageBody() {
 <p>Enter a domain. This page reads <code>agent.txt</code>, sends one public question, and reports what passed. The question is "${QUESTION}" from <code>${CALLER}</code>. Nothing is stored. The address keeps the domain, so the same check can be opened again.</p>
 <form class="check-form">
 <label for="domain">Domain</label>
-<input id="domain" name="domain" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="cosmicjs.com" required>
+<input id="domain" name="domain" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="example.com" required>
 <button type="submit">Check</button>
 </form>
 <p class="check-status" role="status"></p>

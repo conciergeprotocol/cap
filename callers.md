@@ -15,7 +15,7 @@ import { createClient } from '@conciergeprotocol/client'
 
 const cap = createClient({ from: 'agent:my-assistant' })
 
-const answer = await cap.ask('cosmicjs.com', 'Do you have a free plan?')
+const answer = await cap.ask('example.com', 'Do you have a free plan?')
 console.log(answer.reply)
 ```
 
@@ -24,8 +24,8 @@ console.log(answer.reply)
 A follow-up sends only the new question. The company keeps the earlier turns.
 
 ```js
-const thread = cap.thread('cosmicjs.com')
-await thread.ask('What is Cosmic?')
+const thread = cap.thread('example.com')
+await thread.ask('What do you sell?')
 const price = await thread.ask('How much is the cheapest paid plan?')
 ```
 
