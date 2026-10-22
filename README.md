@@ -64,6 +64,16 @@ Browsing a site means rendering pages, getting past banners and bot blocks, and 
 
 The reply is the company's own claim, not a neutral review. The visiting agent still decides what to tell the person. What it gets is the company's record instead of its own guess from a page.
 
+## How CAP fits
+
+| Protocol | For                                                                          |
+| -------- | ---------------------------------------------------------------------------- |
+| MCP      | An agent reaching its own tools                                              |
+| A2A      | Agents that integrate deeply with each other: agent cards, tasks, streaming  |
+| CAP      | Any agent asking a company's agent from its domain: one file, two endpoints  |
+
+CAP works alongside these. A company can serve CAP and A2A from the same agent, since a CAP message maps onto an A2A task. See [Relationship to other protocols](spec.md#relationship-to-other-protocols).
+
 ## When to publish an agent
 
 Publish one when it knows something a visitor's agent cannot read for itself:
