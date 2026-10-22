@@ -50,7 +50,7 @@ export function sameSite(a, b) {
 
 export function parseHost(input) {
   const raw = String(input ?? '').trim()
-  if (!raw || raw.length > 300) return fail('Enter a domain, such as cosmicjs.com.')
+  if (!raw || raw.length > 300) return fail('Enter a domain, such as example.com.')
   if (/^http:\/\//i.test(raw)) return fail('Use https. The check reads https://{domain}/agent.txt.')
   const withScheme = /^[a-z][a-z0-9+.-]*:\/\//i.test(raw) ? raw : `https://${raw}`
   if (!/^https:\/\//i.test(withScheme)) return fail('Use https. The check reads https://{domain}/agent.txt.')
@@ -58,15 +58,15 @@ export function parseHost(input) {
   try {
     url = new URL(withScheme)
   } catch {
-    return fail('Enter a domain, such as cosmicjs.com.')
+    return fail('Enter a domain, such as example.com.')
   }
-  if (url.username || url.password) return fail('Enter a domain, such as cosmicjs.com.')
+  if (url.username || url.password) return fail('Enter a domain, such as example.com.')
   if (url.port && url.port !== '443') return fail('The check uses port 443 only.')
   const path = url.pathname.replace(/\/+$/, '')
   if (path && path !== '/agent.txt') return fail('Enter the domain only. The check reads /agent.txt itself.')
   if (url.search || url.hash) return fail('Enter the domain only.')
   const hostname = url.hostname.toLowerCase().replace(/\.$/, '')
-  if (!hostname.includes('.') || hostname.length > 253) return fail('Enter a domain, such as cosmicjs.com.')
+  if (!hostname.includes('.') || hostname.length > 253) return fail('Enter a domain, such as example.com.')
   if (isIP(hostname)) return fail('Enter a hostname, not an IP address.')
   if (/(^|\.)(localhost|local|internal|home\.arpa)$/.test(hostname)) return fail('That host is not a public site.')
   return { ok: true, hostname }

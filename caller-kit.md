@@ -11,7 +11,7 @@
 import { createClient } from '@conciergeprotocol/client'
 
 const cap = createClient({ from: 'agent:my-assistant' })
-const answer = await cap.ask('cosmicjs.com', 'Do you have a free plan?')
+const answer = await cap.ask('example.com', 'Do you have a free plan?')
 console.log(answer.reply)
 ```
 
@@ -54,7 +54,7 @@ type Door = {
 
 Rules, from the spec's front door section:
 
-- `https` only. A bare domain is tried first, and a redirect is followed only within the same site. `cosmicjs.com` to `www.cosmicjs.com` is allowed. A redirect to another domain is treated as no door.
+- `https` only. A bare domain is tried first, and a redirect is followed only within the same site. `example.com` to `www.example.com` is allowed. A redirect to another domain is treated as no door.
 - An HTML body, a status other than `200`, or a file without a `CAP` line is no door.
 - Lines are `Key: value`. Keys are case-insensitive. Unknown keys are kept in `door.extra` and otherwise ignored.
 - A file larger than 16 KB is rejected.
@@ -103,8 +103,8 @@ One read of a message. For resuming a message that was still `working`.
 Keeps the newest message id so follow-ups are one line:
 
 ```js
-const thread = cap.thread('cosmicjs.com')
-await thread.ask('What is Cosmic?')
+const thread = cap.thread('example.com')
+await thread.ask('What do you sell?')
 await thread.ask('How much is the cheapest paid plan?')
 ```
 
@@ -175,13 +175,13 @@ When there is no door, `cap_ask` says so plainly, so the model falls back to its
 
 - Unit tests with a stubbed `fetch` for each rule above: redirects, HTML bodies, missing `CAP` lines, `202` polling with `Retry-After`, `maxWaitMs`, `409` restarts, and token deletion on `401`.
 - Integration tests against the reference server and the store example in `conciergeprotocol/cap`, started from the test run.
-- One live smoke test against `cosmicjs.com`, run by hand before a release.
+- One live smoke test against a real front door, run by hand before a release.
 
 ## Milestones
 
 1. Client: discover, ask, polling, threads, errors. Published as `0.1.0`.
 2. MCP server on the client. Setup snippets for Claude Desktop, Cursor, and VS Code. Listed in the MCP Registry.
-3. A 60-second demo: one agent asks Cosmic and a design partner in the same conversation.
+3. A 60-second demo: one agent asks two companies in the same conversation.
 4. Login flow for account questions in the client and the MCP server.
 5. A Python client with the same surface.
 

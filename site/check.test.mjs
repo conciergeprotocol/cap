@@ -4,16 +4,16 @@ import { checkDoor, isPublicAddress, parseHost, sameSite } from './check.mjs'
 import { checkPageBody } from './check-page.mjs'
 
 test('parseHost accepts a domain and rejects everything else', () => {
-  assert.equal(parseHost('CosmicJS.com').hostname, 'cosmicjs.com')
-  assert.equal(parseHost('https://www.cosmicjs.com/agent.txt').hostname, 'www.cosmicjs.com')
-  assert.equal(parseHost('http://cosmicjs.com').ok, false)
+  assert.equal(parseHost('Example.com').hostname, 'example.com')
+  assert.equal(parseHost('https://www.example.com/agent.txt').hostname, 'www.example.com')
+  assert.equal(parseHost('http://example.com').ok, false)
   assert.equal(parseHost('127.0.0.1').ok, false)
   assert.equal(parseHost('localhost').ok, false)
-  assert.equal(parseHost('https://cosmicjs.com:8443').ok, false)
-  assert.equal(parseHost('https://user:pass@cosmicjs.com').ok, false)
-  assert.equal(parseHost('https://cosmicjs.com/pricing').ok, false)
-  assert.equal(sameSite('www.cosmicjs.com', 'cosmicjs.com'), true)
-  assert.equal(sameSite('cap.cosmicjs.com', 'cosmicjs.com'), false)
+  assert.equal(parseHost('https://example.com:8443').ok, false)
+  assert.equal(parseHost('https://user:pass@example.com').ok, false)
+  assert.equal(parseHost('https://example.com/pricing').ok, false)
+  assert.equal(sameSite('www.example.com', 'example.com'), true)
+  assert.equal(sameSite('cap.example.com', 'example.com'), false)
 })
 
 test('private and documentation addresses are rejected', () => {
