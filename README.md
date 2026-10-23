@@ -8,7 +8,7 @@
 
 More and more people send agents to websites to learn about a company and its policies, shop, book, and manage accounts.
 
-**Without CAP.** Those agents scrape pages built for people, burn tokens on markup, and guess. Or they load an MCP server, an API, and a skill for every site until their configuration is bloated with tools.
+**Without CAP.** Those agents read pages built for people. One answer can take a dozen page loads and a context window full of markup. Or they load an MCP server, an API, and a skill for every site until their configuration is bloated with tools.
 
 **With CAP.** Your website has a concierge. The visiting agent asks for what the person wants, and your concierge answers from your own catalog, docs, and records. Behind the door, it uses your internal tools: your MCP servers, APIs, and databases. The visiting agent never loads them. One question, one answer from the source.
 
@@ -61,12 +61,12 @@ Browsing a site means rendering pages, getting past banners and bot blocks, and 
 
 - One URL from `agent.txt`, instead of guessing which pages matter.
 - The company's own answer from its record, instead of an inference from a page.
-- The company does the search and pays for it. The caller gets a short reply.
+- The company does the search and pays for it. The caller gets a short reply. In the [CAP benchmark](benchmark/README.md), the same answers cost about a fifth of fetching the site and a seventh of browsing it, counting both sides.
 - Follow-ups send only the new question.
 - An invited call, named by `CAP-From`, instead of a scrape that can be blocked.
 - A token the person grants for account questions, never a password.
 
-The reply is the company's own claim, not a neutral review. The visiting agent still decides what to tell the person. What it gets is the company's record instead of its own guess from a page.
+The reply is the company's own claim, not a neutral review. The visiting agent still decides what to tell the person. A reply is only as good as the company's agent, which has to say "not available" when its records find nothing.
 
 ## How CAP fits
 

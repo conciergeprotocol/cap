@@ -44,9 +44,10 @@ When an answer takes a while, the reply is `202` with the message id and `Retry-
 Websites were built for people. An agent that browses one renders JavaScript, clicks past cookie banners, runs into bot blocks, and reads pages of markup to find one fact. With CAP it asks once and gets the company's own answer.
 
 - **It knows where to go.** One file at the domain root gives one URL. No guessing which pages matter.
-- **It gets the record, not the page.** The company's agent answers from the catalog, the current price, the right store's hours. Not from whichever page ranked first.
-- **It saves its tokens.** The company's agent does the search and pays for it. The visiting agent gets back a short reply instead of a context window full of HTML. In the [CAP benchmark](../benchmark/README.md), the same answers cost about a fifth of fetching the site and a seventh of browsing it.
-- **The answer is attributable.** The agent can tell its person "the store says." While a message is `working` there is no reply, so it has nothing to make up.
+- **It gets the record, not the page.** The company's agent answers from the catalog, the current price, the right store's hours. The visiting agent does not have to find the page that holds them.
+- **It saves its tokens.** The company's agent does the search and pays for it. The visiting agent gets back a short reply instead of a context window full of HTML. In the [CAP benchmark](../benchmark/README.md), the same answers cost about a fifth of fetching the site and a seventh of browsing it. The gap is widest on catalog searches and smallest on one fact from one clean page.
+- **A smaller model is enough.** The search happens on the company's side. In the benchmark, Claude Haiku 4.5 answered every question through CAP for under 2 cents each.
+- **The answer is attributable.** The agent can tell its person "the store says." While a message is `working` there is no reply, so the agent waits instead of filling the gap. The answer is only as good as the company's agent, which has to say "not available" when its records find nothing.
 - **Follow-ups are cheap.** It sends only the new question. The company keeps the earlier turns.
 - **It is invited.** `CAP-From` names the caller, and the company published the door for it. A scraper can be blocked. A CAP call is welcome.
 - **It never holds a password.** For the account, the person logs in and the agent sends a token. It does not drive a logged-in browser.
