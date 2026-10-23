@@ -2,7 +2,9 @@
 
 **The front door to your website, for every AI agent.**
 
-<img src="site/public/mascot.png" alt="A capybara wearing a CAP ball cap" width="180">
+<p align="center">
+  <img src="site/public/mascot-capybara.png" alt="A capybara wearing a CAP ball cap" width="180">
+</p>
 
 More and more people send agents to websites to learn about a company and its policies, shop, book, and manage accounts.
 

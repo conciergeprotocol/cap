@@ -214,13 +214,13 @@ const withMascot = (body, route) => {
   if (route !== '/') return body
   const stripped = body
     .replace(/(<h1[^>]*>)\u{1F9E2}\uFE0F?\s*/u, '$1')
-    .replace(/<p>\s*<img[^>]*mascot\.png[^>]*>\s*<\/p>\n?/, '')
-    .replace(/<img[^>]*mascot\.png[^>]*>\n?/, '')
+    .replace(/<p[^>]*>\s*<img[^>]*mascot[^>]*>\s*<\/p>\n?/, '')
+    .replace(/<img[^>]*mascot[^>]*>\n?/, '')
   const start = stripped.indexOf('<h1')
   const end = stripped.indexOf('</p>')
   if (start === -1 || end === -1 || end < start) return stripped
   const close = end + '</p>'.length
-  return `${stripped.slice(0, start)}<div class="intro"><img class="mascot" src="/mascot.png" width="444" height="613" alt=""><div>${stripped.slice(start, close)}</div></div>${stripped.slice(close)}`
+  return `${stripped.slice(0, start)}<div class="intro"><img class="mascot" src="/mascot-capybara.png" width="444" height="460" alt=""><div>${stripped.slice(start, close)}</div></div>${stripped.slice(close)}`
 }
 
 const withPrompt = (body, route) => {
