@@ -105,13 +105,15 @@ Spec: https://conciergeprotocol.org/cap.txt
 
 The chat page and the CAP URL can live on another host. The company's domain is what a caller trusts. Only the `CAP` line changes when the server moves.
 
-Some hosts will not serve a file at the site root. Redirect `/agent.txt` to the file, on any https URL, or add one tag to the homepage `<head>`:
+Point at the door from the homepage, including when `/agent.txt` is already a valid file. Agents that are reading the page follow the link.
 
 ```html
-<link rel="agent" href="https://cdn.example/files/agent.txt">
+<link rel="agent" href="https://harborgoods.example/agent.txt">
 ```
 
-A `Link` header on the homepage means the same thing: `Link: <https://cdn.example/files/agent.txt>; rel="agent"`. A caller uses `/agent.txt` when that file is a valid door, and reads the homepage only when it is not. The spec has the exact order.
+A `Link` header on the homepage means the same thing: `Link: <https://harborgoods.example/agent.txt>; rel="agent"`. Add one line to `llms.txt` that points at `/agent.txt`. A site may list that file in `/.well-known/ai-catalog.json` with `type` `text/plain`.
+
+CAP callers still request `/agent.txt` first and skip the homepage when that file is a valid door. Some hosts will not serve a file at the site root. Redirect `/agent.txt` to the file, on any https URL. When that request is not a door, a caller follows the homepage link. The spec has the exact order.
 
 ## The wire
 

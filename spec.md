@@ -32,6 +32,12 @@ A caller looks for the file in this order and stops at the first valid one:
 
 The caller fetches that URL once and does not follow a pointer from the target. It treats an HTML body, a redirect to a URL that is not https, or a file without a `CAP` line as no front door. When `/agent.txt` is a valid front door, the homepage is ignored. The door belongs to the domain the caller asked, not to the host that served the file.
 
+An owner also points at the door from the pages an agent already reads. CAP callers still try `/agent.txt` first. The link is how every other agent finds the door, and it remains the fallback when the root file is missing.
+
+- On the homepage, including when `/agent.txt` is a valid door: `<link rel="agent" href="https://{domain}/agent.txt">` in `<head>`, or `Link: <https://{domain}/agent.txt>; rel="agent"` on that response.
+- In `llms.txt`, one line that points at `/agent.txt` and says to ask there.
+- Optionally, one entry in `/.well-known/ai-catalog.json` whose `url` is the `agent.txt` file and whose `type` is `text/plain`. A site that also publishes `/.well-known/ard.json` lists the same entry there. The entry is a link to the file. CAP has no catalog type of its own.
+
 ## Message
 
 | Field         | Notes                                                                    |

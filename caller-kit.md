@@ -192,7 +192,7 @@ Settled in the spec:
 
 - **OAuth client registration.** The client id is a URL to the agent's own client document. There is no registration step.
 - **Binding a token to `CAP-From`.** The client document names its `cap_from`, and the owner binds the token to it. A token used with another `CAP-From` is `403`.
-- **Finding the file.** `/agent.txt` may redirect to any https URL. When that file is missing, a caller follows a homepage `rel="agent"` link. `example.com` to `www.example.com` is followed.
+- **Finding the file.** `/agent.txt` may redirect to any https URL. When that file is missing, a caller follows a homepage `rel="agent"` link. `example.com` to `www.example.com` is followed. Owners still publish that link when `/agent.txt` is valid. It is for agents that are reading the page. A caller that found the root file does not fetch the homepage.
 
 Still open:
 

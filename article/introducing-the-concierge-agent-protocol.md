@@ -22,7 +22,7 @@ CAP: https://harborgoods.example/cap/v1
 OAuth: https://harborgoods.example/oauth
 ```
 
-A host that cannot put a file at the root can redirect `/agent.txt`, or add `<link rel="agent" href="...">` to the homepage. Callers try the root file first.
+Add `<link rel="agent" href="https://{domain}/agent.txt">` to the homepage, including when the root file is already there. Agents that are reading the page follow it. A host that cannot put a file at the root can redirect `/agent.txt`. Callers try the root file first.
 
 The visiting agent sends the question, with a short brief of what it knows about the person:
 

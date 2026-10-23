@@ -2,6 +2,14 @@
 
 Breaking changes to the draft are listed here with what an owner or a caller has to change.
 
+## 1.0 Draft, October 23, 2026, link the door from pages agents read
+
+Nothing breaks. Callers still try `/agent.txt` first and ignore the homepage when that file is a valid door.
+
+- Owners should add `<link rel="agent" href="https://{domain}/agent.txt">` on the homepage even when the root file is valid. The same `Link` header means the same thing. Agents that are reading the page find the door there.
+- Owners should add one line to `llms.txt` that points at `/agent.txt` and says to ask there.
+- Owners may list the file in `/.well-known/ai-catalog.json` with `type` `text/plain`. A site that publishes `/.well-known/ard.json` lists the same entry there.
+
 ## 1.0 Draft, October 23, 2026, finding the file
 
 A host that cannot serve a file at the root can still publish a door. Nothing breaks for a site that already serves `/agent.txt`.
