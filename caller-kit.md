@@ -48,14 +48,15 @@ type Door = {
   cap: string              // base URL for /messages
   oauth: string | null
   spec: string | null
-  origin: string           // the domain the file came from
+  origin: string           // the company domain, after a same-site redirect such as www
+  source?: 'redirect' | 'link-header' | 'link-tag'
 }
 ```
 
 Rules, from the spec's front door section:
 
-- `https` only. A bare domain is tried first, and a redirect is followed only within the same site. `example.com` to `www.example.com` is allowed. A redirect to another domain is treated as no door.
-- An HTML body, a status other than `200`, or a file without a `CAP` line is no door.
+- `https` only. Fetch `https://{domain}/agent.txt` first. Follow a redirect to any https URL. The company's domain is vouching for that target. When the file is missing, an HTML page, or has no `CAP` line, read the homepage and follow `Link: <url>; rel="agent"` or `<link rel="agent" href="url">` in the head. Fetch that URL once. Do not follow a pointer from it. A redirect of the homepage stays on the same site.
+- An HTML body, a status other than `200`, or a file without a `CAP` line is no door. A valid `/agent.txt` wins over a homepage link.
 - Lines are `Key: value`. Keys are case-insensitive. Unknown keys are kept in `door.extra` and otherwise ignored.
 - A file larger than 16 KB is rejected.
 - Found doors are cached for the response's `Cache-Control` max-age, or one hour. A missing door is cached for ten minutes, so an agent asking many questions does not refetch.
@@ -191,7 +192,7 @@ Settled in the spec:
 
 - **OAuth client registration.** The client id is a URL to the agent's own client document. There is no registration step.
 - **Binding a token to `CAP-From`.** The client document names its `cap_from`, and the owner binds the token to it. A token used with another `CAP-From` is `403`.
-- **Same-site redirects.** `example.com` to `www.example.com` is followed.
+- **Finding the file.** `/agent.txt` may redirect to any https URL. When that file is missing, a caller follows a homepage `rel="agent"` link. `example.com` to `www.example.com` is followed.
 
 Still open:
 

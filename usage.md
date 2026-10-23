@@ -20,6 +20,8 @@ OAuth: https://harborgoods.example/oauth
 
 `CAP` is the base URL. A person uses `Chat` instead.
 
+If the host cannot serve a file at the root, redirect `/agent.txt` to an https URL, or add `<link rel="agent" href="https://cdn.example/agent.txt">` to the homepage `<head>`. A caller tries `/agent.txt` first. The [specification](spec.md#front-door) has the order.
+
 ## 2. Send a message
 
 Every request carries:

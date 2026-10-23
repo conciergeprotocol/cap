@@ -6,6 +6,12 @@ Full spec: https://conciergeprotocol.org/spec
 Find the file
 GET https://{domain}/agent.txt
 The first line is Protocol: CAP/1.0. Use the file only if it has a CAP line.
+A redirect from /agent.txt may go to any https URL. The domain is vouching for that target.
+If /agent.txt is missing, an HTML page, or has no CAP line, read the homepage.
+Follow Link: <url>; rel="agent", or <link rel="agent" href="url"> in the head.
+Fetch that URL once. Do not follow a pointer from it.
+If /agent.txt is a valid door, ignore the homepage.
+The door belongs to the domain you asked, not the host that served the file.
 
 Every request
 CAP-Version: 1.0

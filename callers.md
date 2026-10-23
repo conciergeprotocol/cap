@@ -57,7 +57,7 @@ npm install @conciergeprotocol/mcp
 
 | Tool | What it does |
 | --- | --- |
-| `cap_discover` | Reads `agent.txt` and reports whether the domain has a front door. |
+| `cap_discover` | Reads `agent.txt`, or the homepage link to it, and reports whether the domain has a front door. `found` is `agent.txt`, `redirect`, `link-header`, or `link-tag`. |
 | `cap_ask` | Sends one question and waits up to 60 seconds. |
 | `cap_check` | Reads a message that was still `working`. |
 

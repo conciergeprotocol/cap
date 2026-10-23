@@ -21,9 +21,16 @@ Spec: https://conciergeprotocol.org/cap.txt
 
 One domain has one agent. A person uses the chat page. An agent fetches the file. Both reach the same agent and get the same answers.
 
-The chat page and the CAP URL may be hosted for the company. The company's own domain still serves `agent.txt`.
+The chat page and the CAP URL may be hosted for the company. The company's domain is what a caller trusts. The file itself may be hosted elsewhere when that domain points at it.
 
-A caller fetches `/agent.txt`. It treats a redirect off the company's domain, an HTML body, or a file without a `CAP` line as no front door. A redirect within the same site, such as `example.com` to `www.example.com`, is followed.
+A caller looks for the file in this order and stops at the first valid one:
+
+1. `GET https://{domain}/agent.txt`. A redirect is followed, including one to another https host. The company's domain is vouching for the target by redirecting to it. A redirect within the same site, such as `example.com` to `www.example.com`, is followed too.
+2. When that request is not a front door (a missing file, an HTML page, or a file with no `CAP` line), the caller reads the homepage, `GET https://{domain}/`. A redirect of the homepage is followed only within the same site. The caller reads at most the first 256 KB, and only through `</head>`. When `</head>` is missing, it stops at `<body>`. It takes the first of these:
+   - a `Link` header: `Link: <https://cdn.example/agent.txt>; rel="agent"`
+   - a tag in the head: `<link rel="agent" href="https://cdn.example/agent.txt">`
+
+The caller fetches that URL once and does not follow a pointer from the target. It treats an HTML body, a redirect to a URL that is not https, or a file without a `CAP` line as no front door. When `/agent.txt` is a valid front door, the homepage is ignored. The door belongs to the domain the caller asked, not to the host that served the file.
 
 ## Message
 

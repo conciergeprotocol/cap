@@ -103,7 +103,15 @@ Spec: https://conciergeprotocol.org/cap.txt
 
 `Protocol` comes first and names the format. `Name` is the public agent. `Chat` is the page a person opens. `CAP` is the base URL for `/cap/v1`. `OAuth` is the login server for account questions. Leave it off when the agent answers only public questions. `Spec` points at the hosted caller card. Use it as written rather than hosting your own copy.
 
-The chat page and the CAP URL can live on another host. The company's domain still serves this file. Only the `CAP` line changes when the server moves.
+The chat page and the CAP URL can live on another host. The company's domain is what a caller trusts. Only the `CAP` line changes when the server moves.
+
+Some hosts will not serve a file at the site root. Redirect `/agent.txt` to the file, on any https URL, or add one tag to the homepage `<head>`:
+
+```html
+<link rel="agent" href="https://cdn.example/files/agent.txt">
+```
+
+A `Link` header on the homepage means the same thing: `Link: <https://cdn.example/files/agent.txt>; rel="agent"`. A caller uses `/agent.txt` when that file is a valid door, and reads the homepage only when it is not. The spec has the exact order.
 
 ## The wire
 

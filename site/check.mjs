@@ -7,6 +7,7 @@ export const CALLER = 'agent:cap-check'
 const OTHER = 'agent:cap-check-other'
 const BUDGET_MS = 25_000
 const CARD_MAX = 16_384
+const PAGE_MAX = 256 * 1024
 const BODY_MAX = 65_536
 const ID = /^msg_[A-Za-z0-9_-]{8,64}$/
 
@@ -72,7 +73,7 @@ export function parseHost(input) {
   return { ok: true, hostname }
 }
 
-/** Read agent.txt, ask one public question, and confirm the reply is private to the caller. */
+/** Read agent.txt, or the homepage link to it, ask one public question, and confirm the reply is private to the caller. */
 export async function checkDoor(input, deps = {}) {
   const resolve = deps.resolve || resolvePublic
   const request = deps.request || pinnedRequest
@@ -122,49 +123,180 @@ export async function resolvePublic(hostname) {
 }
 
 async function readCard(hostname, addresses, resolve, request, deadline) {
-  let host = hostname
+  const direct = await fetchDoorFile(`https://${hostname}/agent.txt`, addresses, hostname, resolve, request, deadline)
+  if (direct.ok || !direct.absent) return direct
+  const pointer = await homepagePointer(hostname, addresses, resolve, request, deadline)
+  if (!pointer.ok) return pointer.detail ? pointer : direct
+  const file = await fetchDoorFile(pointer.url, pointer.addresses, hostname, resolve, request, deadline, { pointed: pointer.via })
+  if (!file.ok) return file
+  return { ...file, detail: `${file.detail} Found from the homepage ${pointer.via}.` }
+}
+
+async function fetchDoorFile(url, addresses, entered, resolve, request, deadline, options = {}) {
+  let current = url
   let ips = addresses
-  let path = '/agent.txt'
   for (let hop = 0; hop < 4; hop++) {
-    const res = await request({ url: `https://${host}${path}`, method: 'GET', addresses: ips, timeoutMs: Math.min(8_000, left(deadline)) })
+    const res = await request({
+      url: current,
+      method: 'GET',
+      addresses: ips,
+      timeoutMs: Math.min(8_000, left(deadline)),
+      maxBytes: CARD_MAX,
+    })
     if (!res.ok) return fail(res.detail)
     if (res.status >= 300 && res.status < 400) {
-      const next = redirect(res, `https://${host}${path}`, hostname)
+      const next = fileRedirect(res, current)
       if (!next.ok) return next
       const again = await resolve(next.host)
       if (!again.ok) return again
-      host = next.host
+      current = next.href
       ips = again.addresses
-      path = '/agent.txt'
       continue
     }
-    if (res.status !== 200) return fail(`GET /agent.txt returned ${res.status}. Publish the text file at the site root.`)
-    if (/text\/html/i.test(res.headers['content-type'] || '')) return fail('agent.txt returned a web page. It has to be the text file.')
-    return parseCard(res.body, hostname, host, ips, resolve)
+    if (res.status !== 200) {
+      const detail = options.pointed
+        ? `The homepage points at ${current}, which returned ${res.status}.`
+        : `GET /agent.txt returned ${res.status}. Publish the text file at the site root, or add <link rel="agent"> to the homepage.`
+      return miss(detail)
+    }
+    if (/text\/html/i.test(headerValue(res.headers, 'content-type'))) {
+      const detail = options.pointed
+        ? `The homepage points at ${current}, which is a web page, not agent.txt.`
+        : 'agent.txt returned a web page. Publish the text file, or add <link rel="agent"> to the homepage.'
+      return miss(detail)
+    }
+    const parsed = await parseCard(res.body, current, ips, resolve)
+    if (!parsed.ok) {
+      if (parsed.absent && options.pointed) return fail(`The homepage points at ${current}, which is not an agent.txt file.`)
+      return parsed
+    }
+    if (!options.pointed && !sameSite(new URL(current).hostname, entered)) {
+      return { ...parsed, detail: `${parsed.detail} Found at ${current}.` }
+    }
+    return parsed
   }
-  return fail('agent.txt redirected too many times.')
+  return miss(options.pointed
+    ? 'The file the homepage points at redirected too many times.'
+    : 'agent.txt redirected too many times. Publish the text file, or add <link rel="agent"> to the homepage.')
 }
 
-async function parseCard(body, entered, finalHost, currentAddresses, resolve) {
+async function homepagePointer(hostname, addresses, resolve, request, deadline) {
+  let current = `https://${hostname}/`
+  let ips = addresses
+  for (let hop = 0; hop < 4; hop++) {
+    const res = await request({
+      url: current,
+      method: 'GET',
+      addresses: ips,
+      timeoutMs: Math.min(8_000, left(deadline)),
+      maxBytes: PAGE_MAX,
+      truncate: true,
+    })
+    if (!res.ok) return { ok: false }
+    if (res.status >= 300 && res.status < 400) {
+      const next = homeRedirect(res, current, hostname)
+      if (!next.ok) return { ok: false }
+      const again = await resolve(next.host)
+      if (!again.ok) return again
+      current = next.href
+      ips = again.addresses
+      continue
+    }
+    if (res.status !== 200) return { ok: false }
+    const pointer = agentPointer(res.headers, res.body, current)
+    if (!pointer) return { ok: false }
+    let target
+    try {
+      target = new URL(pointer.href)
+    } catch {
+      return fail('The homepage agent link is not a URL.')
+    }
+    if (target.protocol !== 'https:' || target.username || target.password || (target.port && target.port !== '443')) {
+      return fail('The homepage agent link must be an https URL on port 443.')
+    }
+    target.hash = ''
+    const host = target.hostname.toLowerCase()
+    const again = await resolve(host)
+    if (!again.ok) return again
+    return { ok: true, url: target.href, addresses: again.addresses, via: pointer.via }
+  }
+  return { ok: false }
+}
+
+export function agentPointer(headers, body, base) {
+  const fromHeader = agentLinkHeader(headerValue(headers, 'link'))
+  if (fromHeader) {
+    try {
+      return { href: new URL(fromHeader, base).href, via: 'Link header' }
+    } catch {
+      return null
+    }
+  }
+  const fromTag = agentLinkHref(body)
+  if (!fromTag) return null
+  try {
+    return { href: new URL(fromTag, base).href, via: 'link tag' }
+  } catch {
+    return null
+  }
+}
+
+function agentLinkHeader(header) {
+  if (!header) return null
+  const parts = String(header).split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
+  for (const part of parts) {
+    const uri = part.match(/<([^>]*)>/)
+    if (!uri) continue
+    const rel = part.match(/(?:^|\s|;)\s*rel\s*=\s*(?:"([^"]*)"|([^;,]+))/i)
+    const types = (rel?.[1] ?? rel?.[2] ?? '').toLowerCase().trim().split(/\s+/)
+    if (types.includes('agent')) return uri[1].trim()
+  }
+  return null
+}
+
+function agentLinkHref(html) {
+  const source = String(html || '')
+  const bodyAt = source.search(/<body\b/i)
+  const headAt = source.search(/<\/head>/i)
+  let cut = source.length
+  if (bodyAt !== -1) cut = Math.min(cut, bodyAt)
+  if (headAt !== -1) cut = Math.min(cut, headAt)
+  const tags = source.slice(0, cut).match(/<link\b[^>]*>/gi) || []
+  for (const tag of tags) {
+    const rel = attr(tag, 'rel').toLowerCase().split(/\s+/)
+    if (!rel.includes('agent')) continue
+    const href = attr(tag, 'href')
+    if (href) return href
+  }
+  return null
+}
+
+function attr(tag, name) {
+  const match = tag.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`, 'i'))
+  return match ? (match[1] ?? match[2] ?? match[3] ?? '') : ''
+}
+
+async function parseCard(body, fileUrl, currentAddresses, resolve) {
+  const finalHost = new URL(fileUrl).hostname.toLowerCase()
   const lines = body.replace(/^\uFEFF/, '').split(/\r?\n/).map((line) => line.trim())
-  if (lines[0] !== 'Protocol: CAP/1.0') return fail('The first line of agent.txt must be Protocol: CAP/1.0.')
   const capLine = lines.find((line) => line.startsWith('CAP:'))
   const capValue = capLine?.slice(4).trim()
-  if (!capValue) return fail('Add a CAP line with an https URL on this host.')
+  if (lines[0] !== 'Protocol: CAP/1.0') {
+    if (!capValue) return miss('agent.txt has no CAP line. Publish one at the site root, or add <link rel="agent"> to the homepage.')
+    return fail('The first line of agent.txt must be Protocol: CAP/1.0.')
+  }
+  if (!capValue) return miss('Add a CAP line with an https URL, or add <link rel="agent"> to the homepage.')
   let cap
   try {
     cap = new URL(capValue)
   } catch {
-    return fail('The CAP line must be an https URL on this host.')
+    return fail('The CAP line must be an https URL.')
   }
-  if (cap.protocol !== 'https:' || cap.username || (cap.port && cap.port !== '443')) {
-    return fail('The CAP line must be an https URL on this host. www and the bare domain count as the same host.')
-  }
-  if (!sameSite(cap.hostname, entered) || !sameSite(cap.hostname, finalHost)) {
-    return fail('The CAP line must be an https URL on this host. www and the bare domain count as the same host.')
+  if (cap.protocol !== 'https:' || cap.username || cap.password || (cap.port && cap.port !== '443')) {
+    return fail('The CAP line must be an https URL.')
   }
   let addresses = currentAddresses
-  if (cap.hostname !== finalHost) {
+  if (cap.hostname.toLowerCase() !== finalHost) {
     const again = await resolve(cap.hostname)
     if (!again.ok) return again
     addresses = again.addresses
@@ -252,18 +384,49 @@ function parseMessage(res) {
   return { ok: true, id: body.id, status: body.status, reply: body.reply, error: body.error, retryAfter: Number.isFinite(retry) ? retry : 2 }
 }
 
-function redirect(res, from, entered) {
+function fileRedirect(res, from) {
   let next
   try {
-    next = new URL(res.headers.location || '', from)
+    next = new URL(headerValue(res.headers, 'location'), from)
   } catch {
     return fail('agent.txt redirected to an unreadable location.')
   }
-  if (next.protocol !== 'https:' || !sameSite(next.hostname, entered)) {
-    return fail('agent.txt redirected to another host. A redirect has to stay on this site, such as example.com to www.example.com.')
+  if (next.protocol !== 'https:' || next.username || next.password || (next.port && next.port !== '443')) {
+    return fail('agent.txt redirected to a URL that is not https on port 443.')
   }
-  if ((next.pathname.replace(/\/+$/, '') || '/') !== '/agent.txt') return fail('agent.txt redirected away from /agent.txt.')
-  return { ok: true, host: next.hostname.toLowerCase() }
+  next.hash = ''
+  return { ok: true, host: next.hostname.toLowerCase(), href: next.href }
+}
+
+function homeRedirect(res, from, entered) {
+  let next
+  try {
+    next = new URL(headerValue(res.headers, 'location'), from)
+  } catch {
+    return { ok: false }
+  }
+  if (next.protocol !== 'https:' || next.username || next.password || (next.port && next.port !== '443')) return { ok: false }
+  if (!relatedHost(next.hostname, entered)) return { ok: false }
+  next.hash = ''
+  return { ok: true, host: next.hostname.toLowerCase(), href: next.href }
+}
+
+function relatedHost(a, b) {
+  const bare = (host) => host.toLowerCase().replace(/\.$/, '').replace(/^www\./, '')
+  const left = bare(a)
+  const right = bare(b)
+  if (!left || !right) return false
+  return left === right || left.endsWith(`.${right}`) || right.endsWith(`.${left}`)
+}
+
+function headerValue(headers, name) {
+  const value = headers?.[name]
+  if (Array.isArray(value)) return value.join(', ')
+  return value || ''
+}
+
+function miss(detail) {
+  return { ok: false, absent: true, detail }
 }
 
 function endpoint(cap, id) {
@@ -275,11 +438,18 @@ function capHeaders(from) {
   return { 'content-type': 'application/json', accept: 'application/json', 'cap-version': '1.0', 'cap-from': from, 'user-agent': 'CAP-Check' }
 }
 
-function pinnedRequest({ url, method, headers = {}, body, addresses, timeoutMs }) {
+function pinnedRequest({ url, method, headers = {}, body, addresses, timeoutMs, maxBytes, truncate }) {
   if (!addresses?.length || timeoutMs <= 0) return Promise.resolve(fail('The host did not respond in time.'))
   const address = addresses.find((ip) => isIP(ip) === 4) || addresses[0]
   const family = isIP(address)
+  const max = maxBytes || BODY_MAX
   return new Promise((resolve) => {
+    let settled = false
+    const finish = (value) => {
+      if (settled) return
+      settled = true
+      resolve(value)
+    }
     const req = httpsRequest(url, {
       method,
       headers,
@@ -291,25 +461,38 @@ function pinnedRequest({ url, method, headers = {}, body, addresses, timeoutMs }
     }, (res) => {
       const chunks = []
       let size = 0
-      const max = method === 'GET' && new URL(url).pathname === '/agent.txt' ? CARD_MAX : BODY_MAX
       res.on('data', (chunk) => {
+        if (settled) return
         size += chunk.length
         if (size > max) {
+          if (truncate) {
+            const keep = chunk.length - (size - max)
+            if (keep > 0) chunks.push(chunk.subarray(0, keep))
+            res.destroy()
+            finish({
+              ok: true,
+              status: res.statusCode,
+              headers: res.headers,
+              body: Buffer.concat(chunks).toString('utf8'),
+            })
+            return
+          }
           req.destroy()
-          resolve(fail('The response was too large.'))
+          finish(fail('The response was too large.'))
           return
         }
         chunks.push(chunk)
       })
-      res.on('end', () => resolve({
+      res.on('end', () => finish({
         ok: true,
         status: res.statusCode,
         headers: res.headers,
         body: Buffer.concat(chunks).toString('utf8'),
       }))
+      res.on('error', () => finish(fail('The host did not respond in time.')))
     })
     req.setTimeout(timeoutMs, () => req.destroy())
-    req.on('error', () => resolve(fail('The host did not respond in time.')))
+    req.on('error', () => finish(fail('The host did not respond in time.')))
     if (body) req.write(body)
     req.end()
   })

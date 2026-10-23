@@ -2,6 +2,15 @@
 
 Breaking changes to the draft are listed here with what an owner or a caller has to change.
 
+## 1.0 Draft, October 23, 2026, finding the file
+
+A host that cannot serve a file at the root can still publish a door. Nothing breaks for a site that already serves `/agent.txt`.
+
+- A redirect from `/agent.txt` may go to any https URL. The company's domain is vouching for the target.
+- When `/agent.txt` is missing, an HTML page, or has no `CAP` line, a caller reads the homepage. It follows `Link: <url>; rel="agent"` or `<link rel="agent" href="url">` in the head, then fetches that file once.
+- The door belongs to the domain the caller asked. The host that served the file does not.
+- A valid `/agent.txt` still wins. Callers do not look at the homepage.
+
 ## 1.0 Draft, October 19, 2026, hosted caller card
 
 `Spec` now points at one hosted card. Nothing breaks: a door with its own card still works.

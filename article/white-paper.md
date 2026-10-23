@@ -71,7 +71,7 @@ CAP: https://harborgoods.example/cap/v1
 OAuth: https://harborgoods.example/oauth
 ```
 
-`Chat` is the page a person opens. `CAP` is the base URL for the two endpoints. `OAuth` is where a person logs in. One domain has one agent, and a person on the chat page and an agent on the CAP URL reach the same one. The chat page and the CAP URL may be hosted for the company. The company's domain still serves the file.
+`Chat` is the page a person opens. `CAP` is the base URL for the two endpoints. `OAuth` is where a person logs in. One domain has one agent, and a person on the chat page and an agent on the CAP URL reach the same one. The chat page, the CAP URL, and the file may be hosted for the company. The company's domain serves the file, or points at it with a redirect or a homepage link.
 
 ## What the visiting agent gains
 
