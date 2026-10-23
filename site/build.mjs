@@ -219,7 +219,7 @@ const withMascot = (body, route) => {
 const withPrompt = (body, route) => {
   body = withMascot(body, route)
   if (route === '/') {
-    const at = [filmPoster, 'cap-video.jpg'].map((marker) => body.indexOf(marker)).find((index) => index !== -1) ?? -1
+    const at = [filmPoster, 'cap-explainer.jpg'].map((marker) => body.indexOf(marker)).find((index) => index !== -1) ?? -1
     const start = at === -1 ? -1 : body.lastIndexOf('<p>', at)
     const end = at === -1 ? -1 : body.indexOf('</p>', at)
     if (start !== -1 && end !== -1) body = body.slice(0, start) + film + body.slice(end + '</p>'.length)
