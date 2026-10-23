@@ -202,7 +202,22 @@ const film = `<figure class="film"><video controls playsinline preload="metadata
 
 // On the home page the README thumbnail becomes the player, then the prompt follows. On the owner guide the prompt opens the first section.
 const promptAnchor = { '/': '<ul', '/login': '<h2' }
+// The homepage leads with the mascot. The cap emoji stays in the README for GitHub.
+const withMascot = (body, route) => {
+  if (route !== '/') return body
+  const stripped = body
+    .replace(/(<h1[^>]*>)\u{1F9E2}\uFE0F?\s*/u, '$1')
+    .replace(/<p>\s*<img[^>]*mascot\.png[^>]*>\s*<\/p>\n?/, '')
+    .replace(/<img[^>]*mascot\.png[^>]*>\n?/, '')
+  const start = stripped.indexOf('<h1')
+  const end = stripped.indexOf('</p>')
+  if (start === -1 || end === -1 || end < start) return stripped
+  const close = end + '</p>'.length
+  return `${stripped.slice(0, start)}<div class="intro"><img class="mascot" src="/mascot.png" width="444" height="613" alt=""><div>${stripped.slice(start, close)}</div></div>${stripped.slice(close)}`
+}
+
 const withPrompt = (body, route) => {
+  body = withMascot(body, route)
   if (route === '/') {
     const at = body.indexOf(filmPoster)
     const start = at === -1 ? -1 : body.lastIndexOf('<p>', at)
@@ -249,7 +264,7 @@ const layout = ({ title, body, route, toc = '' }) => {
 </head>
 <body>
 <header>
-<a class="brand" href="/">🧢 CAP <span class="badge">1.0 Draft</span></a>
+<a class="brand" href="/"><img class="mark" src="/mark.png" width="320" height="320" alt="">CAP <span class="badge">1.0 Draft</span></a>
 <button type="button" class="menu" aria-expanded="false" aria-controls="site-menu" aria-label="Menu">${icon('<path d="M4 6h16M4 12h16M4 18h16"/>')}${icon('<path d="M6 6l12 12M18 6L6 18"/>')}</button>
 <div class="header-end" id="site-menu">
 <nav>${nav}</nav>

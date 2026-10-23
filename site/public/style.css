@@ -77,14 +77,58 @@ header {
 }
 
 .brand {
+  display: inline-flex;
   flex-shrink: 0;
+  gap: 8px;
+  align-items: center;
   color: var(--fg);
   font-weight: 700;
   text-decoration: none;
 }
 
+.brand .mark {
+  width: 40px;
+  height: 40px;
+}
+
+.intro {
+  display: flex;
+  gap: 28px;
+  align-items: center;
+  margin-bottom: 1.2em;
+}
+
+.intro .mascot {
+  width: 148px;
+  height: auto;
+  flex: none;
+}
+
+.intro h1,
+.intro p {
+  margin-top: 0;
+}
+
+.intro h1 {
+  margin-bottom: 0.25em;
+}
+
+.intro p {
+  margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .intro {
+    gap: 16px;
+  }
+
+  .intro .mascot {
+    width: 92px;
+  }
+}
+
 .badge {
-  margin-left: 6px;
+  margin-left: 0;
   padding: 2px 8px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -727,3 +771,4 @@ footer a {
 .check-action:hover {
   border-color: var(--fg);
 }
+

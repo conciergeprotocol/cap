@@ -2,6 +2,8 @@
 
 **The front door to your website, for every AI agent.**
 
+<img src="site/public/mascot.png" alt="A capybara wearing a CAP ball cap" width="180">
+
 More and more people send agents to websites to learn about a company and its policies, shop, book, and manage accounts.
 
 **Without CAP.** Those agents scrape pages built for people, burn tokens on markup, and guess. Or they load an MCP server, an API, and a skill for every site until their configuration is bloated with tools.
