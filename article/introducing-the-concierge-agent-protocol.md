@@ -45,7 +45,7 @@ Websites were built for people. An agent that browses one renders JavaScript, cl
 
 - **It knows where to go.** One file at the domain root gives one URL. No guessing which pages matter.
 - **It gets the record, not the page.** The company's agent answers from the catalog, the current price, the right store's hours. Not from whichever page ranked first.
-- **It saves its tokens.** The company's agent does the search and pays for it. The visiting agent gets back a short reply instead of a context window full of HTML.
+- **It saves its tokens.** The company's agent does the search and pays for it. The visiting agent gets back a short reply instead of a context window full of HTML. In the [CAP benchmark](../benchmark/README.md), the same answers cost about a fifth of fetching the site and a seventh of browsing it.
 - **The answer is attributable.** The agent can tell its person "the store says." While a message is `working` there is no reply, so it has nothing to make up.
 - **Follow-ups are cheap.** It sends only the new question. The company keeps the earlier turns.
 - **It is invited.** `CAP-From` names the caller, and the company published the door for it. A scraper can be blocked. A CAP call is welcome.

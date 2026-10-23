@@ -15,6 +15,13 @@ const pages = [
   { src: 'usage.md', route: '/usage', file: 'usage.html', nav: 'Usage' },
   { src: 'callers.md', route: '/callers', file: 'callers.html', nav: 'Call a door' },
   { src: 'login.md', route: '/login', file: 'login.html', nav: 'Add login' },
+  {
+    src: 'benchmark/README.md',
+    route: '/benchmark',
+    file: 'benchmark.html',
+    nav: 'Benchmark',
+    description: 'Same answers, a fifth of the cost. 861 frozen runs compare AI agents reading a store against asking it through CAP.'
+  },
   { src: 'concepts/README.md', route: '/concepts', file: 'concepts.html' },
   { src: 'concepts/messages.md', route: '/concepts/messages', file: 'concepts/messages.html' },
   { src: 'concepts/access.md', route: '/concepts/access', file: 'concepts/access.html' },
@@ -229,13 +236,19 @@ const withPrompt = (body, route) => {
   return at === -1 ? body + promptBlock : body.slice(0, at) + promptBlock + body.slice(at)
 }
 
-const layout = ({ title, body, route, toc = '' }) => {
+// The benchmark page carries its results inline for the charts in benchmark.js.
+const benchmarkData = readFileSync(join(root, 'benchmark', 'results.json'), 'utf8').trim().replace(/</g, '\\u003c')
+const pageAssets = {
+  '/benchmark': `<script type="application/json" id="bench-data">${benchmarkData}</script>\n<script src="/benchmark.js" defer></script>\n`
+}
+
+const layout = ({ title, body, route, toc = '', description: pageDescription }) => {
   const nav = pages
     .filter((page) => page.nav)
     .map((page) => `<a href="${page.route}"${page.route === route ? ' aria-current="page"' : ''}>${page.nav}</a>`)
     .join('')
   const pageTitle = route === '/' ? 'Concierge Agent Protocol (CAP)' : `${escape(title)} · Concierge Agent Protocol`
-  const description = 'Concierge Agent Protocol (CAP): the front door to your website, for every AI agent. Share results, not credentials.'
+  const description = escape(pageDescription || 'Concierge Agent Protocol (CAP): the front door to your website, for every AI agent. Share results, not credentials.')
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -287,7 +300,7 @@ ${themeControl}
 </div>
 </div>
 <script>${pageScript}</script>
-</body>
+${pageAssets[route] || ''}</body>
 </html>
 `
 }
@@ -305,7 +318,7 @@ for (const page of pages) {
   const { title, body, headings } = render(page)
   const file = join(out, page.file)
   mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, layout({ title, body, route: page.route, toc: pageToc(headings) }))
+  writeFileSync(file, layout({ title, body, route: page.route, toc: pageToc(headings), description: page.description }))
 }
 
 const checkFile = join(out, 'check.html')

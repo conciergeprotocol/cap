@@ -1,0 +1,736 @@
+{
+  "frozen_commit": "53019ef",
+  "freeze_digest": null,
+  "main": {
+    "cap_ref": {
+      "n": 150,
+      "ok": 145,
+      "usd": 5.3101,
+      "per_run": 0.0354,
+      "per_success": 0.0366,
+      "steps": 3.4,
+      "wall_s": 15.8,
+      "tokens": 18636,
+      "false_claims": 2
+    },
+    "fetch_clean": {
+      "n": 150,
+      "ok": 144,
+      "usd": 11.4499,
+      "per_run": 0.0763,
+      "per_success": 0.0795,
+      "steps": 8.3,
+      "wall_s": 15.8,
+      "tokens": 24210,
+      "false_claims": 3
+    },
+    "fetch_real": {
+      "n": 150,
+      "ok": 148,
+      "usd": 24.9491,
+      "per_run": 0.1663,
+      "per_success": 0.1686,
+      "steps": 11.1,
+      "wall_s": 21.1,
+      "tokens": 47987,
+      "false_claims": 1
+    },
+    "browser_real": {
+      "n": 150,
+      "ok": 147,
+      "usd": 36.463,
+      "per_run": 0.2431,
+      "per_success": 0.248,
+      "steps": 13.1,
+      "wall_s": 24.6,
+      "tokens": 112121,
+      "false_claims": 1
+    }
+  },
+  "success_ci": {
+    "cap_ref": {
+      "mean": 0.967,
+      "low": 0.927,
+      "high": 0.993
+    },
+    "fetch_clean": {
+      "mean": 0.96,
+      "low": 0.913,
+      "high": 0.993
+    },
+    "fetch_real": {
+      "mean": 0.987,
+      "low": 0.967,
+      "high": 1
+    },
+    "browser_real": {
+      "mean": 0.98,
+      "low": 0.953,
+      "high": 1
+    }
+  },
+  "category": {
+    "FP": {
+      "title": "Fact on one page",
+      "cap_ref": {
+        "n": 30,
+        "ok": 30,
+        "usd": 0.6176,
+        "per_run": 0.0206,
+        "per_success": 0.0206,
+        "steps": 3.1,
+        "wall_s": 9.4,
+        "tokens": 14068,
+        "false_claims": 0
+      },
+      "fetch_clean": {
+        "n": 30,
+        "ok": 29,
+        "usd": 0.9722,
+        "per_run": 0.0324,
+        "per_success": 0.0335,
+        "steps": 4.4,
+        "wall_s": 8.9,
+        "tokens": 12713,
+        "false_claims": 1
+      },
+      "fetch_real": {
+        "n": 30,
+        "ok": 30,
+        "usd": 0.9257,
+        "per_run": 0.0309,
+        "per_success": 0.0309,
+        "steps": 4.2,
+        "wall_s": 8.6,
+        "tokens": 12363,
+        "false_claims": 0
+      },
+      "browser_real": {
+        "n": 30,
+        "ok": 30,
+        "usd": 2.4808,
+        "per_run": 0.0827,
+        "per_success": 0.0827,
+        "steps": 8,
+        "wall_s": 12.3,
+        "tokens": 56848,
+        "false_claims": 0
+      }
+    },
+    "MC": {
+      "title": "Multi-constraint",
+      "cap_ref": {
+        "n": 30,
+        "ok": 30,
+        "usd": 1.4538,
+        "per_run": 0.0485,
+        "per_success": 0.0485,
+        "steps": 3.7,
+        "wall_s": 20.4,
+        "tokens": 22992,
+        "false_claims": 0
+      },
+      "fetch_clean": {
+        "n": 30,
+        "ok": 30,
+        "usd": 3.0358,
+        "per_run": 0.1012,
+        "per_success": 0.1012,
+        "steps": 11,
+        "wall_s": 19.1,
+        "tokens": 29091,
+        "false_claims": 0
+      },
+      "fetch_real": {
+        "n": 30,
+        "ok": 30,
+        "usd": 7.1362,
+        "per_run": 0.2379,
+        "per_success": 0.2379,
+        "steps": 15.8,
+        "wall_s": 27,
+        "tokens": 65379,
+        "false_claims": 0
+      },
+      "browser_real": {
+        "n": 30,
+        "ok": 30,
+        "usd": 10.0367,
+        "per_run": 0.3346,
+        "per_success": 0.3346,
+        "steps": 14.5,
+        "wall_s": 26.5,
+        "tokens": 138221,
+        "false_claims": 0
+      }
+    },
+    "PR": {
+      "title": "Page versus record",
+      "cap_ref": {
+        "n": 30,
+        "ok": 30,
+        "usd": 0.6201,
+        "per_run": 0.0207,
+        "per_success": 0.0207,
+        "steps": 3.1,
+        "wall_s": 11,
+        "tokens": 12807,
+        "false_claims": 0
+      },
+      "fetch_clean": {
+        "n": 30,
+        "ok": 30,
+        "usd": 1.9888,
+        "per_run": 0.0663,
+        "per_success": 0.0663,
+        "steps": 7.4,
+        "wall_s": 14.6,
+        "tokens": 22874,
+        "false_claims": 0
+      },
+      "fetch_real": {
+        "n": 30,
+        "ok": 29,
+        "usd": 3.3895,
+        "per_run": 0.113,
+        "per_success": 0.1169,
+        "steps": 8.6,
+        "wall_s": 18.3,
+        "tokens": 35602,
+        "false_claims": 1
+      },
+      "browser_real": {
+        "n": 30,
+        "ok": 30,
+        "usd": 3.8157,
+        "per_run": 0.1272,
+        "per_success": 0.1272,
+        "steps": 11.5,
+        "wall_s": 19.8,
+        "tokens": 75560,
+        "false_claims": 0
+      }
+    },
+    "LD": {
+      "title": "Local and delivery",
+      "cap_ref": {
+        "n": 30,
+        "ok": 26,
+        "usd": 0.6239,
+        "per_run": 0.0208,
+        "per_success": 0.024,
+        "steps": 3,
+        "wall_s": 10.1,
+        "tokens": 12941,
+        "false_claims": 1
+      },
+      "fetch_clean": {
+        "n": 30,
+        "ok": 26,
+        "usd": 2.3076,
+        "per_run": 0.0769,
+        "per_success": 0.0888,
+        "steps": 6.8,
+        "wall_s": 15.1,
+        "tokens": 26332,
+        "false_claims": 2
+      },
+      "fetch_real": {
+        "n": 30,
+        "ok": 30,
+        "usd": 4.9412,
+        "per_run": 0.1647,
+        "per_success": 0.1647,
+        "steps": 9.8,
+        "wall_s": 20.2,
+        "tokens": 49708,
+        "false_claims": 0
+      },
+      "browser_real": {
+        "n": 30,
+        "ok": 29,
+        "usd": 6.5898,
+        "per_run": 0.2197,
+        "per_success": 0.2272,
+        "steps": 13.6,
+        "wall_s": 21.3,
+        "tokens": 111609,
+        "false_claims": 1
+      }
+    },
+    "CQ": {
+      "title": "Catalog query",
+      "cap_ref": {
+        "n": 30,
+        "ok": 29,
+        "usd": 1.9947,
+        "per_run": 0.0665,
+        "per_success": 0.0688,
+        "steps": 4.2,
+        "wall_s": 27.9,
+        "tokens": 30374,
+        "false_claims": 1
+      },
+      "fetch_clean": {
+        "n": 30,
+        "ok": 29,
+        "usd": 3.1455,
+        "per_run": 0.1049,
+        "per_success": 0.1085,
+        "steps": 11.7,
+        "wall_s": 21.4,
+        "tokens": 30043,
+        "false_claims": 0
+      },
+      "fetch_real": {
+        "n": 30,
+        "ok": 29,
+        "usd": 8.5566,
+        "per_run": 0.2852,
+        "per_success": 0.2951,
+        "steps": 17,
+        "wall_s": 31.1,
+        "tokens": 76884,
+        "false_claims": 0
+      },
+      "browser_real": {
+        "n": 30,
+        "ok": 28,
+        "usd": 13.5399,
+        "per_run": 0.4513,
+        "per_success": 0.4836,
+        "steps": 17.7,
+        "wall_s": 43.2,
+        "tokens": 178370,
+        "false_claims": 0
+      }
+    }
+  },
+  "scale": {
+    "402": {
+      "cap_ref": {
+        "n": 9,
+        "ok": 9,
+        "usd": 0.245,
+        "per_run": 0.0272,
+        "per_success": 0.0272,
+        "steps": 3.2,
+        "wall_s": 12.5,
+        "tokens": 16040,
+        "false_claims": 0
+      },
+      "fetch_heavy": {
+        "n": 9,
+        "ok": 9,
+        "usd": 2.2534,
+        "per_run": 0.2504,
+        "per_success": 0.2504,
+        "steps": 10,
+        "wall_s": 24.7,
+        "tokens": 70519,
+        "false_claims": 0
+      },
+      "browser_heavy": {
+        "n": 9,
+        "ok": 9,
+        "usd": 2.6609,
+        "per_run": 0.2957,
+        "per_success": 0.2957,
+        "steps": 14.3,
+        "wall_s": 22.3,
+        "tokens": 128941,
+        "false_claims": 0
+      }
+    },
+    "5000": {
+      "cap_ref": {
+        "n": 9,
+        "ok": 9,
+        "usd": 0.4173,
+        "per_run": 0.0464,
+        "per_success": 0.0464,
+        "steps": 3.6,
+        "wall_s": 19.3,
+        "tokens": 22443,
+        "false_claims": 0
+      },
+      "fetch_heavy": {
+        "n": 9,
+        "ok": 9,
+        "usd": 2.1026,
+        "per_run": 0.2336,
+        "per_success": 0.2336,
+        "steps": 9.1,
+        "wall_s": 21.2,
+        "tokens": 67127,
+        "false_claims": 0
+      },
+      "browser_heavy": {
+        "n": 9,
+        "ok": 9,
+        "usd": 3.5015,
+        "per_run": 0.3891,
+        "per_success": 0.3891,
+        "steps": 15.7,
+        "wall_s": 23.2,
+        "tokens": 156405,
+        "false_claims": 0
+      }
+    },
+    "50000": {
+      "cap_ref": {
+        "n": 9,
+        "ok": 9,
+        "usd": 0.4329,
+        "per_run": 0.0481,
+        "per_success": 0.0481,
+        "steps": 3.7,
+        "wall_s": 19.5,
+        "tokens": 24159,
+        "false_claims": 0
+      },
+      "fetch_heavy": {
+        "n": 9,
+        "ok": 9,
+        "usd": 2.7494,
+        "per_run": 0.3055,
+        "per_success": 0.3055,
+        "steps": 11.2,
+        "wall_s": 26.5,
+        "tokens": 85403,
+        "false_claims": 0
+      },
+      "browser_heavy": {
+        "n": 9,
+        "ok": 9,
+        "usd": 3.297,
+        "per_run": 0.3663,
+        "per_success": 0.3663,
+        "steps": 14.6,
+        "wall_s": 26.3,
+        "tokens": 152685,
+        "false_claims": 0
+      }
+    }
+  },
+  "weak": {
+    "claude-opus-5-5": {
+      "cap_ref": {
+        "n": 30,
+        "ok": 28,
+        "usd": 0.8124,
+        "per_run": 0.0271,
+        "per_success": 0.029,
+        "steps": 3.4,
+        "wall_s": 13.4,
+        "tokens": 15727,
+        "false_claims": 0
+      },
+      "fetch_real": {
+        "n": 30,
+        "ok": 30,
+        "usd": 3.2032,
+        "per_run": 0.1068,
+        "per_success": 0.1068,
+        "steps": 8.6,
+        "wall_s": 17,
+        "tokens": 32987,
+        "false_claims": 0
+      },
+      "browser_real": {
+        "n": 30,
+        "ok": 30,
+        "usd": 5.4228,
+        "per_run": 0.1808,
+        "per_success": 0.1808,
+        "steps": 11.7,
+        "wall_s": 20.2,
+        "tokens": 93087,
+        "false_claims": 0
+      }
+    },
+    "claude-sonnet-5": {
+      "cap_ref": {
+        "n": 30,
+        "ok": 28,
+        "usd": 0.4847,
+        "per_run": 0.0162,
+        "per_success": 0.0173,
+        "steps": 3.2,
+        "wall_s": 10.4,
+        "tokens": 12913,
+        "false_claims": 2
+      },
+      "fetch_real": {
+        "n": 30,
+        "ok": 27,
+        "usd": 1.6554,
+        "per_run": 0.0552,
+        "per_success": 0.0613,
+        "steps": 8.3,
+        "wall_s": 15.5,
+        "tokens": 32396,
+        "false_claims": 2
+      },
+      "browser_real": {
+        "n": 30,
+        "ok": 27,
+        "usd": 6.3753,
+        "per_run": 0.2125,
+        "per_success": 0.2361,
+        "steps": 15.1,
+        "wall_s": 21.7,
+        "tokens": 171999,
+        "false_claims": 3
+      }
+    },
+    "claude-haiku-4-5-20251001": {
+      "cap_ref": {
+        "n": 30,
+        "ok": 30,
+        "usd": 0.5186,
+        "per_run": 0.0173,
+        "per_success": 0.0173,
+        "steps": 3.2,
+        "wall_s": 9.2,
+        "tokens": 12664,
+        "false_claims": 0
+      },
+      "fetch_real": {
+        "n": 30,
+        "ok": 27,
+        "usd": 1.9067,
+        "per_run": 0.0636,
+        "per_success": 0.0706,
+        "steps": 10.7,
+        "wall_s": 17.9,
+        "tokens": 58565,
+        "false_claims": 3
+      },
+      "browser_real": {
+        "n": 30,
+        "ok": 30,
+        "usd": 5.8123,
+        "per_run": 0.1937,
+        "per_success": 0.1937,
+        "steps": 19,
+        "wall_s": 30.9,
+        "tokens": 270774,
+        "false_claims": 0
+      }
+    }
+  },
+  "misses": [
+    {
+      "task_id": "LD-10",
+      "condition": "fetch_clean",
+      "rep": 1,
+      "failure_reason": "invented item"
+    },
+    {
+      "task_id": "PR-10",
+      "condition": "fetch_real",
+      "rep": 2,
+      "failure_reason": "invented item"
+    },
+    {
+      "task_id": "LD-09",
+      "condition": "cap_ref",
+      "rep": 3,
+      "failure_reason": "invented item"
+    },
+    {
+      "task_id": "LD-10",
+      "condition": "cap_ref",
+      "rep": 2,
+      "failure_reason": "invented item"
+    },
+    {
+      "task_id": "LD-09",
+      "condition": "cap_ref",
+      "rep": 1,
+      "failure_reason": "invented item"
+    },
+    {
+      "task_id": "FP-03",
+      "condition": "fetch_clean",
+      "rep": 3,
+      "failure_reason": "wrong fact"
+    },
+    {
+      "task_id": "CQ-02",
+      "condition": "fetch_real",
+      "rep": 1,
+      "failure_reason": "missing fact"
+    },
+    {
+      "task_id": "LD-02",
+      "condition": "fetch_clean",
+      "rep": 2,
+      "failure_reason": "wrong fact"
+    },
+    {
+      "task_id": "LD-10",
+      "condition": "fetch_clean",
+      "rep": 2,
+      "failure_reason": "invented item"
+    },
+    {
+      "task_id": "LD-02",
+      "condition": "cap_ref",
+      "rep": 3,
+      "failure_reason": "wrong fact"
+    },
+    {
+      "task_id": "LD-02",
+      "condition": "browser_real",
+      "rep": 2,
+      "failure_reason": "wrong fact"
+    },
+    {
+      "task_id": "CQ-08",
+      "condition": "browser_real",
+      "rep": 1,
+      "failure_reason": "timeout"
+    },
+    {
+      "task_id": "CQ-02",
+      "condition": "fetch_clean",
+      "rep": 1,
+      "failure_reason": "missing fact"
+    },
+    {
+      "task_id": "LD-02",
+      "condition": "fetch_clean",
+      "rep": 1,
+      "failure_reason": "wrong fact"
+    },
+    {
+      "task_id": "CQ-03",
+      "condition": "cap_ref",
+      "rep": 3,
+      "failure_reason": "wrong fact"
+    },
+    {
+      "task_id": "CQ-02",
+      "condition": "browser_real",
+      "rep": 2,
+      "failure_reason": "missing fact"
+    }
+  ],
+  "replay": {
+    "task_id": "CQ-01",
+    "prompt": "List every pair of men's black road running shoes in size 10.5, $150 or less that is in stock online. Give the price and a link for each.",
+    "matches": 5,
+    "runs": [
+      {
+        "condition": "cap_ref",
+        "success": true,
+        "usd": 0.0528,
+        "tokens": 21730,
+        "wall_s": 23,
+        "items": 5,
+        "steps": [
+          {
+            "name": "cap_discover",
+            "ms": 31
+          },
+          {
+            "name": "cap_ask",
+            "ms": 4577
+          },
+          {
+            "name": "cap_ask",
+            "ms": 8352
+          },
+          {
+            "name": "submit_answer",
+            "ms": 0
+          }
+        ]
+      },
+      {
+        "condition": "browser_real",
+        "success": true,
+        "usd": 0.4992,
+        "tokens": 181150,
+        "wall_s": 33.9,
+        "items": 5,
+        "steps": [
+          {
+            "name": "browser_navigate",
+            "ms": 469
+          },
+          {
+            "name": "browser_snapshot",
+            "ms": 15
+          },
+          {
+            "name": "browser_navigate",
+            "ms": 60
+          },
+          {
+            "name": "browser_snapshot",
+            "ms": 7
+          },
+          {
+            "name": "browser_navigate",
+            "ms": 51
+          },
+          {
+            "name": "browser_find",
+            "ms": 7
+          },
+          {
+            "name": "browser_navigate",
+            "ms": 52
+          },
+          {
+            "name": "browser_snapshot",
+            "ms": 6
+          },
+          {
+            "name": "browser_navigate",
+            "ms": 53
+          },
+          {
+            "name": "browser_find",
+            "ms": 6
+          },
+          {
+            "name": "browser_evaluate",
+            "ms": 1038
+          },
+          {
+            "name": "browser_navigate",
+            "ms": 51
+          },
+          {
+            "name": "browser_wait_for",
+            "ms": 8
+          },
+          {
+            "name": "browser_find",
+            "ms": 5
+          },
+          {
+            "name": "browser_navigate",
+            "ms": 48
+          },
+          {
+            "name": "browser_wait_for",
+            "ms": 9
+          },
+          {
+            "name": "browser_find",
+            "ms": 5
+          },
+          {
+            "name": "submit_answer",
+            "ms": 0
+          }
+        ]
+      }
+    ]
+  }
+}
