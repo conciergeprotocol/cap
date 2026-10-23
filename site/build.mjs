@@ -205,7 +205,7 @@ const promptBlock = `<section class="prompt">
 `
 
 const filmPoster = 'https://media.conciergeprotocol.org/cap-thumbnail.png'
-const film = `<figure class="film"><video controls playsinline preload="metadata" poster="${filmPoster}"><source src="https://media.conciergeprotocol.org/cap-explainer.mp4" type="video/mp4"></video></figure>\n`
+const film = `<figure class="film"><video controls playsinline preload="metadata" poster="${filmPoster}"><source src="https://media.conciergeprotocol.org/cap-explainer.mp4?v=20261022" type="video/mp4"></video></figure>\n`
 
 // On the home page the README thumbnail becomes the player, then the prompt follows. On the owner guide the prompt opens the first section.
 const promptAnchor = { '/': '<ul', '/login': '<h2' }
