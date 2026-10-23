@@ -1101,11 +1101,14 @@ footer a {
 }
 
 .bench-step {
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 9px;
   border: 1px solid var(--tone);
   border-radius: 999px;
   color: var(--tone);
-  font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   opacity: 0;
   transform: translateY(4px);
   transition: opacity 0.2s, transform 0.2s;
