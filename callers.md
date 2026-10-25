@@ -2,7 +2,7 @@
 
 Two packages for an agent that visits a company. [@conciergeprotocol/client](https://www.npmjs.com/package/@conciergeprotocol/client) is the library. [@conciergeprotocol/mcp](https://www.npmjs.com/package/@conciergeprotocol/mcp) is that library behind three tools, so Claude, Cursor, and other MCP hosts can ask a company.
 
-The company publishes `agent.txt`. These packages call it. Source is at [github.com/conciergeprotocol/js](https://github.com/conciergeprotocol/js). Both are Apache 2.0. Node.js 18 or newer.
+The company publishes `agent.txt`. These packages call it. Source is at [github.com/conciergeprotocol/js](https://github.com/conciergeprotocol/js). Both are Apache 2.0. Node.js 18 or newer. To call the endpoints without a package, [Usage](usage.md) has every request and response.
 
 ## Client
 

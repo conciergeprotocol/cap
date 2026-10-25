@@ -57,6 +57,14 @@ CAP's weak spot was local stock: 26 of 30 on local and delivery tasks, against 3
 
 That is a concierge problem, not a protocol problem. The reference concierge let the model answer a negative from a partial lookup. A concierge built on CAP has to say "not available" when its tools find nothing. Across the main run CAP made 2 false claims, the clean fetch 3, and the realistic fetch and the browser 1 each.
 
+## What it means for a site
+
+A site owner wants two things from a visiting agent: the right answer, and a link the person can act on. The scorer checks both. An answer counts only when its fields match the record, and each link is checked against the product and variant it names.
+
+On that measure, asking matched reading. What changed was the work before the answer. Through CAP the visitor took 3.4 steps and 15.8 seconds. Reading the realistic site took 11.1 steps and 21.1 seconds by fetch, and 13.1 steps and 24.6 seconds in a browser. Every step is a page the visitor has to load and parse before the person sees an answer and a link.
+
+The site pays for its share. The concierge's model calls are part of the CAP cost above, and an owner bounds them with its own limits. A concierge that answers a negative from a partial lookup, as this one did on local stock, sends the person to the wrong store. The answer is only as good as the record and the tools behind the door.
+
 ## One task, read and asked
 
 One catalog query from the main run, first repetition, both visitors answering correctly with the same five shoes. Press play to replay the tool calls in order.

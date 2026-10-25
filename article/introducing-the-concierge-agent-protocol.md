@@ -41,6 +41,18 @@ For "Where's my order?", the reply is `login_required`. The person logs in at th
 
 When an answer takes a while, the reply is `202` with the message id and `Retry-After`. The agent tells the person the store is checking, waits, and reads the message again. That is the whole protocol: one message, two endpoints.
 
+## Why the company publishes one
+
+Today a visiting agent that reads the pages either finds the answer or gives up. If it finds it, the person still has to open the site, find the page again, and take the next step. A pricing question can still end in a contact form and a wait for a callback. Each step is a place the person drops off, and the company never sees the question.
+
+- **Its answer, not an inference.** The reply comes from the company's catalog, docs, and policies. Where a page and the record disagree, the visitor gets the record.
+- **The next step in the reply.** Links go in the reply text: the product in the right size, the plan, the booking page. The person's agent passes the link on, and checkout or signup happens on the company's site.
+- **The question, seen.** Every message is a question from someone deciding what to do. A crawler's page loads say nothing about that.
+- **An invited caller.** `CAP-From` names the agent, so the company sets limits on a caller it can see instead of blocking one it can't.
+- **One file to start.** If the company already runs an agent on its chat page, the same agent answers at the door.
+
+The cost is a model call per answer on the company's side, so it sets a daily limit. [Publish a door](../publish.md) is the guide.
+
 ## Why the visiting agent prefers it
 
 Websites were built for people. An agent that browses one renders JavaScript, clicks past cookie banners, runs into bot blocks, and reads pages of markup to find one fact. With CAP it asks once and gets the company's own answer.

@@ -21,6 +21,7 @@ More and more people send agents to websites to learn about a company and its po
 - [Introducing the Concierge Agent Protocol](article/introducing-the-concierge-agent-protocol.md)
 - [White paper](article/white-paper.md)
 - [Concepts](concepts/README.md)
+- [Publish a door](publish.md)
 - [Specification](spec.md)
 - [Usage](usage.md)
 - [Call a door](callers.md)
@@ -54,6 +55,19 @@ Then ask your assistant about any site that publishes `agent.txt`. The [checker]
 **Public.** "Find me running shoes in size 12, black sweatpants, and a black hoodie in my style." The person's agent finds `agent.txt`, sends the request with a short style brief, and the store's agent searches its own catalog. The reply is products, sizes in stock, prices, and links. Checkout stays on the store's site. A person on the store's chat page gets the same agent.
 
 **Logged in.** "Where's my order?" The reply is `login_required`. The person logs in at the store's OAuth server, and their agent gets a token for that one account. It sends the same message with the token. The store's agent finds the order with its own tools and replies with the status.
+
+## Why companies publish one
+
+A person's agent is already on its way to your site. Without a door, it pieces an answer together from pages built for people, and the person still has to find the page and take the next step. You never see the question. With a door, the answer and the next step come from you:
+
+- Your answer from your record, instead of an inference from a page.
+- A reply that links to the next step on your site: the product, the plan, the booking, the order.
+- No contact form to wait on for a question your records can answer now.
+- The questions themselves, from people deciding what to do next.
+- An invited caller, named by `CAP-From`, instead of a scraper.
+- Nothing leaves but the answer. Tools, keys, and customer data stay behind the door.
+
+Each answer is a model call on your side, and a reply is only as good as your record. [Publish a door](publish.md) is the guide.
 
 ## Why visiting agents use it
 

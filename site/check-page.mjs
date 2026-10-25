@@ -101,11 +101,15 @@ export function checkPageBody() {
       linkedin.rel = 'noopener'
       actions.append(post, linkedin)
     } else {
-      note.append('Fix the failed rows, then open this page again. To add CAP, start from ')
+      note.append('Fix the failed rows, then open this page again. To add CAP, follow ')
       var guide = document.createElement('a')
-      guide.href = '/implement.txt'
-      guide.textContent = 'implement.txt'
-      note.append(guide, '.')
+      guide.href = '/publish'
+      guide.textContent = 'Publish a door'
+      note.append(guide, ', or hand your coding assistant ')
+      var prompt = document.createElement('a')
+      prompt.href = '/implement.txt'
+      prompt.textContent = 'implement.txt'
+      note.append(prompt, '.')
     }
     share.append(note, actions)
   }
