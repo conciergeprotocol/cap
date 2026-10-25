@@ -700,6 +700,22 @@ footer a {
   color: var(--accent);
 }
 
+.check-site {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  font-weight: 600;
+}
+
+.check-site[hidden] {
+  display: none;
+}
+
+.check-site img {
+  border-radius: 4px;
+}
+
 .check-results {
   margin: 8px 0 0;
   padding: 0;

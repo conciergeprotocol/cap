@@ -5,7 +5,7 @@
   "framework": null,
   "cleanUrls": true,
   "redirects": [
-    { "source": "/owners", "destination": "/login", "permanent": true }
+    { "source": "/owners", "destination": "/publish", "permanent": true }
   ],
   "functions": {
     "api/check.js": {

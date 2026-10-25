@@ -10,6 +10,7 @@ const CARD_MAX = 16_384
 const PAGE_MAX = 256 * 1024
 const BODY_MAX = 65_536
 const ID = /^msg_[A-Za-z0-9_-]{8,64}$/
+const HELP = 'https://conciergeprotocol.org/spec#front-door'
 
 const blocked = new BlockList()
 for (const [net, prefix] of [
@@ -92,7 +93,12 @@ export async function checkDoor(input, deps = {}) {
   checks.push({ id: 'host', title: 'Public https host', pass: true, detail: host.hostname })
 
   const card = await readCard(host.hostname, addresses.addresses, resolve, request, deadline)
-  if (!card.ok) return stop({ id: 'card', title: 'agent.txt', pass: false, detail: card.detail })
+  if (!card.ok) {
+    const missed = { id: 'card', title: 'agent.txt', pass: false, detail: card.detail }
+    if (card.status) missed.status = card.status
+    if (card.absent) missed.help = HELP
+    return stop(missed)
+  }
   checks.push({ id: 'card', title: 'agent.txt', pass: true, detail: card.detail })
 
   const reply = await ask(card.cap, card.addresses, request, deadline)
@@ -142,6 +148,7 @@ async function fetchDoorFile(url, addresses, entered, resolve, request, deadline
       addresses: ips,
       timeoutMs: Math.min(8_000, left(deadline)),
       maxBytes: CARD_MAX,
+      truncate: true,
     })
     if (!res.ok) return fail(res.detail)
     if (res.status >= 300 && res.status < 400) {
@@ -156,8 +163,10 @@ async function fetchDoorFile(url, addresses, entered, resolve, request, deadline
     if (res.status !== 200) {
       const detail = options.pointed
         ? `The homepage points at ${current}, which returned ${res.status}.`
-        : `GET /agent.txt returned ${res.status}. Publish the text file at the site root, or add <link rel="agent"> to the homepage.`
-      return miss(detail)
+        : res.status === 404
+          ? `No agent.txt at ${current}. Publish the text file at the site root, or add <link rel="agent"> to the homepage.`
+          : `GET /agent.txt returned ${res.status}. Publish the text file at the site root, or add <link rel="agent"> to the homepage.`
+      return miss(detail, res.status)
     }
     if (/text\/html/i.test(headerValue(res.headers, 'content-type'))) {
       const detail = options.pointed
@@ -165,6 +174,7 @@ async function fetchDoorFile(url, addresses, entered, resolve, request, deadline
         : 'agent.txt returned a web page. Publish the text file, or add <link rel="agent"> to the homepage.'
       return miss(detail)
     }
+    if (res.truncated) return fail(`agent.txt is larger than ${CARD_MAX / 1024} KB.`)
     const parsed = await parseCard(res.body, current, ips, resolve)
     if (!parsed.ok) {
       if (parsed.absent && options.pointed) return fail(`The homepage points at ${current}, which is not an agent.txt file.`)
@@ -425,8 +435,8 @@ function headerValue(headers, name) {
   return value || ''
 }
 
-function miss(detail) {
-  return { ok: false, absent: true, detail }
+function miss(detail, status) {
+  return status ? { ok: false, absent: true, detail, status } : { ok: false, absent: true, detail }
 }
 
 function endpoint(cap, id) {
@@ -474,6 +484,7 @@ function pinnedRequest({ url, method, headers = {}, body, addresses, timeoutMs, 
               status: res.statusCode,
               headers: res.headers,
               body: Buffer.concat(chunks).toString('utf8'),
+              truncated: true,
             })
             return
           }

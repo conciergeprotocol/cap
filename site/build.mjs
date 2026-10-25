@@ -11,16 +11,23 @@ const repo = 'https://github.com/conciergeprotocol/cap'
 
 const pages = [
   { src: 'README.md', route: '/', file: 'index.html', nav: 'Overview' },
-  { src: 'spec.md', route: '/spec', file: 'spec.html', nav: 'Spec' },
-  { src: 'usage.md', route: '/usage', file: 'usage.html', nav: 'Usage' },
+  {
+    src: 'publish.md',
+    route: '/publish',
+    file: 'publish.html',
+    nav: 'Publish a door',
+    description: 'Give AI agents your answer, from your own content, with a link to the next step on your site. One file and two endpoints.'
+  },
   { src: 'callers.md', route: '/callers', file: 'callers.html', nav: 'Call a door' },
-  { src: 'login.md', route: '/login', file: 'login.html', nav: 'Add login' },
+  { src: 'spec.md', route: '/spec', file: 'spec.html', nav: 'Spec' },
+  { src: 'usage.md', route: '/usage', file: 'usage.html' },
+  { src: 'login.md', route: '/login', file: 'login.html' },
   {
     src: 'benchmark/README.md',
     route: '/benchmark',
     file: 'benchmark.html',
     nav: 'Benchmark',
-    description: 'Same answers, a fifth of the cost. 861 frozen runs compare AI agents reading a store against asking it through CAP.'
+    description: 'Same answers, a fifth of the cost, a third of the steps. 861 frozen runs compare AI agents reading a store against asking it through CAP.'
   },
   { src: 'concepts/README.md', route: '/concepts', file: 'concepts.html' },
   { src: 'concepts/messages.md', route: '/concepts/messages', file: 'concepts/messages.html' },
@@ -207,8 +214,8 @@ const promptBlock = `<section class="prompt">
 const filmPoster = 'https://media.conciergeprotocol.org/cap-thumbnail.png?v=20261022b'
 const film = `<figure class="film"><video controls playsinline preload="metadata" poster="${filmPoster}"><source src="https://media.conciergeprotocol.org/cap-explainer.mp4?v=20261022b" type="video/mp4"></video></figure>\n`
 
-// On the home page the README thumbnail becomes the player, then the prompt follows. On the owner guide the prompt opens the first section.
-const promptAnchor = { '/': '<ul', '/login': '<h2' }
+// On the home page the README thumbnail becomes the player, then the prompt follows. On the owner guides the prompt opens the first section.
+const promptAnchor = { '/': '<ul', '/publish': '<h2', '/login': '<h2' }
 // The homepage leads with the mascot. The cap emoji stays in the README for GitHub.
 const withMascot = (body, route) => {
   if (route !== '/') return body

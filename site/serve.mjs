@@ -2,6 +2,7 @@ import { createServer } from 'node:http'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import checkHandler from '../api/check.js'
 
 const root = fileURLToPath(new URL('dist/', import.meta.url))
 const port = Number(process.env.PORT) || 8765
@@ -46,6 +47,11 @@ const server = createServer(async (req, res) => {
   let path = decodeURIComponent(url.pathname)
   if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1)
 
+  if (path === '/api/check') {
+    await runCheck(req, res)
+    return
+  }
+
   const redirect = redirects.get(path)
   if (redirect) {
     res.writeHead(308, { location: redirect + url.search })
@@ -78,6 +84,21 @@ const server = createServer(async (req, res) => {
   }
   await send(res, target)
 })
+
+async function runCheck(req, res) {
+  const chunks = []
+  for await (const chunk of req) chunks.push(chunk)
+  req.body = Buffer.concat(chunks).toString('utf8')
+  res.status = (code) => {
+    res.statusCode = code
+    return res
+  }
+  res.json = (data) => {
+    res.setHeader('content-type', 'application/json; charset=utf-8')
+    res.end(JSON.stringify(data))
+  }
+  await checkHandler(req, res)
+}
 
 server.listen(port, '127.0.0.1', () => {
   console.log(`CAP site at http://127.0.0.1:${port}`)
