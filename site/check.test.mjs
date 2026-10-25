@@ -222,6 +222,34 @@ test('the check page keeps the domain in the address and offers a share after th
   assert.match(html, /if \(preset\) run\(\)/)
 })
 
+test('a large 404 page reports the 404 and where to read about agent.txt', async () => {
+  const result = await checkDoor('example.com', {
+    resolve: async () => ({ ok: true, addresses: ['8.8.8.8'] }),
+    request: async (options) => {
+      if (options.url.endsWith('/agent.txt')) {
+        assert.equal(options.truncate, true)
+        return { ok: true, status: 404, headers: { 'content-type': 'text/html' }, body: '<html>', truncated: true }
+      }
+      return { ok: true, status: 200, headers: { 'content-type': 'text/html' }, body: '<html><head></head></html>' }
+    },
+  })
+  const card = result.checks.at(-1)
+  assert.equal(card.id, 'card')
+  assert.equal(card.status, 404)
+  assert.match(card.detail, /No agent\.txt at https:\/\/example\.com\/agent\.txt/)
+  assert.match(card.help, /conciergeprotocol\.org\/spec#front-door/)
+})
+
+test('an agent.txt over the size limit fails without a help link', async () => {
+  const result = await checkDoor('example.com', {
+    resolve: async () => ({ ok: true, addresses: ['8.8.8.8'] }),
+    request: async () => ({ ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'Protocol: CAP/1.0\n', truncated: true }),
+  })
+  const card = result.checks.at(-1)
+  assert.match(card.detail, /larger than 16 KB/)
+  assert.equal(card.help, undefined)
+})
+
 test('a private address is not fetched', async () => {
   let called = false
   const result = await checkDoor('example.com', {

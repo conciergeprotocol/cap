@@ -10,6 +10,7 @@ export function checkPageBody() {
 </form>
 <p class="check-status" role="status"></p>
 <div class="check-bar" hidden><span></span></div>
+<div class="check-site" hidden></div>
 <ol class="check-results"></ol>
 <div class="check-share" hidden></div>
 <script>
@@ -21,6 +22,7 @@ export function checkPageBody() {
   var share = document.querySelector('.check-share')
   var button = form.querySelector('button')
   var bar = document.querySelector('.check-bar')
+  var site = document.querySelector('.check-site')
   var timers = []
   var steps = [
     ['host', 'Public https host', 'Checking the public host.'],
@@ -114,6 +116,28 @@ export function checkPageBody() {
     share.append(note, actions)
   }
 
+  function showSite(domain) {
+    site.replaceChildren()
+    site.hidden = !domain
+    if (!domain) return
+    var icon = document.createElement('img')
+    icon.src = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=64'
+    icon.alt = ''
+    icon.width = 24
+    icon.height = 24
+    icon.addEventListener('error', function () { icon.remove() })
+    var name = document.createElement('span')
+    name.textContent = domain
+    site.append(icon, name)
+  }
+
+  function stateText(check) {
+    if (check.pass) return 'Passed'
+    if (check.status === 404) return '404 Not found'
+    if (check.status) return 'Failed (' + check.status + ')'
+    return 'Failed'
+  }
+
   function clearTimers() {
     timers.forEach(clearTimeout)
     timers = []
@@ -166,6 +190,7 @@ export function checkPageBody() {
     bar.hidden = false
     share.hidden = true
     share.replaceChildren()
+    showSite('')
     showPending()
     fetch('/api/check', {
       method: 'POST',
@@ -178,6 +203,7 @@ export function checkPageBody() {
         return
       }
       if (data.domain) remember(data.domain)
+      showSite(data.domain)
       status.textContent = data.passed ? 'This door passes.' : 'This door does not pass yet.'
       data.checks.forEach(function (check) {
         var item = document.createElement('li')
@@ -186,10 +212,18 @@ export function checkPageBody() {
         title.textContent = check.title
         var state = document.createElement('span')
         state.className = 'check-state'
-        state.textContent = check.pass ? 'Passed' : 'Failed'
+        state.textContent = stateText(check)
         var detail = document.createElement('p')
         detail.textContent = check.detail || ''
         item.append(title, state, detail)
+        if (check.help) {
+          var help = document.createElement('p')
+          var link = document.createElement('a')
+          link.href = check.help
+          link.textContent = 'How to add agent.txt'
+          help.append(link)
+          item.append(help)
+        }
         results.append(item)
       })
       if (data.domain) showShare(data.domain, data.passed)
