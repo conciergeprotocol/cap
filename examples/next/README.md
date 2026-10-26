@@ -1,6 +1,8 @@
 # Next.js example
 
-A door a Next.js app can mount. It serves `agent.txt` and `POST /cap/v1/messages`, and calls `answer` in `answer.mjs`. Replace that function with the one your app already uses to answer a person. Login stays in the [reference server](../../reference).
+A door a Next.js app can mount. It serves `agent.txt` and `POST /cap/v1/messages`, and calls `answer` in `answer.mjs`. Replace that function with the one your app already uses to answer a person.
+
+For an app you ship, use [`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) and `createCapHandler`. This folder keeps messages in memory for the life of the process. Login stays in the [reference server](../../reference), or pass `login` to `createCapServer`.
 
 ```bash
 cd examples/next

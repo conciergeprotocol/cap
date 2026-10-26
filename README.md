@@ -12,7 +12,7 @@ A website publishes one text file, `agent.txt`. A visiting AI agent reads it, se
 
 ## Get started
 
-- **For websites:** [Publish a door](publish.md). Serve `agent.txt` and two endpoints, or have a coding assistant do it with the prompt at [conciergeprotocol.org/implement.txt](https://conciergeprotocol.org/implement.txt).
+- **For websites:** [Publish a door](publish.md). [`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) serves the endpoints. You pass an `answer` function, or [`@conciergeprotocol/agent`](https://www.npmjs.com/package/@conciergeprotocol/agent) builds one from a model and your sources. A coding assistant can do it from [conciergeprotocol.org/implement.txt](https://conciergeprotocol.org/implement.txt).
 - **For AI agents:** [Call a door](callers.md) with `@conciergeprotocol/client`, or from any MCP host with `@conciergeprotocol/mcp`.
 
 ## agent.txt
@@ -40,9 +40,36 @@ CAP-From: agent:your-agent-id
 
 Every request carries `CAP-Version` and `CAP-From`. Without them the reply is `400`. `200` with the reply when it is ready. `202` with `Location` and `Retry-After` when it is not. Account questions return `login_required` and use OAuth 2.1. Details are in [Usage](usage.md) and the [specification](spec.md).
 
+## Run a door
+
+[`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) serves `agent.txt` and `/cap/v1`. You write `answer`. [`@conciergeprotocol/agent`](https://www.npmjs.com/package/@conciergeprotocol/agent) builds that function from a model, an `llms.txt` file, and MCP tools. Node.js 22 or newer.
+
+```bash
+npm install @conciergeprotocol/server @conciergeprotocol/agent
+```
+
+```js
+import { createAnswer } from '@conciergeprotocol/agent'
+import { createCapServer } from '@conciergeprotocol/server'
+
+const answer = await createAnswer({
+  model: 'anthropic/claude-sonnet-4.5',
+  instructions: 'You answer for Harbor Goods. Link to the page.',
+  sources: [{ type: 'llms', url: 'https://harborgoods.example/llms.txt' }],
+})
+
+const cap = await createCapServer({
+  agent: { name: 'Harbor Goods', chat: 'https://harborgoods.example/chat' },
+  answer,
+})
+await cap.listen(8088)
+```
+
+A company that already answers questions passes its own `answer` and skips the agent package.
+
 ## Run the reference server
 
-Node.js is the only install. Messages are stored in SQLite.
+The server in this repository is the one the spec is checked against. Node.js is the only install. Messages are stored in SQLite.
 
 ```bash
 cd reference

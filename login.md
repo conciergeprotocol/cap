@@ -2,7 +2,7 @@
 
 Your agent already answers public questions. This guide adds the rest: a person logs in, their agent asks about their own account, and, if you allow it, your agent makes changes for them. Actions that are hard to undo wait for the person's OK on your page.
 
-If your company already has user accounts, plan on an afternoon with the reference server, and a day or two to put your own sign-in in front of it. Most of the work is one function that checks a login and one that answers with an account.
+If your company already has user accounts, plan on an afternoon with [`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server), and a day or two to put your own sign-in in front of it. Most of the work is one function that checks a login and one that answers with an account. The [reference server](reference/README.md) in this repository is that same server.
 
 The visiting agent never gets your keys, your tools, or the person's password. It gets a token for one account, bound to its own `CAP-From`, and the replies your agent writes.
 
@@ -29,7 +29,25 @@ See it running: the [store example](examples/store) is a shop you click through,
 
 The [reference server](reference/README.md) implements every row. The [store example](examples/store) uses all of them in about 150 lines.
 
-## The fast path: the reference server
+## The fast path
+
+[`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) serves the login with the door. Node.js 22 or newer. `login` returns your account id, or `null`.
+
+```js
+import { createCapServer } from '@conciergeprotocol/server'
+
+const cap = await createCapServer({
+  agent: { name: 'Harbor Goods', chat: 'https://harborgoods.example/chat' },
+  answer,
+  login: async ({ username, password }) => {
+    const user = await users.verify(username, password)
+    return user ? user.id : null
+  },
+})
+await cap.listen(8088)
+```
+
+The sections below run the same server from this repository, which is the one the spec is checked against. `accounts` in `cap.json` is for a first test only.
 
 ### 1. Turn on logins
 
