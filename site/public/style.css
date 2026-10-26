@@ -994,6 +994,9 @@ footer a {
 }
 
 .bench-play {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid var(--line);
   background: var(--bg);
   color: var(--fg);
@@ -1212,7 +1215,6 @@ footer a {
 }
 
 .bench-lane-result {
-  min-height: 1.5em;
   margin: 6px 0 0;
   color: var(--muted);
   font-size: 13px;

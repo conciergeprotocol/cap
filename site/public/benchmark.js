@@ -451,8 +451,14 @@
     var titles = html('div', 'bench-chart-titles', head)
     html('p', 'bench-chart-title', titles, 'Task ' + spec.task_id)
     html('p', 'bench-chart-sub', titles, '“' + spec.prompt + '”')
-    var play = html('button', 'bench-tab bench-play', head, 'Play')
+    var play = html('button', 'bench-tab bench-play', head)
     play.type = 'button'
+    var PLAY_ICON = '<path d="M7 4v16l13-8z"/>'
+    var REPLAY_ICON = '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>'
+    function label(text, icon) {
+      play.innerHTML = '<svg xmlns="' + NS + '" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + icon + '</svg><span>' + text + '</span>'
+    }
+    label('Play', PLAY_ICON)
     var lanes = spec.runs.map(function (run) {
       var lane = html('div', 'bench-lane tone-' + TONE[run.condition], node)
       var top = html('div', 'bench-lane-head', lane)
@@ -466,13 +472,12 @@
         return chip
       })
       var result = html('p', 'bench-lane-result', lane, '')
+      result.textContent = (run.success ? 'Correct' : 'Wrong') + ' · ' + run.items + ' of ' + spec.matches + ' found · ' + usd(run.usd) + ' · ' + grouped(run.tokens) + ' tokens · ' + run.wall_s + ' s'
       return { run: run, chips: chips, count: count, result: result }
     })
     html('figcaption', '', node, 'One tool call per beat, in the order the visitor made them. Totals count both sides. Both answers listed all ' + spec.matches + ' matching shoes.')
     var timer
     function finish(lane) {
-      var run = lane.run
-      lane.result.textContent = (run.success ? 'Correct' : 'Wrong') + ' · ' + run.items + ' of ' + spec.matches + ' found · ' + usd(run.usd) + ' · ' + grouped(run.tokens) + ' tokens · ' + run.wall_s + ' s'
       lane.result.classList.add('is-done')
     }
     function reset() {
@@ -480,7 +485,6 @@
       lanes.forEach(function (lane) {
         lane.chips.forEach(function (chip) { chip.classList.remove('is-on') })
         lane.count.textContent = '0 steps'
-        lane.result.textContent = ''
         lane.result.classList.remove('is-done')
       })
     }
@@ -495,7 +499,7 @@
       reset()
       var beat = 0
       var longest = Math.max.apply(null, lanes.map(function (lane) { return lane.chips.length }))
-      play.textContent = 'Replay'
+      label('Replay', REPLAY_ICON)
       timer = setInterval(function () {
         lanes.forEach(function (lane) {
           if (beat < lane.chips.length) {
