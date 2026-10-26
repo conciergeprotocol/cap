@@ -80,7 +80,7 @@ OAuth: https://harborgoods.example/oauth
 - **Its own answer.** The reply is the company's statement from its record, not a visitor's reading of its pages.
 - **A shorter path to the next step.** The reply carries links to the product, plan, booking, or order. The step happens on the company's site, without a crawl, a second search, or a form.
 - **Sight of the question.** Each message is a question the company can read, answer better next time, and count.
-- **An invited caller.** `CAP-From` names the agent. Limits apply to a caller the company can see.
+- **A sanctioned way in.** Agents use the door instead of scraping. `CAP-From` names the caller, and the company's rate limits apply.
 - **No exposure.** Tools, prompts, keys, and other customers' data stay on the company's side. Account access needs the person's grant.
 - **A small install.** One file and two endpoints, served by the agent the company already runs on its chat page.
 
@@ -94,7 +94,7 @@ The company pays for the model call behind each answer and bounds it with its ow
 - **Attribution.** The reply is the company's statement. A `working` message has no reply, so the caller has nothing to repeat until there is one.
 - **Cheap follow-ups.** The caller sends only the new text with `previous_message_id`.
 - **Personalization without a profile.** `context` is a short brief, such as a size and a style. It does not say who the person is.
-- **Permission.** `CAP-From` names the caller, and the company published the door. Browsing can be blocked. A CAP call is invited.
+- **Permission.** The company published the door. Browsing can be blocked. A CAP call uses the way in the company chose. `CAP-From` names the caller, but it is a label, not proof of identity.
 - **No passwords.** Account access is a token the person grants. The caller never holds a password or drives a logged-in browser.
 
 The limits are equally plain. The reply is the company's framing, so comparisons and reviews still need other sources. A reply is only as good as the owner's record. A fact already printed on one accurate page can be faster to read than to ask. Until most domains publish `agent.txt`, callers keep browsing as the fallback.

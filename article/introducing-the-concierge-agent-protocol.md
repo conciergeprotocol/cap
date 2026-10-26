@@ -48,7 +48,7 @@ Today a visiting agent that reads the pages either finds the answer or gives up.
 - **Its answer, not an inference.** The reply comes from the company's catalog, docs, and policies. Where a page and the record disagree, the visitor gets the record.
 - **The next step in the reply.** Links go in the reply text: the product in the right size, the plan, the booking page. The person's agent passes the link on, and checkout or signup happens on the company's site.
 - **The question, seen.** Every message is a question from someone deciding what to do. A crawler's page loads say nothing about that.
-- **An invited caller.** `CAP-From` names the agent, so the company sets limits on a caller it can see instead of blocking one it can't.
+- **A sanctioned way in.** Agents use the door the company published instead of scraping its pages. `CAP-From` names the caller, and the company's own rate limits apply.
 - **One file to start.** If the company already runs an agent on its chat page, the same agent answers at the door.
 
 The cost is a model call per answer on the company's side, so it sets a daily limit. [Publish a door](../publish.md) is the guide.
@@ -63,7 +63,7 @@ Websites were built for people. An agent that browses one renders JavaScript, cl
 - **A smaller model is enough.** The search happens on the company's side. In the benchmark, Claude Haiku 4.5 answered every question through CAP for under 2 cents each.
 - **The answer is attributable.** The agent can tell its person "the store says." While a message is `working` there is no reply, so the agent waits instead of filling the gap. The answer is only as good as the company's agent, which has to say "not available" when its records find nothing.
 - **Follow-ups are cheap.** It sends only the new question. The company keeps the earlier turns.
-- **It is invited.** `CAP-From` names the caller, and the company published the door for it. A scraper can be blocked. A CAP call is welcome.
+- **It is sanctioned.** The company published the door for agents. A scraper can be blocked. A CAP call uses the way in the company chose. `CAP-From` names the caller, though the name alone proves nothing.
 - **It never holds a password.** For the account, the person logs in and the agent sends a token. It does not drive a logged-in browser.
 
 ## What stays with the company
