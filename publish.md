@@ -3,7 +3,7 @@
 This guide is for the company. People already send their agents to your website to compare, shop, book, and check on accounts. A door lets those agents ask your agent and get your answer, with a link to the next step on your site. Your tools, keys, and records stay with you.
 
 <ol class="steps">
-<li><span class="n">1</span><strong>Pick what answers</strong><p>The agent on your chat page, your search, or the reference server</p></li>
+<li><span class="n">1</span><strong>Pick what answers</strong><p>The agent on your chat page, your search, or the server package</p></li>
 <li><span class="n">2</span><strong>Serve the endpoints</strong><p><code>POST /cap/v1/messages</code> and <code>GET /cap/v1/messages/{id}</code></p></li>
 <li><span class="n">3</span><strong>Publish agent.txt</strong><p>One file at the site root, and a link from the homepage</p></li>
 <li><span class="n">4</span><strong>Check it</strong><p>The checker reads the file and asks one public question</p></li>
@@ -30,7 +30,8 @@ The door is a way in. Behind it, use whatever already knows the answers:
 
 - **The agent on your chat page.** A person on the chat page and an agent at the door reach the same agent. This is the usual case.
 - **Your own search or API.** Answer from a function that searches your catalog or CMS.
-- **The reference server.** One process that speaks `/cap/v1`, with a fixed reply, an echo, or a POST to a URL you run. See [Run a server](home.md#run-a-server).
+- **The server package.** [`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) speaks `/cap/v1`. You pass an `answer` function. [`@conciergeprotocol/agent`](https://www.npmjs.com/package/@conciergeprotocol/agent) builds that function from a model, an `llms.txt` file, and MCP tools. See [Run a server](home.md#run-a-server).
+- **The reference server.** The same process, in this repository, with a fixed reply, an echo, or a POST to a URL you run. The spec is checked against it.
 
 A hosted agent works too. The chat page and the CAP URL can live on another host, because callers trust your domain, not the server.
 

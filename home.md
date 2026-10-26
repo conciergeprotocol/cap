@@ -157,7 +157,35 @@ Every request carries `CAP-Version` and `CAP-From`. Without them the reply is `4
 
 ## Run a server
 
-The [reference server](reference) is one process that speaks `/cap/v1`. It needs no account on any vendor. Node.js is the only local install. SQLite is built in, so there is no database to set up. Messages are stored in `reference/data/cap.sqlite` and survive a restart.
+[`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) is one process that speaks `/cap/v1`. You pass an `answer` function. [`@conciergeprotocol/agent`](https://www.npmjs.com/package/@conciergeprotocol/agent) builds that function from a model, an `llms.txt` file, and MCP tools. Node.js 22 or newer. It needs no account on any vendor. SQLite is built in.
+
+```bash
+npm install @conciergeprotocol/server
+```
+
+```js
+import { createCapServer } from '@conciergeprotocol/server'
+
+const cap = await createCapServer({
+  agent: { name: 'Harbor Goods', chat: 'https://harborgoods.example/chat' },
+  answer: async ({ message }) => `You asked: ${message}`,
+})
+await cap.listen(8088)
+```
+
+A company that already has a bot uses that bot as `answer`. The agent package is for a site that has no bot yet:
+
+```js
+import { createAnswer } from '@conciergeprotocol/agent'
+
+const answer = await createAnswer({
+  model: 'anthropic/claude-sonnet-4.5',
+  instructions: 'You answer for Harbor Goods. Link to the page.',
+  sources: [{ type: 'llms', url: 'https://harborgoods.example/llms.txt' }],
+})
+```
+
+The [reference server](reference) in this repository is the same process, and the one the spec is checked against. Node.js is the only local install. Messages are stored in `reference/data/cap.sqlite` and survive a restart.
 
 ```bash
 cd reference
