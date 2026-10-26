@@ -19,8 +19,8 @@ With a door, the path is shorter:
 - **The reply carries the next step.** Links go in the reply text: the product in the right size, the plan, the booking page, the order. The person's agent hands the link over, and the step happens on your site.
 - **No form to wait on.** A pricing, stock, or policy question is answered when it is asked, not after a contact form and a callback.
 - **You see the questions.** Every message is a question from someone deciding what to do next. Pages served to a crawler tell you none of that.
-- **The caller is invited.** `CAP-From` names the agent. You set limits on a caller you can see, instead of blocking a scraper you can't.
-- **Only the answer leaves.** The visiting agent never gets your tools, prompts, keys, or another customer's data. Account questions need a token the person grants.
+- **A door you opened on purpose.** Agents use the door you published instead of scraping your pages. `CAP-From` names the caller, but it is a label, not proof. Rate limits handle abuse, and OAuth tokens authenticate the person.
+- **Only what the request may see.** The visiting agent never gets your tools, prompts, or keys. A public question gets a public answer. An account answer carries that one person's details, and only with a token they granted.
 
 The tradeoffs are plain. Each answer is a model call you pay for, so set a daily limit. The reply is only as good as your record, and your agent has to say "not available" when the record finds nothing. When every answer is already on a few accurate pages, a door adds little. [When to publish an agent](README.md#when-to-publish-an-agent) has the full test.
 
