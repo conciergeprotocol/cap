@@ -10,7 +10,7 @@ const out = join(root, 'site', 'dist')
 const repo = 'https://github.com/conciergeprotocol/cap'
 
 const pages = [
-  { src: 'README.md', route: '/', file: 'index.html', nav: 'Overview' },
+  { src: 'home.md', route: '/', file: 'index.html', nav: 'Overview' },
   {
     src: 'publish.md',
     route: '/publish',
@@ -40,6 +40,7 @@ const pages = [
 ]
 
 const routes = new Map(pages.map((page) => [page.src, page.route]))
+routes.set('README.md', '/')
 
 const slug = (text) =>
   text
@@ -214,9 +215,9 @@ const promptBlock = `<section class="prompt">
 const filmPoster = 'https://media.conciergeprotocol.org/cap-thumbnail.png?v=20261022b'
 const film = `<figure class="film"><video controls playsinline preload="metadata" poster="${filmPoster}"><source src="https://media.conciergeprotocol.org/cap-explainer.mp4?v=20261022b" type="video/mp4"></video></figure>\n`
 
-// On the home page the README thumbnail becomes the player, then the prompt follows. On the owner guides the prompt opens the first section.
+// On the home page the video thumbnail becomes the player, then the prompt follows. On the owner guides the prompt opens the first section.
 const promptAnchor = { '/': '<ul', '/publish': '<h2', '/login': '<h2' }
-// The homepage leads with the mascot. The cap emoji stays in the README for GitHub.
+// The homepage leads with the mascot beside the title and tagline.
 const withMascot = (body, route) => {
   if (route !== '/') return body
   const stripped = body
@@ -244,9 +245,14 @@ const withPrompt = (body, route) => {
 }
 
 // The benchmark page carries its results inline for the charts in benchmark.js.
-const benchmarkData = readFileSync(join(root, 'benchmark', 'results.json'), 'utf8').trim().replace(/</g, '\\u003c')
+const benchmarkJson = readFileSync(join(root, 'benchmark', 'results.json'), 'utf8').trim()
+const benchmarkData = benchmarkJson.replace(/</g, '\\u003c')
+// The home page shows only the replay, so it carries only the replay's data.
+const replayData = JSON.stringify({ replay: JSON.parse(benchmarkJson).replay }).replace(/</g, '\\u003c')
+const benchAssets = (json) => `<script type="application/json" id="bench-data">${json}</script>\n<script src="/benchmark.js" defer></script>\n`
 const pageAssets = {
-  '/benchmark': `<script type="application/json" id="bench-data">${benchmarkData}</script>\n<script src="/benchmark.js" defer></script>\n`
+  '/': benchAssets(replayData),
+  '/benchmark': benchAssets(benchmarkData)
 }
 
 const layout = ({ title, body, route, toc = '', description: pageDescription }) => {
