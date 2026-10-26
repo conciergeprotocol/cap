@@ -320,7 +320,12 @@ header.open .menu svg:last-child {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 10px;
-  margin: 24px 0 12px;
+  margin: 0 0 12px;
+}
+
+h3:has(+ .benefits),
+h3:has(+ .paths) {
+  margin: 28px 0 10px;
 }
 
 .benefits > div {
@@ -927,7 +932,7 @@ footer a {
 .bench-chart,
 .bench-replay {
   position: relative;
-  margin: 28px 0;
+  margin: 14px 0 28px;
   padding: 18px 18px 14px;
   border: 1px solid var(--line);
   border-radius: 12px;

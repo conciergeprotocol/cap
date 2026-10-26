@@ -14,20 +14,26 @@ More and more people send agents to websites to learn about a company and its po
 
 **How it works.** You publish one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. Your tools, keys, and data stay on your servers.
 
+### Why websites publish a door
+
 <div class="benefits">
 <div><strong>Own your answers</strong><p>Agents get your catalog, docs, and policies, not a guess from your pages.</p></div>
 <div><strong>Give buyers the next step</strong><p>Replies link to the product, plan, or booking page on your site.</p></div>
 <div><strong>See what they ask</strong><p>Every question comes to your agent, so you know what people want.</p></div>
 </div>
 
+### Get started
+
 <div class="paths">
 <a href="https://conciergeprotocol.org/publish"><span>For websites</span><strong>Publish a door</strong><p>Give agents your answer, from your content, with a link to the next step.</p></a>
 <a href="https://conciergeprotocol.org/callers"><span>For AI agents</span><strong>Call a door</strong><p>Ask a company's agent directly, with the client library or the MCP server.</p></a>
 </div>
 
-<figure class="bench-replay" data-replay></figure>
+### See the difference
 
 Same question, read from the site and asked through CAP. [See the benchmark](benchmark/README.md).
+
+<figure class="bench-replay" data-replay></figure>
 
 [![Play the CAP explainer: the front door to your website, for every AI agent](site/public/cap-explainer.jpg)](https://media.conciergeprotocol.org/cap-explainer.mp4?v=20261022b)
 
