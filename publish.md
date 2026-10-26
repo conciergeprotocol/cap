@@ -22,7 +22,7 @@ With a door, the path is shorter:
 - **A door you opened on purpose.** Agents use the door you published instead of scraping your pages. `CAP-From` names the caller, but it is a label, not proof. Rate limits handle abuse, and OAuth tokens authenticate the person.
 - **Only what the request may see.** The visiting agent never gets your tools, prompts, or keys. A public question gets a public answer. An account answer carries that one person's details, and only with a token they granted.
 
-The tradeoffs are plain. Each answer is a model call you pay for, so set a daily limit. The reply is only as good as your record, and your agent has to say "not available" when the record finds nothing. When every answer is already on a few accurate pages, a door adds little. [When to publish an agent](README.md#when-to-publish-an-agent) has the full test.
+The tradeoffs are plain. Each answer is a model call you pay for, so set a daily limit. The reply is only as good as your record, and your agent has to say "not available" when the record finds nothing. When every answer is already on a few accurate pages, a door adds little. [When to publish an agent](home.md#when-to-publish-an-agent) has the full test.
 
 ## 1. Pick what answers
 
@@ -30,7 +30,7 @@ The door is a way in. Behind it, use whatever already knows the answers:
 
 - **The agent on your chat page.** A person on the chat page and an agent at the door reach the same agent. This is the usual case.
 - **Your own search or API.** Answer from a function that searches your catalog or CMS.
-- **The reference server.** One process that speaks `/cap/v1`, with a fixed reply, an echo, or a POST to a URL you run. See [Run a server](README.md#run-a-server).
+- **The reference server.** One process that speaks `/cap/v1`, with a fixed reply, an echo, or a POST to a URL you run. See [Run a server](home.md#run-a-server).
 
 A hosted agent works too. The chat page and the CAP URL can live on another host, because callers trust your domain, not the server.
 
@@ -67,7 +67,7 @@ Serve it at `https://{domain}/agent.txt`. Add the homepage link even when the ro
 <link rel="agent" href="https://harborgoods.example/agent.txt">
 ```
 
-Add one line to `llms.txt` that points at `/agent.txt`. If your host cannot serve a file at the root, redirect `/agent.txt` to the file. [agent.txt](README.md#agenttxt) explains each line.
+Add one line to `llms.txt` that points at `/agent.txt`. If your host cannot serve a file at the root, redirect `/agent.txt` to the file. [agent.txt](home.md#agenttxt) explains each line.
 
 ## 4. Check it
 
