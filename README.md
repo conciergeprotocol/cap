@@ -22,7 +22,7 @@ More and more people send agents to websites to learn about a company and its po
 
 <div class="paths">
 <a href="https://conciergeprotocol.org/publish"><span>For websites</span><strong>Publish a door</strong><p>Give agents your answer, from your content, with a link to the next step.</p></a>
-<a href="https://conciergeprotocol.org/callers"><span>For agent builders</span><strong>Call a door</strong><p>Ask a company's agent directly, with the client library or the MCP server.</p></a>
+<a href="https://conciergeprotocol.org/callers"><span>For AI agents</span><strong>Call a door</strong><p>Ask a company's agent directly, with the client library or the MCP server.</p></a>
 </div>
 
 <figure class="bench-replay" data-replay></figure>
