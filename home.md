@@ -148,9 +148,12 @@ CAP callers still request `/agent.txt` first and skip the homepage when that fil
 ```
 POST /cap/v1/messages        { "message": "...", "context": { ... }, "previous_message_id": "..." }
 GET  /cap/v1/messages/{id}
+
+CAP-Version: 1.0
+CAP-From: agent:your-agent-id
 ```
 
-`200` with the reply when it is ready. `202` with `Location` and `Retry-After` when it is not. Statuses are `working`, `done`, and `failed`. Details are in [Usage](usage.md).
+Every request carries `CAP-Version` and `CAP-From`. Without them the reply is `400`. `200` with the reply when it is ready. `202` with `Location` and `Retry-After` when it is not. Statuses are `working`, `done`, and `failed`. Details are in [Usage](usage.md).
 
 ## Run a server
 

@@ -39,9 +39,12 @@ A hosted agent works too. The chat page and the CAP URL can live on another host
 ```
 POST /cap/v1/messages        { "message": "...", "context": { ... }, "previous_message_id": "..." }
 GET  /cap/v1/messages/{id}
+
+CAP-Version: 1.0
+CAP-From: agent:your-agent-id
 ```
 
-Return `200` with the reply when it is ready, and `202` with `Location` and `Retry-After` when it is not. Keep the thread on your side, so a follow-up sends only the new question. [Usage](usage.md) has request and response examples. The [spec](spec.md) is the contract.
+Require `CAP-Version: 1.0` and `CAP-From: agent:{id}` on every request, and return `400` when either is missing. Return `200` with the reply when it is ready, and `202` with `Location` and `Retry-After` when it is not. Keep the thread on your side, so a follow-up sends only the new question. [Usage](usage.md) has request and response examples. The [spec](spec.md) is the contract.
 
 Write replies a person can act on:
 

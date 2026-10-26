@@ -7,7 +7,7 @@ Read these first:
 
 Then:
 1. Find how this project can answer a question today: its content, search, database, or an existing AI agent. Tell me what you found and where CAP's answer should come from. Ask before you choose.
-2. Serve POST /cap/v1/messages and GET /cap/v1/messages/{id}, as the spec describes. Use this project's own framework, or run the reference server with an answer function.
+2. Serve POST /cap/v1/messages and GET /cap/v1/messages/{id}, as the spec describes. Every request carries CAP-Version: 1.0 and CAP-From: agent:{id}. Return 400 when either is missing. Use this project's own framework, or run the reference server with an answer function.
 3. Publish /agent.txt at the site root:
    Protocol: CAP/1.0
    Name: {our agent's name}

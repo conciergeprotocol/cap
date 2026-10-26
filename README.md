@@ -33,9 +33,12 @@ Each line is explained in the [overview](home.md#agenttxt).
 ```
 POST /cap/v1/messages        { "message": "...", "context": { ... }, "previous_message_id": "..." }
 GET  /cap/v1/messages/{id}
+
+CAP-Version: 1.0
+CAP-From: agent:your-agent-id
 ```
 
-`200` with the reply when it is ready. `202` with `Location` and `Retry-After` when it is not. Account questions return `login_required` and use OAuth 2.1. Details are in [Usage](usage.md) and the [specification](spec.md).
+Every request carries `CAP-Version` and `CAP-From`. Without them the reply is `400`. `200` with the reply when it is ready. `202` with `Location` and `Retry-After` when it is not. Account questions return `login_required` and use OAuth 2.1. Details are in [Usage](usage.md) and the [specification](spec.md).
 
 ## Run the reference server
 
