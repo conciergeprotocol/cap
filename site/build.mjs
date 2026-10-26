@@ -234,6 +234,7 @@ const withMascot = (body, route) => {
 const withPrompt = (body, route) => {
   body = withMascot(body, route)
   if (route === '/') {
+    body = body.replace('<div class="proof" data-proof></div>', proofBlock)
     const at = [filmPoster, 'cap-explainer.jpg'].map((marker) => body.indexOf(marker)).find((index) => index !== -1) ?? -1
     const start = at === -1 ? -1 : body.lastIndexOf('<p>', at)
     const end = at === -1 ? -1 : body.indexOf('</p>', at)
@@ -249,6 +250,17 @@ const benchmarkJson = readFileSync(join(root, 'benchmark', 'results.json'), 'utf
 const benchmarkData = benchmarkJson.replace(/</g, '\\u003c')
 // The home page shows only the replay, so it carries only the replay's data.
 const replayData = JSON.stringify({ replay: JSON.parse(benchmarkJson).replay }).replace(/</g, '\\u003c')
+const proofBlock = (() => {
+  const { cap_ref: cap, fetch_real: fetch, browser_real: browse } = JSON.parse(benchmarkJson).main
+  const cut = (ours, theirs) => Math.round((1 - ours / theirs) * 100) + '%'
+  const stats = [
+    [cut(cap.per_success, fetch.per_success), 'lower cost than fetching the site'],
+    [cut(cap.per_success, browse.per_success), 'lower cost than browsing it'],
+    [cut(cap.steps, browse.steps), 'fewer steps than browsing']
+  ]
+  const tiles = stats.map(([value, label]) => `<div class="bench-stat"><p class="bench-stat-value">${value}</p><p class="bench-stat-label">${label}</p></div>`).join('')
+  return `<div class="bench-stats proof">${tiles}</div>\n<p class="proof-note">Cost per correct answer and tool calls across ${cap.n} tasks on a synthetic store. About the same answers: ${cap.ok} of ${cap.n} correct through CAP, ${fetch.ok} fetching, ${browse.ok} browsing. Not a guarantee for every site.</p>\n`
+})()
 const benchAssets = (json) => `<script type="application/json" id="bench-data">${json}</script>\n<script src="/benchmark.js" defer></script>\n`
 const pageAssets = {
   '/': benchAssets(replayData),

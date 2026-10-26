@@ -316,6 +316,55 @@ header.open .menu svg:last-child {
   }
 }
 
+.hero-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0 8px;
+}
+
+.hero-cta a {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--fg);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.hero-cta .cta {
+  border-color: var(--fg);
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.hero-cta a:hover {
+  opacity: 0.88;
+}
+
+.bench-stats.proof {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 0 8px;
+}
+
+.proof-note {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+h3:has(+ .proof) {
+  margin: 28px 0 10px;
+}
+
+@media (max-width: 640px) {
+  .bench-stats.proof {
+    grid-template-columns: 1fr;
+  }
+}
+
 .benefits {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

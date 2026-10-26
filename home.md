@@ -2,13 +2,17 @@
 
 **The front door to your website, for every AI agent.**
 
-More and more people send agents to websites to learn about a company and its policies, shop, book, and manage accounts.
+Let AI agents ask your business directly. Your agent answers from your catalog, docs, and records, with a link to the next step on your site. Agents stop guessing from your pages, and your internal tools stay private.
 
-**Without CAP.** Those agents read pages built for people. One answer can take a dozen page loads and a context window full of markup. Or they load an MCP server, an API, and a skill for every site until their configuration is bloated with tools.
+<p class="hero-cta"><a class="cta" href="/publish">Make your website agent-ready</a><a class="cta-alt" href="#see-cap-in-action">See CAP in action</a></p>
 
-**With CAP.** Your website has a concierge. The visiting agent asks for what the person wants, and your concierge answers from your own catalog, docs, and records. Behind the door, it uses your internal tools: your MCP servers, APIs, and databases. The visiting agent never loads them. One question, one answer from the source.
+### See CAP in action
 
-**How it works.** You publish one text file, `agent.txt`. The visiting agent reads it, sends a message, and gets a reply. Your tools, keys, and data stay on your servers.
+<div class="proof" data-proof></div>
+
+The same shopping question, read from the site and asked through CAP. [See the benchmark](benchmark/README.md).
+
+<figure class="bench-replay" data-replay></figure>
 
 ### Why websites publish a door
 
@@ -20,16 +24,12 @@ More and more people send agents to websites to learn about a company and its po
 
 ### Get started
 
+You publish one text file, `agent.txt`. A visiting agent reads it, sends a message, and gets a reply. Your tools, keys, and data stay on your servers.
+
 <div class="paths">
 <a href="https://conciergeprotocol.org/publish"><span>For websites</span><strong>Publish a door</strong><p>Give agents your answer, from your content, with a link to the next step.</p></a>
 <a href="https://conciergeprotocol.org/callers"><span>For AI agents</span><strong>Call a door</strong><p>Ask a company's agent directly, with the client library or the MCP server.</p></a>
 </div>
-
-### See the difference
-
-Same question, read from the site and asked through CAP. [See the benchmark](benchmark/README.md).
-
-<figure class="bench-replay" data-replay></figure>
 
 [![Play the CAP explainer: the front door to your website, for every AI agent](site/public/cap-explainer.jpg)](https://media.conciergeprotocol.org/cap-explainer.mp4?v=20261022b)
 
