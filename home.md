@@ -78,7 +78,7 @@ Then ask your assistant about any site that publishes `agent.txt`. The [checker]
 A person's agent is already on its way to your site. Without a door, it pieces an answer together from pages built for people, and the person still has to find the page and take the next step. You never see the question. With a door, the answer, the link, and the question are yours. And:
 
 - No contact form to wait on for a question your records can answer now.
-- A door you publish on purpose, instead of a scrape of your pages. `CAP-From` names the caller, and your own rate limits apply.
+- A door you publish on purpose, instead of a scrape of your pages. `CAP-From` names the caller, as a label rather than verified identity, and your own rate limits apply.
 - Your tools and keys stay behind the door. A reply carries only what that request is allowed to see.
 
 Each answer is a model call on your side, and a reply is only as good as your record. [Publish a door](publish.md) is the guide.
@@ -91,7 +91,7 @@ Browsing a site means rendering pages, getting past banners and bot blocks, and 
 - The company's own answer from its record, instead of an inference from a page.
 - The company does the search and pays for it. The caller gets a short reply. In the [CAP benchmark](benchmark/README.md), the same answers cost about a fifth of fetching the site and a seventh of browsing it, counting both sides.
 - Follow-ups send only the new question.
-- A door the company published for agents, instead of a scrape that can be blocked. `CAP-From` names the caller.
+- A door the company published for agents, instead of a scrape that can be blocked. `CAP-From` names the caller for logs and rate limits.
 - A token the person grants for account questions, never a password.
 
 The reply is the company's own claim, not a neutral review. The visiting agent still decides what to tell the person. A reply is only as good as the company's agent, which has to say "not available" when its records find nothing.

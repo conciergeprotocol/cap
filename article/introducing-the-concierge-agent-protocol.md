@@ -1,10 +1,10 @@
 # Introducing the Concierge Agent Protocol
 
-People send their own agents to company websites. "Find me running shoes in size 12, black sweatpants, and a black hoodie in my style." "Where's my order?" Today that agent has two options. It can read the pages, or it can be handed the company's tools.
+People send their own agents to company websites. "Find me running shoes in size 12, black sweatpants, and a black hoodie in my style." "Where's my order?" Today that agent has two options. It can read the pages, or it can integrate with the company's tools.
 
 Reading pages works when the site is small and the answer is printed on it. It stops working when the catalog is too large to read, when the page is stale, and every time the question is about the person's own account. Order status is not on a public page.
 
-Handing over tools is worse. An MCP server or an API key gives the visiting agent the company's schema, its credentials, and every customer's data behind them. No company should give that to a stranger's agent, and no person should need it to ask where a package is.
+Integrating is a lot to ask of a visitor. An MCP server or an API, with scoped permissions and proper authentication, works well for a partner that connects on purpose. An agent that arrives once, with one question, would have to find the server, learn the schema, and get access for every company it visits. What it needs is a simple way to ask for an answer, found from the domain alone.
 
 Companies already have an agent that knows the answer: the one on their chat page, with access to their catalog, their CMS, and their order system. What is missing is a way for another agent to ask it.
 
@@ -48,7 +48,7 @@ Today a visiting agent that reads the pages either finds the answer or gives up.
 - **Its answer, not an inference.** The reply comes from the company's catalog, docs, and policies. Where a page and the record disagree, the visitor gets the record.
 - **The next step in the reply.** Links go in the reply text: the product in the right size, the plan, the booking page. The person's agent passes the link on, and checkout or signup happens on the company's site.
 - **The question, seen.** Every message is a question from someone deciding what to do. A crawler's page loads say nothing about that.
-- **A sanctioned way in.** Agents use the door the company published instead of scraping its pages. `CAP-From` names the caller, and the company's own rate limits apply.
+- **A sanctioned way in.** Agents use the door the company published instead of scraping its pages. `CAP-From` names the caller, as a label rather than verified identity, and the company's own rate limits apply.
 - **One file to start.** If the company already runs an agent on its chat page, the same agent answers at the door.
 
 The cost is a model call per answer on the company's side, so it sets a daily limit. [Publish a door](../publish.md) is the guide.
