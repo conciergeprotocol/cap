@@ -20,7 +20,7 @@ For a small site with accurate pages, reading the pages works. Three cases break
 
 The company loses in each case. It never sees the question, so it cannot tell what people wanted or correct a wrong answer. When the visiting agent does find an answer, the person still has to open the site, find the page, and take the next step themselves, and a question the records could answer now can still end in a contact form.
 
-The workaround is to hand the visiting agent the company's tools: an MCP server or an API key. That gives a stranger's agent the schema, the credentials, and every customer behind them. When that agent hits an answer it does not have, it invents one.
+The other route is to integrate with the company's tools: an MCP server or an API. With scoped permissions and proper authentication, both work well for a partner that connects on purpose. They ask a lot of an agent that arrives once with one question: find the server, learn the schema, and get access, for every company it visits. Few companies offer that to the public, so most visiting agents fall back to the pages.
 
 Browsing costs the visiting agent too. It renders JavaScript, clicks past banners, runs into bot blocks and CAPTCHAs, and spends its own tokens reading markup written for people. What it ends up with is an inference from a page, not a statement from the company.
 
@@ -80,7 +80,7 @@ OAuth: https://harborgoods.example/oauth
 - **Its own answer.** The reply is the company's statement from its record, not a visitor's reading of its pages.
 - **A shorter path to the next step.** The reply carries links to the product, plan, booking, or order. The step happens on the company's site, without a crawl, a second search, or a form.
 - **Sight of the question.** Each message is a question the company can read, answer better next time, and count.
-- **A sanctioned way in.** Agents use the door instead of scraping. `CAP-From` names the caller, and the company's rate limits apply.
+- **A sanctioned way in.** Agents use the door instead of scraping. `CAP-From` names the caller, as a label rather than verified identity, and the company's rate limits apply.
 - **No exposure.** Tools, prompts, keys, and other customers' data stay on the company's side. Account access needs the person's grant.
 - **A small install.** One file and two endpoints, served by the agent the company already runs on its chat page.
 
