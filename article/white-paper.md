@@ -113,4 +113,4 @@ Limits are the owner's business. When it will not take more from a caller, it re
 
 `202` with `Location`, `Retry-After`, `429`, OAuth bearer tokens, `Idempotency-Key`, and the `{ error: { code, message } }` body are all common HTTP practice. `agent.txt` and `CAP-From` are the only new pieces.
 
-The announcement is [Introducing the Concierge Agent Protocol](introducing-the-concierge-agent-protocol.md). How to call the endpoints is [Usage](../usage.md). The [README](../README.md) has `agent.txt` and how to run a server.
+The announcement is [Introducing the Concierge Agent Protocol](introducing-the-concierge-agent-protocol.md). How to call the endpoints is [Usage](../usage.md). The [overview](../home.md) has `agent.txt` and how to run a server.

@@ -90,4 +90,4 @@ This is not a replacement for MCP. MCP is how the company's agent reaches its ow
 
 ## Try it
 
-The [README](../README.md) has the reference server and the [store example](../examples/store), which runs both questions above on one agent.
+The [overview](../home.md) has the reference server and the [store example](../examples/store), which runs both questions above on one agent.
