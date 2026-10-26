@@ -316,6 +316,72 @@ header.open .menu svg:last-child {
   }
 }
 
+.benefits {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 24px 0 12px;
+}
+
+.benefits > div {
+  padding: 14px 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.benefits strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.benefits p,
+.paths p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.paths {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 0 8px;
+}
+
+.paths a {
+  display: block;
+  padding: 16px 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--fg);
+  text-decoration: none;
+}
+
+.paths a:hover {
+  border-color: var(--accent);
+}
+
+.paths span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.paths strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 640px) {
+  .benefits,
+  .paths {
+    grid-template-columns: 1fr;
+  }
+}
+
 .film {
   margin: 28px 0 8px;
 }

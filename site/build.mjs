@@ -244,9 +244,14 @@ const withPrompt = (body, route) => {
 }
 
 // The benchmark page carries its results inline for the charts in benchmark.js.
-const benchmarkData = readFileSync(join(root, 'benchmark', 'results.json'), 'utf8').trim().replace(/</g, '\\u003c')
+const benchmarkJson = readFileSync(join(root, 'benchmark', 'results.json'), 'utf8').trim()
+const benchmarkData = benchmarkJson.replace(/</g, '\\u003c')
+// The home page shows only the replay, so it carries only the replay's data.
+const replayData = JSON.stringify({ replay: JSON.parse(benchmarkJson).replay }).replace(/</g, '\\u003c')
+const benchAssets = (json) => `<script type="application/json" id="bench-data">${json}</script>\n<script src="/benchmark.js" defer></script>\n`
 const pageAssets = {
-  '/benchmark': `<script type="application/json" id="bench-data">${benchmarkData}</script>\n<script src="/benchmark.js" defer></script>\n`
+  '/': benchAssets(replayData),
+  '/benchmark': benchAssets(benchmarkData)
 }
 
 const layout = ({ title, body, route, toc = '', description: pageDescription }) => {
