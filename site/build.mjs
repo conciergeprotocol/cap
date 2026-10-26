@@ -299,6 +299,7 @@ const layout = ({ title, body, route, toc = '', description: pageDescription }) 
 <link rel="apple-touch-icon" href="/icon.png">
 <link rel="stylesheet" href="/style.css">
 <script>${themeBoot}</script>
+<script defer src="https://insights.cosmicinsights.dev/script.js" data-project="6adfae1516f02035ccd183e8"></script>
 </head>
 <body>
 <header>
