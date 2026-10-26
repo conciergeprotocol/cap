@@ -472,13 +472,12 @@
         return chip
       })
       var result = html('p', 'bench-lane-result', lane, '')
+      result.textContent = (run.success ? 'Correct' : 'Wrong') + ' · ' + run.items + ' of ' + spec.matches + ' found · ' + usd(run.usd) + ' · ' + grouped(run.tokens) + ' tokens · ' + run.wall_s + ' s'
       return { run: run, chips: chips, count: count, result: result }
     })
     html('figcaption', '', node, 'One tool call per beat, in the order the visitor made them. Totals count both sides. Both answers listed all ' + spec.matches + ' matching shoes.')
     var timer
     function finish(lane) {
-      var run = lane.run
-      lane.result.textContent = (run.success ? 'Correct' : 'Wrong') + ' · ' + run.items + ' of ' + spec.matches + ' found · ' + usd(run.usd) + ' · ' + grouped(run.tokens) + ' tokens · ' + run.wall_s + ' s'
       lane.result.classList.add('is-done')
     }
     function reset() {
@@ -486,7 +485,6 @@
       lanes.forEach(function (lane) {
         lane.chips.forEach(function (chip) { chip.classList.remove('is-on') })
         lane.count.textContent = '0 steps'
-        lane.result.textContent = ''
         lane.result.classList.remove('is-done')
       })
     }
