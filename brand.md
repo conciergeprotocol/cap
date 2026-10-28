@@ -9,6 +9,15 @@ The CAP mascot is a capybara dressed as a hotel concierge: a navy pillbox cap wi
 <figure><div class="asset-art"><img src="/brand/cap-icon.png" width="512" height="512" alt="The CAP icon"></div><figcaption><strong>Icon</strong><span>512 × 512 PNG, transparent, with padding. For app and favicon slots.</span><a href="/brand/cap-icon.png" download>Download</a></figcaption></figure>
 </div>
 
+## Casual mascot
+
+The original CAP capybara wears a navy baseball cap. Use it for informal places: stickers, social posts, community channels, and docs that want a lighter touch.
+
+<div class="assets">
+<figure><div class="asset-art"><img src="/brand/cap-casual-mascot.png" width="1024" height="1024" alt="The casual CAP capybara in a navy CAP baseball cap"></div><figcaption><strong>Casual mascot</strong><span>1024 × 1024 PNG, transparent</span><a href="/brand/cap-casual-mascot.png" download>Download</a></figcaption></figure>
+<figure><div class="asset-art"><img src="/brand/cap-casual-mark.png" width="1024" height="1024" alt="The casual CAP mark: the capybara's head in a CAP baseball cap"></div><figcaption><strong>Casual mark</strong><span>1024 × 1024 PNG, transparent. For avatars and stickers.</span><a href="/brand/cap-casual-mark.png" download>Download</a></figcaption></figure>
+</div>
+
 ## Colors
 
 <div class="swatches">
