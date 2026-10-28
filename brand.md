@@ -23,8 +23,8 @@ The original CAP capybara wears a navy baseball cap. Use it for informal places:
 <div class="swatches">
 <div><span class="swatch" style="background:#182746"></span><strong>Concierge navy</strong><code>#182746</code></div>
 <div><span class="swatch" style="background:#dfa75c"></span><strong>Key gold</strong><code>#DFA75C</code></div>
-<div><span class="swatch" style="background:#a46d44"></span><strong>Capybara brown</strong><code>#A46D44</code></div>
-<div><span class="swatch" style="background:#fbd8b2"></span><strong>Muzzle cream</strong><code>#FBD8B2</code></div>
+<div><span class="swatch" style="background:#ad7447"></span><strong>Capybara brown</strong><code>#AD7447</code></div>
+<div><span class="swatch" style="background:#f7ddba"></span><strong>Muzzle cream</strong><code>#F7DDBA</code></div>
 </div>
 
 ## Using the assets
