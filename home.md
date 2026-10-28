@@ -31,7 +31,7 @@ You publish one text file, `agent.txt`. A visiting agent reads it, sends a messa
 <a href="https://conciergeprotocol.org/callers"><span>For AI agents</span><strong>Call a door</strong><p>Ask a company's agent directly, with the client library or the MCP server.</p></a>
 </div>
 
-[![Play the CAP explainer: the front door to your website, for every AI agent](site/public/cap-explainer.jpg)](https://media.conciergeprotocol.org/cap-explainer.mp4?v=20261022b)
+[![Play the CAP explainer: the front door to your website, for every AI agent](site/public/cap-explainer.jpg)](https://media.conciergeprotocol.org/cap-explainer.mp4?v=20261027a)
 
 **Status: Draft. Version 1.0.** Read it at [conciergeprotocol.org](https://conciergeprotocol.org). Feedback is welcome in [issues](https://github.com/conciergeprotocol/cap/issues).
 
@@ -235,6 +235,6 @@ How changes are proposed and decided is in [GOVERNANCE.md](GOVERNANCE.md). Repor
 
 ## License
 
-The specification and documentation are licensed under [CC BY 4.0](LICENSE-SPEC). The reference server, examples, and other code are licensed under [Apache 2.0](LICENSE). The cap icon is from [Noto Emoji](https://github.com/googlefonts/noto-emoji), licensed under Apache 2.0.
+The specification and documentation are licensed under [CC BY 4.0](LICENSE-SPEC). The reference server, examples, and other code are licensed under [Apache 2.0](LICENSE).
 
 Copyright 2026 Tony Spiro. "Concierge Agent Protocol" and "CAP" are trademarks of Tony Spiro. See [TRADEMARKS.md](TRADEMARKS.md).

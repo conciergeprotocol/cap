@@ -36,7 +36,13 @@ const pages = [
   { src: 'article/white-paper.md', route: '/white-paper', file: 'white-paper.html' },
   { src: 'GOVERNANCE.md', route: '/governance', file: 'governance.html' },
   { src: 'SECURITY.md', route: '/security', file: 'security.html' },
-  { src: 'CHANGELOG.md', route: '/changelog', file: 'changelog.html' }
+  { src: 'CHANGELOG.md', route: '/changelog', file: 'changelog.html' },
+  {
+    src: 'brand.md',
+    route: '/brand',
+    file: 'brand.html',
+    description: 'The CAP mascot, mark, icon, and colors, with guidance for using them.'
+  }
 ]
 
 const routes = new Map(pages.map((page) => [page.src, page.route]))
@@ -212,8 +218,8 @@ const promptBlock = `<section class="prompt">
 </section>
 `
 
-const filmPoster = 'https://media.conciergeprotocol.org/cap-thumbnail.png?v=20261022b'
-const film = `<figure class="film"><video controls playsinline preload="metadata" poster="${filmPoster}"><source src="https://media.conciergeprotocol.org/cap-explainer.mp4?v=20261022b" type="video/mp4"></video></figure>\n`
+const filmPoster = 'https://media.conciergeprotocol.org/cap-thumbnail.png?v=20261027a'
+const film = `<figure class="film"><video controls playsinline preload="metadata" poster="${filmPoster}"><source src="https://media.conciergeprotocol.org/cap-explainer.mp4?v=20261027a" type="video/mp4"></video></figure>\n`
 
 // On the home page the video thumbnail becomes the player, then the prompt follows. On the owner guides the prompt opens the first section.
 const promptAnchor = { '/': '<ul', '/publish': '<h2', '/login': '<h2' }
@@ -221,7 +227,6 @@ const promptAnchor = { '/': '<ul', '/publish': '<h2', '/login': '<h2' }
 const withMascot = (body, route) => {
   if (route !== '/') return body
   const stripped = body
-    .replace(/(<h1[^>]*>)\u{1F9E2}\uFE0F?\s*/u, '$1')
     .replace(/<p[^>]*>\s*<img[^>]*mascot[^>]*>\s*<\/p>\n?/, '')
     .replace(/<img[^>]*mascot[^>]*>\n?/, '')
   const start = stripped.indexOf('<h1')
@@ -294,9 +299,9 @@ const layout = ({ title, body, route, toc = '', description: pageDescription }) 
 <meta name="twitter:title" content="${pageTitle}">
 <meta name="twitter:description" content="${description}">
 <meta name="twitter:image" content="${filmPoster}">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="icon" href="/icon.png" type="image/png">
-<link rel="apple-touch-icon" href="/icon.png">
+<link rel="icon" href="/favicon.png" type="image/png" sizes="48x48">
+<link rel="icon" href="/icon.png" type="image/png" sizes="512x512">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/style.css">
 <script>${themeBoot}</script>
 <script defer src="https://insights.cosmicinsights.dev/script.js" data-project="6adfae1516f02035ccd183e8"></script>
@@ -319,7 +324,7 @@ ${withPrompt(body, route)}
 <footer>
 <p>Concierge Agent Protocol 1.0 Draft. Spec text under <a href="${repo}/blob/main/LICENSE-SPEC">CC BY 4.0</a>, code under <a href="${repo}/blob/main/LICENSE">Apache 2.0</a>.</p>
 <div class="footer-end">
-<p><a href="/governance">Governance</a> · <a href="/security">Security</a> · <a href="/changelog">Changelog</a> · <a href="/cap.txt">cap.txt</a> · <a href="/implement.txt">implement.txt</a></p>
+<p><a href="/governance">Governance</a> · <a href="/security">Security</a> · <a href="/changelog">Changelog</a> · <a href="/brand">Brand</a> · <a href="/cap.txt">cap.txt</a> · <a href="/implement.txt">implement.txt</a></p>
 ${themeControl}
 </div>
 </footer>
