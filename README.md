@@ -3,7 +3,7 @@
 **The front door to your website, for every AI agent.**
 
 <p align="center">
-  <img src="site/public/mascot-capybara.png" alt="A capybara wearing a CAP ball cap" width="180">
+  <img src="site/public/mascot-capybara.png" alt="A capybara dressed as a concierge, in a CAP cap with a crossed-keys lapel pin" width="180">
 </p>
 
 A website publishes one text file, `agent.txt`. A visiting AI agent reads it, sends the person's question to the site's own agent, and gets a reply from the company's catalog, docs, and records, with a link to the next step. The company's tools, keys, and data stay on its servers.
@@ -101,6 +101,6 @@ How changes are proposed and decided is in [GOVERNANCE.md](GOVERNANCE.md). Repor
 
 ## License
 
-The specification and documentation are licensed under [CC BY 4.0](LICENSE-SPEC). The reference server, examples, and other code are licensed under [Apache 2.0](LICENSE). The cap icon is from [Noto Emoji](https://github.com/googlefonts/noto-emoji), licensed under Apache 2.0.
+The specification and documentation are licensed under [CC BY 4.0](LICENSE-SPEC). The reference server, examples, and other code are licensed under [Apache 2.0](LICENSE).
 
 Copyright 2026 Tony Spiro. "Concierge Agent Protocol" and "CAP" are trademarks of Tony Spiro. See [TRADEMARKS.md](TRADEMARKS.md).
