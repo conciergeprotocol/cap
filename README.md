@@ -1,4 +1,4 @@
-# 🧢 Concierge Agent Protocol (CAP)
+# Concierge Agent Protocol (CAP)
 
 **The front door to your website, for every AI agent.**
 

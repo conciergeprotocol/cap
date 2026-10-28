@@ -227,7 +227,6 @@ const promptAnchor = { '/': '<ul', '/publish': '<h2', '/login': '<h2' }
 const withMascot = (body, route) => {
   if (route !== '/') return body
   const stripped = body
-    .replace(/(<h1[^>]*>)\u{1F9E2}\uFE0F?\s*/u, '$1')
     .replace(/<p[^>]*>\s*<img[^>]*mascot[^>]*>\s*<\/p>\n?/, '')
     .replace(/<img[^>]*mascot[^>]*>\n?/, '')
   const start = stripped.indexOf('<h1')
