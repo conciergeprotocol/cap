@@ -27,7 +27,7 @@ const pages = [
     route: '/benchmark',
     file: 'benchmark.html',
     nav: 'Benchmark',
-    description: 'Same answers, a fifth of the cost, a third of the steps. 861 frozen runs compare AI agents reading a store against asking it through CAP.'
+    description: 'Same answers, a fifth of the cost, a third of the steps. 861 frozen runs compare asking a store through CAP with fetching its pages and browsing them.'
   },
   { src: 'concepts/README.md', route: '/concepts', file: 'concepts.html' },
   { src: 'concepts/messages.md', route: '/concepts/messages', file: 'concepts/messages.html' },
