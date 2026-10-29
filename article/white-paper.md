@@ -10,7 +10,9 @@ A company will greet a person and an agent at the same door, and it has no contr
 
 ## The problem
 
-People ask their own agents to shop, compare, and check on orders. Those agents arrive at company websites built for people.
+People ask their own agents to shop, compare, and check on orders. Those agents arrive at company websites built for people. [Cloudflare reports](https://blog.cloudflare.com/agentic-web/) that daily requests from AI agents on its network grew more than 1,700% over the past year, and that software fetching pages for a person is now the fastest-growing part of automated traffic. [Meta said](https://s21.q4cdn.com/399680738/files/content_files/META-Q3-2026-Earnings-Call-Transcript.pdf) on October 21, 2026 that more than 10 million people in the US and Canada had set up a Muse personal agent in about six weeks, that about a quarter use it on a given day, and that shopping is the most common use, with more than a quarter of people using it shopping at an average purchase over $200. [Bloomberg reported](https://www.bloomberg.com/news/articles/2026-09-22/spacexai-s-grok-bot-agent-tops-400-000-users-after-first-month) 418,000 weekly users for Grok Bot as of September 14.
+
+These are not a count of personal agents on any one website. Cloudflare's figure includes chatbot lookups along with always-on agents.
 
 For a small site with accurate pages, reading the pages works. Three cases break it:
 
