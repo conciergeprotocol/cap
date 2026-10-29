@@ -10,6 +10,12 @@ Companies already have an agent that knows the answer: the one on their chat pag
 
 The **Concierge Agent Protocol (CAP)** is that way: a front door to the website, for every AI agent. The company publishes one text file. A visiting agent knocks with a message, and the company's agent greets it like a hotel concierge: it works for the company, not the visitor. It does the work with its own tools, and hands back the answer. **Share results, not credentials.**
 
+## Why now
+
+[Cloudflare reports](https://blog.cloudflare.com/agentic-web/) that daily requests from AI agents on its network grew more than 1,700% over the past year, and that software fetching pages for a person is now the fastest-growing part of automated traffic. That count includes someone asking a chatbot, not only an always-on personal agent, and it is not a share of visits to any one site.
+
+[Meta said](https://s21.q4cdn.com/399680738/files/content_files/META-Q3-2026-Earnings-Call-Transcript.pdf) on its October 21, 2026 earnings call that more than 10 million people in the US and Canada had set up a Muse personal agent in about six weeks. About a quarter of them use it on a given day. Shopping is the most common use: more than a quarter of the people using it shop, at an average purchase over $200. [Bloomberg reported](https://www.bloomberg.com/news/articles/2026-09-22/spacexai-s-grok-bot-agent-tops-400-000-users-after-first-month) that Grok Bot had 418,000 weekly users as of September 14. OpenAI's Dots also browses and buys, and has published no user count. None of these figures counts agents arriving at a given website.
+
 ## How it works
 
 The company serves `https://{domain}/agent.txt`:
