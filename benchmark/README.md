@@ -2,7 +2,7 @@
 
 <p class="bench-dateline">CAP benchmark · October 22, 2026 · Frozen at commit <code>53019ef</code></p>
 
-An AI agent visiting a website can read it, or it can ask. This benchmark measures both on the same store, with the same questions, scoring answers against the same record. A capable agent got the same answers either way. Asking through CAP cost about a fifth of fetching the site and about a seventh of browsing it, in about a third of the steps.
+An agent visiting a website can ask it through CAP, fetch its pages over HTTP, or open them in a browser. This benchmark runs those ways on the same store, with the same questions and the same agent, and scores every answer against the store's record. A capable agent got the same answers either way. Asking through CAP cost about a fifth of fetching the site and about a seventh of browsing it, in about a third of the steps.
 
 <div class="bench-stats" data-stats></div>
 

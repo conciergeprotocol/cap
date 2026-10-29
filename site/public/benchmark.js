@@ -423,11 +423,13 @@
 
   function stats(node) {
     var cap = data.main.cap_ref, fetch = data.main.fetch_real, browser = data.main.browser_real
+    function cut(ours, theirs) { return Math.round((1 - ours / theirs) * 100) }
+    function pct(v) { return Math.round(v) + '%' }
     var tiles = [
-      { value: cap.per_success, fmt: usd, label: 'per right answer through CAP' },
-      { value: Math.round((1 - cap.per_success / fetch.per_success) * 100), fmt: function (v) { return Math.round(v) + '%' }, label: 'less than fetching the site' },
-      { value: Math.round((1 - cap.per_success / browser.per_success) * 100), fmt: function (v) { return Math.round(v) + '%' }, label: 'less than browsing it' },
-      { value: cap.steps, fmt: function (v) { return v.toFixed(1) }, label: 'steps, against ' + Math.round(fetch.steps) + ' to ' + Math.round(browser.steps) + ' by reading' }
+      { value: cut(cap.per_success, fetch.per_success), fmt: pct, label: 'lower cost than fetching the site' },
+      { value: cut(cap.per_success, browser.per_success), fmt: pct, label: 'lower cost than browsing it' },
+      { value: cut(cap.steps, fetch.steps), fmt: pct, label: 'fewer steps than fetching the site' },
+      { value: cut(cap.steps, browser.steps), fmt: pct, label: 'fewer steps than browsing it' }
     ]
     var outs = tiles.map(function (tile) {
       var box = html('div', 'bench-stat', node)
