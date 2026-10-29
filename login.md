@@ -205,12 +205,53 @@ If your site already has a signed-in session, these pages can be ordinary pages 
 
 The [reference `oauth.mjs`](reference/oauth.mjs) is a working map of every state: pending and decided codes, one-time code exchange, token rotation, and the confirm claim. Copy its data model even if you replace its pages.
 
+## Let a hosted agent use your account routes
+
+Your door's `answer` can be the whole agent. Some owners run their support agent somewhere else instead, for example a chat widget from a hosted platform, and want that agent to answer public questions itself and fetch account data from you only when the person is logged in.
+
+The login stays yours. The hosted agent logs the person in through your door like any visiting agent, with its own `CAP-From`, and sends that token to a few JSON routes you choose. Each route asks the door who the token belongs to:
+
+```js
+import { createCapHandler } from '@conciergeprotocol/server'
+
+const door = await createCapHandler({ agent, answer, login, write: true, act })
+
+// GET /api/account/orders
+export async function GET(request) {
+  const access = await door.accountFor(request)
+  if (!access) return Response.json({ error: { code: 'login_required' } }, { status: 401 })
+  const user = await users.get(access.account)
+  const list = await orders.listFor(access.account)
+  return Response.json({ orders: list }, { headers: { 'CAP-Account': user.email } })
+}
+```
+
+`accountFor(request)` returns `{ account, scope, caller }`, or `null` when the token is missing, expired, revoked, or was issued to a different agent than the one in `CAP-From`. Filter every query by `account`. Never take an account, customer id, or email from the request body or the URL.
+
+A change still waits for the person. `requestApproval` holds it and returns a link to your confirm page. `act` runs it once, after they approve:
+
+```js
+// POST /api/account/orders/:number/cancel
+const access = await door.accountFor(request)
+const order = await orders.find(access.account, number)
+const held = await door.requestApproval(request, {
+  summary: `Cancel order ${order.number}, $${order.total}.`,
+  authorization_details: [{ type: 'cancel_order', order: order.id }],
+})
+return Response.json(held)
+```
+
+A `read` login gets `write_required` from `requestApproval`, and no login gets `login_required`. Pass those back with a `401` or `403`, so the hosted agent can tell the person to log in again.
+
+The optional `CAP-Account` response header gives the hosted agent a label for the conversation, such as the person's email, so the owner can tell conversations apart. Send only what you would show the person.
+
 ## Before you launch
 
 - Serve every endpoint over https. Accept client documents only on https URLs at public hosts.
 - Fetch client documents behind egress rules, so a client id URL cannot reach your private network.
 - Store tokens as hashes. The reference server does.
 - Check scope and account in code, on every change.
+- Filter every account route by the account behind the token, never by an id in the request.
 - Confirm every action that is hard to undo. Show a summary from your own records.
 - Keep write logins short. Consider ending them days after approval, not weeks.
 - Let people see the agents they have logged in, and end any of them.
