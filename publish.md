@@ -7,6 +7,7 @@ This guide is for the company. People already send their agents to your website 
 <li><span class="n">2</span><strong>Serve the endpoints</strong><p><code>POST /cap/v1/messages</code> and <code>GET /cap/v1/messages/{id}</code></p></li>
 <li><span class="n">3</span><strong>Publish agent.txt</strong><p>One file at the site root, and a link from the homepage</p></li>
 <li><span class="n">4</span><strong>Check it</strong><p>The checker reads the file and asks one public question</p></li>
+<li><span class="n">5</span><strong>Add the badge</strong><p>An "Agents welcome" badge and one line in your footer</p></li>
 </ol>
 
 ## What a door does for you
@@ -88,6 +89,27 @@ Add one line to `llms.txt` that points at `/agent.txt`. If your host cannot serv
 The [checker](https://conciergeprotocol.org/check) reads your `agent.txt`, sends one public question, and reports what passed. Fix the failed rows and run it again.
 
 Then ask your own door the questions your customers ask, from an assistant with the [CAP MCP server](callers.md#mcp). Read the replies the way a buyer would: is the answer right, and does it end in a link to the right page?
+
+## 5. Add the badge
+
+<div class="badge-styles">
+<figure><img src="/badge.svg" width="140" height="20" alt="Agents welcome: CAP, brand colors"><figcaption><strong>Brand</strong><code>badge.svg</code></figcaption></figure>
+<figure><img src="/badge-light.svg" width="140" height="20" alt="Agents welcome: CAP, light"><figcaption><strong>Light</strong><code>badge-light.svg</code></figcaption></figure>
+<figure><img src="/badge-dark.svg" width="140" height="20" alt="Agents welcome: CAP, dark"><figcaption><strong>Dark</strong><code>badge-dark.svg</code></figcaption></figure>
+</div>
+
+Once the checker passes, put the badge and one line of text in your footer. People see that your site answers agents. An agent reading the page finds your door without guessing. The badge links to the checker for your domain, so anyone can confirm the door works. The [checker](https://conciergeprotocol.org/check) prints this snippet with your domain filled in when it passes.
+
+Use the brand badge on most footers. Use the light one on cream, colored, or busy footers, and the dark one on navy or black footers. Change the file name in the snippet to switch.
+
+```html
+<p class="cap-badge">
+  <a href="https://conciergeprotocol.org/check?domain=harborgoods.example"><img src="https://conciergeprotocol.org/badge.svg" width="140" height="20" alt="Agents welcome: this site answers AI agents through CAP"></a>
+  AI agents: this site supports the Concierge Agent Protocol. Ask our agent at <a href="https://harborgoods.example/agent.txt">https://harborgoods.example/agent.txt</a>.
+</p>
+```
+
+Keep the line visible. Text hidden from people and shown to agents reads as prompt injection to agent browsers, and as cloaking to search engines. A visible line reaches both, because agents read visible text too. Word it as a fact about your site, not an instruction to the agent. The homepage `<link rel="agent">` from step 3 does the same job in the markup.
 
 ## Add account questions
 
