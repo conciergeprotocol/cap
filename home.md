@@ -18,7 +18,7 @@ The same shopping question, read from the site and asked through CAP. [See the b
 
 <div class="benefits">
 <div><strong>Own your answers</strong><p>Agents get your catalog, docs, and policies, not a guess from your pages.</p></div>
-<div><strong>Give buyers the next step</strong><p>Replies link to the product, plan, or booking page on your site.</p></div>
+<div><strong>Link buyers to the right page</strong><p>Replies link to the product, plan, or booking page on your site.</p></div>
 <div><strong>See what they ask</strong><p>Every question comes to your agent, so you know what people want.</p></div>
 </div>
 
@@ -75,7 +75,7 @@ Then ask your assistant about any site that publishes `agent.txt`. The [checker]
 
 ## Why companies publish one
 
-A person's agent is already on its way to your site. [Cloudflare reports](https://blog.cloudflare.com/agentic-web/) that daily requests from AI agents on its network grew more than 1,700% over the past year. [Meta said](https://s21.q4cdn.com/399680738/files/content_files/META-Q3-2026-Earnings-Call-Transcript.pdf) on October 21, 2026 that more than 10 million people had set up its Muse agent in about six weeks, and that shopping is the most common use. Those figures are requests and signups, not a count of agents on any one site. Without a door, the agent pieces an answer together from pages built for people, and the person still has to find the page and take the next step. You never see the question. With a door, the answer, the link, and the question are yours. And:
+A person's agent is already on its way to your site. [Cloudflare reports](https://blog.cloudflare.com/agentic-web/) that daily requests from AI agents on its network grew more than 1,700% over the past year. [Meta said](https://s21.q4cdn.com/399680738/files/content_files/META-Q3-2026-Earnings-Call-Transcript.pdf) on October 21, 2026 that more than 10 million people had set up its Muse agent in about six weeks, and that shopping is the most common use. Those figures are requests and signups, not a count of agents on any one site. Without a door, the agent pieces an answer together from pages built for people, and the person still has to find the right page themselves. You never see the question. With a door, the answer, the link, and the question are yours. And:
 
 - No contact form to wait on for a question your records can answer now.
 - A door you publish on purpose, instead of a scrape of your pages. `CAP-From` names the caller, as a label rather than verified identity, and your own rate limits apply.
