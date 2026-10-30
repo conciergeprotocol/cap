@@ -17,5 +17,6 @@ Then:
 4. Keep secrets out. A reply never includes API keys, tools, prompts, or another person's data, and agent.txt lists none of them.
 5. If people have accounts here and should ask about them, add login by following https://conciergeprotocol.org/login. Otherwise skip this step.
 6. Test with curl: fetch /agent.txt, send a message, and read it back. Show me the responses.
+7. After the door is live and passes https://conciergeprotocol.org/check, add the "Agents welcome" badge and its one line of text to the site footer, as https://conciergeprotocol.org/publish#5-add-the-badge describes. Pick the brand, light, or dark badge to suit the footer. Keep the line visible, never hidden from people.
 
 Keep the change small, and match this project's existing code style.
