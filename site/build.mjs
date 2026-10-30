@@ -124,7 +124,7 @@ const render = (page) => {
         const id = `code-${++codeId}`
         const label = languages[lang] || ''
         const bar = label ? `<div class="codeblock-bar">${escape(label)}</div>` : ''
-        return `<div class="codeblock">${bar}<div class="codeblock-body"><pre id="${id}"><code>${highlight(text, lang)}</code></pre><button type="button" class="code-copy" data-codecopy="${id}" aria-label="Copy">${icon('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>')}<span class="code-copy-idle">Copy</span><span class="code-copy-done" hidden>Copied!</span></button></div></div>\n`
+        return `<div class="codeblock">${bar}<div class="codeblock-body"><pre id="${id}"><code>${highlight(text, lang)}</code></pre><button type="button" class="code-copy" data-codecopy="${id}" aria-label="Copy"><span class="code-copy-icon">${icon('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>')}</span><span class="code-copy-check">${icon('<path d="M20 6 9 17l-5-5"/>')}</span><span class="code-copy-idle">Copy</span><span class="code-copy-done" hidden>Copied!</span></button></div></div>\n`
       }
     }
   })
@@ -324,6 +324,7 @@ ${withPrompt(body, route)}
 <footer>
 <p>Concierge Agent Protocol 1.0 Draft. Spec text under <a href="${repo}/blob/main/LICENSE-SPEC">CC BY 4.0</a>, code under <a href="${repo}/blob/main/LICENSE">Apache 2.0</a>.</p>
 <div class="footer-end">
+<a class="footer-badge" href="/publish#5-add-the-badge" title="Add this badge to your site"><img src="/badge.svg" width="140" height="20" alt="Agents welcome: CAP"></a>
 <p><a href="/governance">Governance</a> · <a href="/security">Security</a> · <a href="/changelog">Changelog</a> · <a href="/brand">Brand</a> · <a href="/cap.txt">cap.txt</a> · <a href="/implement.txt">implement.txt</a></p>
 ${themeControl}
 </div>

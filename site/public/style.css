@@ -693,9 +693,23 @@ pre code {
 }
 
 .code-copy.is-copied {
-  background: rgb(110 168 254 / 0.15);
-  color: #93c5fd;
+  background: rgb(74 222 128 / 0.15);
+  color: #4ade80;
   opacity: 1;
+}
+
+.code-copy-icon,
+.code-copy-check {
+  display: inline-flex;
+}
+
+.code-copy-check,
+.code-copy.is-copied .code-copy-icon {
+  display: none;
+}
+
+.code-copy.is-copied .code-copy-check {
+  display: inline-flex;
 }
 
 @media (hover: none) {
@@ -908,6 +922,83 @@ footer a {
   border-color: var(--fg);
 }
 
+.check-badge {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.check-badge p {
+  margin: 0 0 12px;
+}
+
+.check-badge p:last-child {
+  margin: 12px 0 0;
+}
+
+.check-badge-styles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.check-badge-styles button {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.check-badge-styles button:hover {
+  border-color: var(--fg);
+}
+
+.check-badge-styles button[aria-checked='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  color: var(--fg);
+}
+
+.badge-styles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 32px;
+  margin: 16px 0 24px;
+}
+
+.badge-styles figure {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+}
+
+.badge-styles figcaption {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 13px;
+}
+
+.check-badge pre {
+  margin: 0 0 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.footer-badge {
+  display: inline-flex;
+  line-height: 0;
+}
 /* Benchmark page. Colors follow the theme so the charts read in light and dark. */
 :root {
   --tone-cap: #1d4e89;

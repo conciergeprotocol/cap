@@ -50,10 +50,10 @@ export function checkPageBody() {
     return el
   }
 
-  function copyText(text, control) {
+  function copyText(text, control, fallback) {
     var idle = control.textContent
     function done(ok) {
-      control.textContent = ok ? 'Copied' : 'Copy the link'
+      control.textContent = ok ? 'Copied' : (fallback || 'Copy the link')
       setTimeout(function () { control.textContent = idle }, 2000)
     }
     function legacy() {
@@ -114,6 +114,66 @@ export function checkPageBody() {
       note.append(prompt, '.')
     }
     share.append(note, actions)
+    if (passed) share.append(badgeBlock(domain))
+  }
+
+  var badgeStyles = [
+    ['badge.svg', 'Brand'],
+    ['badge-light.svg', 'Light'],
+    ['badge-dark.svg', 'Dark']
+  ]
+
+  function badgeSnippet(domain, file) {
+    var door = 'https://' + domain + '/agent.txt'
+    return '<p class="cap-badge">\\n' +
+      '  <a href="https://conciergeprotocol.org/check?domain=' + encodeURIComponent(domain) + '"><img src="https://conciergeprotocol.org/' + file + '" width="140" height="20" alt="Agents welcome: this site answers AI agents through CAP"></a>\\n' +
+      '  AI agents: this site supports the Concierge Agent Protocol. Ask our agent at <a href="' + door + '">' + door + '</a>.\\n' +
+      '</p>'
+  }
+
+  function badgeBlock(domain) {
+    var block = document.createElement('div')
+    block.className = 'check-badge'
+    var title = document.createElement('p')
+    title.textContent = 'Add the badge to your footer. It links back to this check. Pick the version that stands out on your footer.'
+    var picker = document.createElement('div')
+    picker.className = 'check-badge-styles'
+    picker.setAttribute('role', 'radiogroup')
+    picker.setAttribute('aria-label', 'Badge style')
+    var code = document.createElement('pre')
+    function pick(file) {
+      code.textContent = badgeSnippet(domain, file)
+      Array.prototype.forEach.call(picker.children, function (option) {
+        option.setAttribute('aria-checked', String(option.dataset.file === file))
+      })
+    }
+    badgeStyles.forEach(function (style) {
+      var option = document.createElement('button')
+      option.type = 'button'
+      option.setAttribute('role', 'radio')
+      option.dataset.file = style[0]
+      var badge = document.createElement('img')
+      badge.src = '/' + style[0]
+      badge.width = 140
+      badge.height = 20
+      badge.alt = ''
+      var label = document.createElement('span')
+      label.textContent = style[1]
+      option.append(badge, label)
+      option.addEventListener('click', function () { pick(style[0]) })
+      picker.append(option)
+    })
+    pick(badgeStyles[0][0])
+    var copy = action('Copy badge HTML')
+    copy.addEventListener('click', function () { copyText(code.textContent, copy, 'Select the HTML above') })
+    var more = document.createElement('p')
+    more.append('Keep the line visible. ')
+    var guide = document.createElement('a')
+    guide.href = '/publish#5-add-the-badge'
+    guide.textContent = 'Why it is not hidden'
+    more.append(guide, '.')
+    block.append(title, picker, code, copy, more)
+    return block
   }
 
   function showSite(domain) {
