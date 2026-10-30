@@ -53,6 +53,16 @@ Write replies a person can act on:
 - Say "not available" when your records find nothing. Never fill the gap with a guess.
 - Keep keys, tool names, prompts, and internal ids out of the reply.
 
+### Decide per question
+
+A crawler shows you which page it took. A door shows you why the agent came, because every visit arrives as a question. Your agent can act on that before any tool runs:
+
+- **Answer** a buyer's question, with the link to the next step.
+- **Route** a high-value or high-touch request to a person: "Tables for 8 are booked with our team. Message us on WhatsApp at https://wa.me/...", with the party size and date in the link if you can.
+- **Decline** a question you would rather not answer, such as a request for every price you have ever quoted. Reply `done` with a short, polite answer and a way to reach you. A refusal is not an error, so do not return `failed`.
+
+Intent is what the caller says, not proof of who it is. Keep data you would not hand a competitor out of public answers entirely, and use rate limits and OAuth for the hard limits.
+
 The [Next.js example](examples/next) is a door as a route in an app. The [store example](examples/store) runs a product question, a login, and an order question on one agent.
 
 ## 3. Publish agent.txt
