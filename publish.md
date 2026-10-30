@@ -11,12 +11,12 @@ This guide is for the company. People already send their agents to your website 
 
 ## What a door does for you
 
-Without a door, a visiting agent reads pages built for people. It renders scripts, gets past banners, and pieces together an answer. If it gets that far, the person still has to open your site, find the page again, and take the next step. Each of those is a place the person can drop off. You never see the question.
+Without a door, a visiting agent reads pages built for people. It renders scripts, gets past banners, and pieces together an answer. If it gets that far, the person still has to open your site and find the page again. Each of those is a place the person can drop off. You never see the question.
 
 With a door, the path is shorter:
 
 - **Your answer, not an inference.** Your agent answers from your catalog, docs, and policies. When a page and the record disagree, the visitor gets the record.
-- **The reply carries the next step.** Links go in the reply text: the product in the right size, the plan, the booking page, the order. The person's agent hands the link over, and the step happens on your site.
+- **The reply carries the link.** Links go in the reply text: the product in the right size, the plan, the booking page, the order. The person's agent hands the link over, and the step happens on your site.
 - **No form to wait on.** A pricing, stock, or policy question is answered when it is asked, not after a contact form and a callback.
 - **You see the questions.** Every message is a question from someone deciding what to do next. Pages served to a crawler tell you none of that.
 - **A door you opened on purpose.** Agents use the door you published instead of scraping your pages. `CAP-From` names the caller, but it is a label, not proof. Rate limits handle abuse, and OAuth tokens authenticate the person.
@@ -57,7 +57,7 @@ Write replies a person can act on:
 
 A crawler shows you which page it took. A door shows you why the agent came, because every visit arrives as a question. Your agent can act on that before any tool runs:
 
-- **Answer** a buyer's question, with the link to the next step.
+- **Answer** a buyer's question, with a link to the right product, plan, or booking page.
 - **Route** a high-value or high-touch request to a person: "Tables for 8 are booked with our team. Message us on WhatsApp at https://wa.me/...", with the party size and date in the link if you can.
 - **Decline** a question you would rather not answer, such as a request for every price you have ever quoted. Reply `done` with a short, polite answer and a way to reach you. A refusal is not an error, so do not return `failed`.
 

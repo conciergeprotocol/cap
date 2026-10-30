@@ -49,10 +49,10 @@ When an answer takes a while, the reply is `202` with the message id and `Retry-
 
 ## Why the company publishes one
 
-Today a visiting agent that reads the pages either finds the answer or gives up. If it finds it, the person still has to open the site, find the page again, and take the next step. A pricing question can still end in a contact form and a wait for a callback. Each step is a place the person drops off, and the company never sees the question.
+Today a visiting agent that reads the pages either finds the answer or gives up. If it finds it, the person still has to open the site and find the page again. A pricing question can still end in a contact form and a wait for a callback. Each step is a place the person drops off, and the company never sees the question.
 
 - **Its answer, not an inference.** The reply comes from the company's catalog, docs, and policies. Where a page and the record disagree, the visitor gets the record.
-- **The next step in the reply.** Links go in the reply text: the product in the right size, the plan, the booking page. The person's agent passes the link on, and checkout or signup happens on the company's site.
+- **The link in the reply.** Links go in the reply text: the product in the right size, the plan, the booking page. The person's agent passes the link on, and checkout or signup happens on the company's site.
 - **The question, seen.** Every message is a question from someone deciding what to do. A crawler's page loads say nothing about that.
 - **A sanctioned way in.** Agents use the door the company published instead of scraping its pages. `CAP-From` names the caller, as a label rather than verified identity, and the company's own rate limits apply.
 - **One file to start.** If the company already runs an agent on its chat page, the same agent answers at the door.
