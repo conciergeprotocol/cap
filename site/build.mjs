@@ -16,7 +16,7 @@ const pages = [
     route: '/publish',
     file: 'publish.html',
     nav: 'Publish a door',
-    description: 'Give AI agents your answer, from your own content, with a link to the next step on your site. One file and two endpoints.'
+    description: 'Give AI agents your answer, from your own content, with a link to the product, plan, or booking page on your site. One file and two endpoints.'
   },
   { src: 'callers.md', route: '/callers', file: 'callers.html', nav: 'Call a door' },
   { src: 'spec.md', route: '/spec', file: 'spec.html', nav: 'Spec' },

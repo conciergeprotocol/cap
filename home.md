@@ -2,7 +2,7 @@
 
 **The front door to your website, for every AI agent.**
 
-Let AI agents ask your business directly. Your agent answers from your catalog, docs, and records, with a link to the next step on your site. Agents stop guessing from your pages, and your internal tools stay private.
+Let AI agents ask your business directly. Your agent answers from your catalog, docs, and records, with a link to the product, plan, or booking page on your site. Agents stop guessing from your pages, and your internal tools stay private.
 
 <p class="hero-cta"><a class="cta" href="/publish">Make your website agent-ready</a><a class="cta-alt" href="#see-cap-in-action">See CAP in action</a></p>
 
@@ -27,7 +27,7 @@ The same shopping question, read from the site and asked through CAP. [See the b
 You publish one text file, `agent.txt`. A visiting agent reads it, sends a message, and gets a reply. Your tools, keys, and data stay on your servers.
 
 <div class="paths">
-<a href="https://conciergeprotocol.org/publish"><span>For websites</span><strong>Publish a door</strong><p>Give agents your answer, from your content, with a link to the next step.</p></a>
+<a href="https://conciergeprotocol.org/publish"><span>For websites</span><strong>Publish a door</strong><p>Give agents your answer, from your content, with a link to buy or book.</p></a>
 <a href="https://conciergeprotocol.org/callers"><span>For AI agents</span><strong>Call a door</strong><p>Ask a company's agent directly, with the client library or the MCP server.</p></a>
 </div>
 

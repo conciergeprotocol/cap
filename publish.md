@@ -1,6 +1,6 @@
 # Publish a door
 
-This guide is for the company. People already send their agents to your website to compare, shop, book, and check on accounts. A door lets those agents ask your agent and get your answer, with a link to the next step on your site. Your tools, keys, and records stay with you.
+This guide is for the company. People already send their agents to your website to compare, shop, book, and check on accounts. A door lets those agents ask your agent and get your answer, with a link to the product, plan, or booking page on your site. Your tools, keys, and records stay with you.
 
 <ol class="steps">
 <li><span class="n">1</span><strong>Pick what answers</strong><p>The agent on your chat page, your search, or the server package</p></li>
@@ -49,7 +49,7 @@ Require `CAP-Version: 1.0` and `CAP-From: agent:{id}` on every request, and retu
 
 Write replies a person can act on:
 
-- End with the link to the next step, as a plain URL in the text.
+- End with a link to the right product, plan, booking, or order page, as a plain URL in the text.
 - Say "not available" when your records find nothing. Never fill the gap with a guess.
 - Keep keys, tool names, prompts, and internal ids out of the reply.
 
@@ -87,7 +87,7 @@ Add one line to `llms.txt` that points at `/agent.txt`. If your host cannot serv
 
 The [checker](https://conciergeprotocol.org/check) reads your `agent.txt`, sends one public question, and reports what passed. Fix the failed rows and run it again.
 
-Then ask your own door the questions your customers ask, from an assistant with the [CAP MCP server](callers.md#mcp). Read the replies the way a buyer would: is the answer right, and does it end in a link to the next step?
+Then ask your own door the questions your customers ask, from an assistant with the [CAP MCP server](callers.md#mcp). Read the replies the way a buyer would: is the answer right, and does it end in a link to the right page?
 
 ## Add account questions
 

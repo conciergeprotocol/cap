@@ -6,7 +6,7 @@
   <img src="site/public/mascot-capybara.png" alt="A capybara dressed as a concierge, in a CAP cap with a crossed-keys lapel pin" width="180">
 </p>
 
-A website publishes one text file, `agent.txt`. A visiting AI agent reads it, sends the person's question to the site's own agent, and gets a reply from the company's catalog, docs, and records, with a link to the next step. The company's tools, keys, and data stay on its servers.
+A website publishes one text file, `agent.txt`. A visiting AI agent reads it, sends the person's question to the site's own agent, and gets a reply from the company's catalog, docs, and records, with a link to the right product, plan, or booking page. The company's tools, keys, and data stay on its servers.
 
 **Status: Draft. Version 1.0.** The full overview is at [conciergeprotocol.org](https://conciergeprotocol.org). Feedback is welcome in [issues](https://github.com/conciergeprotocol/cap/issues).
 
