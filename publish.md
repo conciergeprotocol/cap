@@ -1,13 +1,15 @@
 # Publish a door
 
-This guide is for the company. People already send their agents to your website to compare, shop, book, and check on accounts. A door lets those agents ask your agent and get your answer, with a link to the product, plan, or booking page on your site. Your tools, keys, and records stay with you.
+Let AI agents ask your business directly. They get your answer, with a link to the right page on your site. Your tools, keys, and data stay with you.
+
+Setup takes five steps:
 
 <ol class="steps">
-<li><span class="n">1</span><strong>Pick what answers</strong><p>The agent on your chat page, your search, or the server package</p></li>
-<li><span class="n">2</span><strong>Serve the endpoints</strong><p><code>POST /cap/v1/messages</code> and <code>GET /cap/v1/messages/{id}</code></p></li>
-<li><span class="n">3</span><strong>Publish agent.txt</strong><p>One file at the site root, and a link from the homepage</p></li>
-<li><span class="n">4</span><strong>Check it</strong><p>The checker reads the file and asks one public question</p></li>
-<li><span class="n">5</span><strong>Add the badge</strong><p>An "Agents welcome" badge and one line in your footer</p></li>
+<li><span class="step-icon" data-icon="database"></span><a href="#1-choose-what-answers"><strong>Choose what answers</strong><p>Your chat agent, your own search, or the CAP server package.</p></a></li>
+<li><span class="step-icon" data-icon="code"></span><a href="#2-add-two-endpoints"><strong>Add two endpoints</strong><p>One takes a question. The other returns the reply.</p></a></li>
+<li><span class="step-icon" data-icon="file"></span><a href="#3-publish-agenttxt"><strong>Publish agent.txt</strong><p>One file at your site root that tells agents where to ask.</p></a></li>
+<li><span class="step-icon" data-icon="check"></span><a href="#4-test-your-door"><strong>Test your door</strong><p>The checker reads your file and asks one question.</p></a></li>
+<li><span class="step-icon" data-icon="badge"></span><a href="#5-add-the-badge"><strong>Add the badge</strong><p>A footer badge that tells people and agents you have a door.</p></a></li>
 </ol>
 
 ## What a door does for you
@@ -25,7 +27,7 @@ With a door, the path is shorter:
 
 The tradeoffs are plain. Each answer is a model call you pay for, so set a daily limit. The reply is only as good as your record, and your agent has to say "not available" when the record finds nothing. When every answer is already on a few accurate pages, a door adds little. [When to publish an agent](home.md#when-to-publish-an-agent) has the full test.
 
-## 1. Pick what answers
+## 1. Choose what answers
 
 The door is a way in. Behind it, use whatever already knows the answers:
 
@@ -36,7 +38,7 @@ The door is a way in. Behind it, use whatever already knows the answers:
 
 A hosted agent works too. The chat page and the CAP URL can live on another host, because callers trust your domain, not the server.
 
-## 2. Serve the endpoints
+## 2. Add two endpoints
 
 ```
 POST /cap/v1/messages        { "message": "...", "context": { ... }, "previous_message_id": "..." }
@@ -84,7 +86,7 @@ Serve it at `https://{domain}/agent.txt`. Add the homepage link even when the ro
 
 Add one line to `llms.txt` that points at `/agent.txt`. If your host cannot serve a file at the root, redirect `/agent.txt` to the file. [agent.txt](home.md#agenttxt) explains each line.
 
-## 4. Check it
+## 4. Test your door
 
 The [checker](https://conciergeprotocol.org/check) reads your `agent.txt`, sends one public question, and reports what passed. Fix the failed rows and run it again.
 
@@ -93,9 +95,9 @@ Then ask your own door the questions your customers ask, from an assistant with 
 ## 5. Add the badge
 
 <div class="badge-styles">
-<figure><img src="/badge.svg" width="140" height="20" alt="Agents welcome: CAP, brand colors"><figcaption><strong>Brand</strong><code>badge.svg</code></figcaption></figure>
-<figure><img src="/badge-light.svg" width="140" height="20" alt="Agents welcome: CAP, light"><figcaption><strong>Light</strong><code>badge-light.svg</code></figcaption></figure>
-<figure><img src="/badge-dark.svg" width="140" height="20" alt="Agents welcome: CAP, dark"><figcaption><strong>Dark</strong><code>badge-dark.svg</code></figcaption></figure>
+<figure><img src="/badge.svg" width="177" height="25" alt="Agents welcome: CAP, brand colors"><figcaption><strong>Brand</strong><code>badge.svg</code></figcaption></figure>
+<figure><img src="/badge-light.svg" width="177" height="25" alt="Agents welcome: CAP, light"><figcaption><strong>Light</strong><code>badge-light.svg</code></figcaption></figure>
+<figure><img src="/badge-dark.svg" width="177" height="25" alt="Agents welcome: CAP, dark"><figcaption><strong>Dark</strong><code>badge-dark.svg</code></figcaption></figure>
 </div>
 
 Once the checker passes, put the badge and one line of text in your footer. People see that your site answers agents. An agent reading the page finds your door without guessing. The badge links to the checker for your domain, so anyone can confirm the door works. The [checker](https://conciergeprotocol.org/check) prints this snippet with your domain filled in when it passes.
@@ -104,7 +106,7 @@ Use the brand badge on most footers. Use the light one on cream, colored, or bus
 
 ```html
 <p class="cap-badge">
-  <a href="https://conciergeprotocol.org/check?domain=harborgoods.example"><img src="https://conciergeprotocol.org/badge.svg" width="140" height="20" alt="Agents welcome: this site answers AI agents through CAP"></a>
+  <a href="https://conciergeprotocol.org/check?domain=harborgoods.example"><img src="https://conciergeprotocol.org/badge.svg" width="177" height="25" alt="Agents welcome: this site answers AI agents through CAP"></a>
   AI agents: this site supports the Concierge Agent Protocol. Ask our agent at <a href="https://harborgoods.example/agent.txt">https://harborgoods.example/agent.txt</a>.
 </p>
 ```
