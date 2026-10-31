@@ -126,7 +126,7 @@ export function checkPageBody() {
   function badgeSnippet(domain, file) {
     var door = 'https://' + domain + '/agent.txt'
     return '<p class="cap-badge">\\n' +
-      '  <a href="https://conciergeprotocol.org/check?domain=' + encodeURIComponent(domain) + '"><img src="https://conciergeprotocol.org/' + file + '" width="140" height="20" alt="Agents welcome: this site answers AI agents through CAP"></a>\\n' +
+      '  <a href="https://conciergeprotocol.org/check?domain=' + encodeURIComponent(domain) + '"><img src="https://conciergeprotocol.org/' + file + '" width="177" height="25" alt="Agents welcome: this site answers AI agents through CAP"></a>\\n' +
       '  AI agents: this site supports the Concierge Agent Protocol. Ask our agent at <a href="' + door + '">' + door + '</a>.\\n' +
       '</p>'
   }
@@ -154,8 +154,8 @@ export function checkPageBody() {
       option.dataset.file = style[0]
       var badge = document.createElement('img')
       badge.src = '/' + style[0]
-      badge.width = 140
-      badge.height = 20
+      badge.width = 156
+      badge.height = 22
       badge.alt = ''
       var label = document.createElement('span')
       label.textContent = style[1]

@@ -21,9 +21,9 @@ The original CAP capybara wears a navy baseball cap. Use it for informal places:
 ## Badge
 
 <div class="badge-styles">
-<figure><img src="/badge.svg" width="140" height="20" alt="Agents welcome: CAP, brand colors"><figcaption><strong>Brand</strong><code>badge.svg</code></figcaption></figure>
-<figure><img src="/badge-light.svg" width="140" height="20" alt="Agents welcome: CAP, light"><figcaption><strong>Light</strong><code>badge-light.svg</code></figcaption></figure>
-<figure><img src="/badge-dark.svg" width="140" height="20" alt="Agents welcome: CAP, dark"><figcaption><strong>Dark</strong><code>badge-dark.svg</code></figcaption></figure>
+<figure><img src="/badge.svg" width="177" height="25" alt="Agents welcome: CAP, brand colors"><figcaption><strong>Brand</strong><code>badge.svg</code></figcaption></figure>
+<figure><img src="/badge-light.svg" width="177" height="25" alt="Agents welcome: CAP, light"><figcaption><strong>Light</strong><code>badge-light.svg</code></figcaption></figure>
+<figure><img src="/badge-dark.svg" width="177" height="25" alt="Agents welcome: CAP, dark"><figcaption><strong>Dark</strong><code>badge-dark.svg</code></figcaption></figure>
 </div>
 
 Show the "Agents welcome" badge in your footer once your door passes the [checker](https://conciergeprotocol.org/check). Load the file from `https://conciergeprotocol.org/` rather than a copy, so updates reach your site, and link it to the check for your domain. Pick the version that stands out on your footer, and do not recolor it. [Add the badge](publish.md#5-add-the-badge) has the snippet.
