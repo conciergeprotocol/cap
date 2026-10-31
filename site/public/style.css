@@ -275,45 +275,119 @@ header.open .menu svg:last-child {
 }
 
 .steps {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin: 8px 0 4px;
+  margin: 16px 0 8px;
   padding: 0;
   list-style: none;
+  counter-reset: step;
 }
 
 .steps li {
+  position: relative;
+  min-height: 36px;
   margin: 0;
-  padding: 14px 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
+  padding: 0 0 22px 52px;
+  counter-increment: step;
 }
 
-.steps .n {
+.steps li:last-child {
+  padding-bottom: 0;
+}
+
+.steps li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 40px;
+  bottom: 4px;
+  left: 18px;
+  width: 1px;
+  background: var(--line);
+}
+
+.step-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--code);
+}
+
+.step-icon::before {
+  content: '';
+  width: 18px;
+  height: 18px;
+  background: var(--accent);
+  -webkit-mask: var(--icon) center / contain no-repeat;
+  mask: var(--icon) center / contain no-repeat;
+}
+
+.step-icon[data-icon='database']::before {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cellipse cx=%2212%22 cy=%225%22 rx=%229%22 ry=%223%22/%3E%3Cpath d=%22M3 5v14a9 3 0 0 0 18 0V5%22/%3E%3Cpath d=%22M3 12a9 3 0 0 0 18 0%22/%3E%3C/svg%3E");
+}
+
+.step-icon[data-icon='code']::before {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22m16 18 6-6-6-6%22/%3E%3Cpath d=%22m8 6-6 6 6 6%22/%3E%3C/svg%3E");
+}
+
+.step-icon[data-icon='file']::before {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z%22/%3E%3Cpath d=%22M14 2v4a2 2 0 0 0 2 2h4%22/%3E%3Cpath d=%22M16 13H8M16 17H8M10 9H8%22/%3E%3C/svg%3E");
+}
+
+.step-icon[data-icon='check']::before {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%2212%22 r=%2210%22/%3E%3Cpath d=%22m9 12 2 2 4-4%22/%3E%3C/svg%3E");
+}
+
+.step-icon[data-icon='badge']::before {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2212%22 cy=%228%22 r=%226%22/%3E%3Cpath d=%22M15.48 12.89 17 22l-5-3-5 3 1.52-9.11%22/%3E%3C/svg%3E");
+}
+
+.step-icon[data-icon='search']::before {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%2211%22 cy=%2211%22 r=%228%22/%3E%3Cpath d=%22m21 21-4.3-4.3%22/%3E%3C/svg%3E");
+}
+
+.step-icon[data-icon='message']::before {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z%22/%3E%3C/svg%3E");
+}
+
+.step-icon[data-icon='lock']::before {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Crect x=%223%22 y=%2211%22 width=%2218%22 height=%2211%22 rx=%222%22/%3E%3Cpath d=%22M7 11V7a5 5 0 0 1 10 0v4%22/%3E%3C/svg%3E");
+}
+
+.step-icon[data-icon='key']::before {
+  --icon: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Ccircle cx=%227.5%22 cy=%2215.5%22 r=%225.5%22/%3E%3Cpath d=%22m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3%22/%3E%3C/svg%3E");
+}
+
+.steps a {
   display: block;
-  margin-bottom: 6px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.steps a:hover strong {
   color: var(--accent);
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .steps strong {
   display: block;
-  margin-bottom: 4px;
+  padding-top: 6px;
+  line-height: 1.4;
+}
+
+.steps strong::before {
+  content: counter(step) '. ';
+  color: var(--muted);
 }
 
 .steps p {
   margin: 0;
   color: var(--muted);
   font-size: 14px;
-  line-height: 1.45;
-}
-
-@media (max-width: 520px) {
-  .steps {
-    grid-template-columns: 1fr;
-  }
+  line-height: 1.5;
 }
 
 .hero-cta {
