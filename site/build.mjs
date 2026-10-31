@@ -324,7 +324,7 @@ ${withPrompt(body, route)}
 <footer>
 <p>Concierge Agent Protocol 1.0 Draft. Spec text under <a href="${repo}/blob/main/LICENSE-SPEC">CC BY 4.0</a>, code under <a href="${repo}/blob/main/LICENSE">Apache 2.0</a>.</p>
 <div class="footer-end">
-<a class="footer-badge" href="/publish#5-add-the-badge" title="Add this badge to your site"><img src="/badge.svg" width="140" height="20" alt="Agents welcome: CAP"></a>
+<a class="footer-badge" href="/publish#5-add-the-badge" title="Add this badge to your site"><img src="/badge.svg" width="177" height="25" alt="Agents welcome: CAP"></a>
 <p><a href="/governance">Governance</a> · <a href="/security">Security</a> · <a href="/changelog">Changelog</a> · <a href="/brand">Brand</a> · <a href="/cap.txt">cap.txt</a> · <a href="/implement.txt">implement.txt</a></p>
 ${themeControl}
 </div>

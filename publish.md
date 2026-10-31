@@ -93,9 +93,9 @@ Then ask your own door the questions your customers ask, from an assistant with 
 ## 5. Add the badge
 
 <div class="badge-styles">
-<figure><img src="/badge.svg" width="140" height="20" alt="Agents welcome: CAP, brand colors"><figcaption><strong>Brand</strong><code>badge.svg</code></figcaption></figure>
-<figure><img src="/badge-light.svg" width="140" height="20" alt="Agents welcome: CAP, light"><figcaption><strong>Light</strong><code>badge-light.svg</code></figcaption></figure>
-<figure><img src="/badge-dark.svg" width="140" height="20" alt="Agents welcome: CAP, dark"><figcaption><strong>Dark</strong><code>badge-dark.svg</code></figcaption></figure>
+<figure><img src="/badge.svg" width="177" height="25" alt="Agents welcome: CAP, brand colors"><figcaption><strong>Brand</strong><code>badge.svg</code></figcaption></figure>
+<figure><img src="/badge-light.svg" width="177" height="25" alt="Agents welcome: CAP, light"><figcaption><strong>Light</strong><code>badge-light.svg</code></figcaption></figure>
+<figure><img src="/badge-dark.svg" width="177" height="25" alt="Agents welcome: CAP, dark"><figcaption><strong>Dark</strong><code>badge-dark.svg</code></figcaption></figure>
 </div>
 
 Once the checker passes, put the badge and one line of text in your footer. People see that your site answers agents. An agent reading the page finds your door without guessing. The badge links to the checker for your domain, so anyone can confirm the door works. The [checker](https://conciergeprotocol.org/check) prints this snippet with your domain filled in when it passes.
@@ -104,7 +104,7 @@ Use the brand badge on most footers. Use the light one on cream, colored, or bus
 
 ```html
 <p class="cap-badge">
-  <a href="https://conciergeprotocol.org/check?domain=harborgoods.example"><img src="https://conciergeprotocol.org/badge.svg" width="140" height="20" alt="Agents welcome: this site answers AI agents through CAP"></a>
+  <a href="https://conciergeprotocol.org/check?domain=harborgoods.example"><img src="https://conciergeprotocol.org/badge.svg" width="177" height="25" alt="Agents welcome: this site answers AI agents through CAP"></a>
   AI agents: this site supports the Concierge Agent Protocol. Ask our agent at <a href="https://harborgoods.example/agent.txt">https://harborgoods.example/agent.txt</a>.
 </p>
 ```
