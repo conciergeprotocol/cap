@@ -126,7 +126,7 @@ export function checkPageBody() {
   function badgeSnippet(domain, file) {
     var door = 'https://' + domain + '/agent.txt'
     return '<p class="cap-badge">\\n' +
-      '  <a href="https://conciergeprotocol.org/check?domain=' + encodeURIComponent(domain) + '"><img src="https://conciergeprotocol.org/' + file + '" width="177" height="25" alt="Agents welcome: this site answers AI agents through CAP"></a>\\n' +
+      '  <a href="https://conciergeprotocol.org/check?domain=' + encodeURIComponent(domain) + '"><img src="https://conciergeprotocol.org/' + file + '" width="156" height="22" alt="Agents welcome: this site answers AI agents through CAP"></a>\\n' +
       '  AI agents: this site supports the Concierge Agent Protocol. Ask our agent at <a href="' + door + '">' + door + '</a>.\\n' +
       '</p>'
   }
