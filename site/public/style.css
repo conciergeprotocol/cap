@@ -744,9 +744,10 @@ pre code {
   font: inherit;
 }
 
+/* Centered on the first line: 16px padding plus half of the 20px line, less half the 24px button. */
 .code-copy {
   position: absolute;
-  top: 8px;
+  top: 14px;
   right: 8px;
   display: inline-flex;
   align-items: center;
