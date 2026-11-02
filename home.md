@@ -157,7 +157,7 @@ Every request carries `CAP-Version` and `CAP-From`. Without them the reply is `4
 
 ## Run a server
 
-[`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) is one process that speaks `/cap/v1`. You pass an `answer` function. [`@conciergeprotocol/agent`](https://www.npmjs.com/package/@conciergeprotocol/agent) builds that function from a model, an `llms.txt` file, and MCP tools. Node.js 22 or newer. It needs no account on any vendor. SQLite is built in.
+[`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) is one process that speaks `/cap/v1`. You pass an `answer` function. [`@conciergeprotocol/agent`](https://www.npmjs.com/package/@conciergeprotocol/agent) builds that function from a model and your website, an `llms.txt` file, or MCP tools. Node.js 22 or newer. It needs no account on any vendor. SQLite is built in.
 
 ```bash
 npm install @conciergeprotocol/server
@@ -173,7 +173,7 @@ const cap = await createCapServer({
 await cap.listen(8088)
 ```
 
-A company that already has a bot uses that bot as `answer`. The agent package is for a site that has no bot yet:
+A company that already has a bot uses that bot as `answer`. The agent package is for a site that has no bot yet. A `site` source reads the home page, the pages it links to, and `sitemap.xml`:
 
 ```js
 import { createAnswer } from '@conciergeprotocol/agent'
@@ -181,9 +181,11 @@ import { createAnswer } from '@conciergeprotocol/agent'
 const answer = await createAnswer({
   model: 'anthropic/claude-sonnet-4.5',
   instructions: 'You answer for Harbor Goods. Link to the page.',
-  sources: [{ type: 'llms', url: 'https://harborgoods.example/llms.txt' }],
+  sources: [{ type: 'site', url: 'https://harborgoods.example' }],
 })
 ```
+
+`npx create-cap-door harborgoods.example` writes this project for you. See [Start from your website](publish.md#start-from-your-website).
 
 The [reference server](reference) in this repository is the same process, and the one the spec is checked against. Node.js is the only local install. Messages are stored in `reference/data/cap.sqlite` and survive a restart.
 
