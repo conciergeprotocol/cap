@@ -2,6 +2,8 @@
 
 Let AI agents ask your business directly. They get your answer, with a link to the right page on your site. Your tools, keys, and data stay with you.
 
+No agent yet? One command builds a door from your website's pages. See [Start from your website](#start-from-your-website).
+
 Setup takes five steps:
 
 <ol class="steps">
@@ -27,13 +29,27 @@ With a door, the path is shorter:
 
 The tradeoffs are plain. Each answer is a model call you pay for, so set a daily limit. The reply is only as good as your record, and your agent has to say "not available" when the record finds nothing. When every answer is already on a few accurate pages, a door adds little. [When to publish an agent](home.md#when-to-publish-an-agent) has the full test.
 
+## Start from your website
+
+When your site has no chat agent yet, one command builds a door that answers from your published pages:
+
+```bash
+npx create-cap-door harborgoods.example
+```
+
+It reads your home page, the pages it links to, and your `sitemap.xml`, plus `llms.txt` when that file lists pages. It asks for an [AI Gateway](https://vercel.com/docs/ai-gateway) key, writes a small Node.js project, starts the door, and asks it one question. Each answer links to the page it came from. Node.js 22 or newer.
+
+Deploy the folder to a host that keeps a disk, such as Fly or Railway with a volume, or set `DATABASE_URL` to Postgres. Set `PUBLIC_URL` to the deployed address. The project serves both endpoints, so step 2 is done. Then [publish agent.txt](#3-publish-agenttxt), [test your door](#4-test-your-door), and [add the badge](#5-add-the-badge).
+
+The door answers only from public pages. `CAP_DAILY_TOKENS` and `CAP_DAILY_LIMIT` in `.env` cap what it spends.
+
 ## 1. Choose what answers
 
 The door is a way in. Behind it, use whatever already knows the answers:
 
 - **The agent on your chat page.** A person on the chat page and an agent at the door reach the same agent. This is the usual case.
 - **Your own search or API.** Answer from a function that searches your catalog or CMS.
-- **The server package.** [`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) speaks `/cap/v1`. You pass an `answer` function. [`@conciergeprotocol/agent`](https://www.npmjs.com/package/@conciergeprotocol/agent) builds that function from a model, an `llms.txt` file, and MCP tools. See [Run a server](home.md#run-a-server).
+- **The server package.** [`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) speaks `/cap/v1`. You pass an `answer` function. [`@conciergeprotocol/agent`](https://www.npmjs.com/package/@conciergeprotocol/agent) builds that function from a model and your website, an `llms.txt` file, or MCP tools. See [Run a server](home.md#run-a-server).
 - **The reference server.** The same process, in this repository, with a fixed reply, an echo, or a POST to a URL you run. The spec is checked against it.
 
 A hosted agent works too. The chat page and the CAP URL can live on another host, because callers trust your domain, not the server.
