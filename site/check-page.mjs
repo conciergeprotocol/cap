@@ -73,7 +73,25 @@ export function checkPageBody() {
     else done(legacy())
   }
 
-  function showShare(domain, passed) {
+  function startBlock(domain) {
+    var block = document.createElement('div')
+    block.className = 'check-badge'
+    var title = document.createElement('p')
+    title.textContent = 'No agent yet? This command builds a door that answers from the pages on ' + domain + '. It needs Node.js 22 and an AI Gateway key.'
+    var code = document.createElement('pre')
+    code.textContent = 'npx create-cap-door ' + domain
+    var copy = action('Copy command')
+    copy.addEventListener('click', function () { copyText(code.textContent, copy, 'Select the command above') })
+    var more = document.createElement('p')
+    var guide = document.createElement('a')
+    guide.href = '/publish#start-from-your-website'
+    guide.textContent = 'Start from your website'
+    more.append(guide, ' covers deploying it.')
+    block.append(title, code, copy, more)
+    return block
+  }
+
+  function showShare(domain, passed, noDoor) {
     share.replaceChildren()
     share.hidden = false
     var note = document.createElement('p')
@@ -115,6 +133,7 @@ export function checkPageBody() {
     }
     share.append(note, actions)
     if (passed) share.append(badgeBlock(domain))
+    else if (noDoor) share.append(startBlock(domain))
   }
 
   var badgeStyles = [
@@ -286,7 +305,8 @@ export function checkPageBody() {
         }
         results.append(item)
       })
-      if (data.domain) showShare(data.domain, data.passed)
+      var noDoor = data.checks.some(function (check) { return check.id === 'card' && !check.pass })
+      if (data.domain) showShare(data.domain, data.passed, noDoor)
     }).catch(function () {
       results.replaceChildren()
       status.textContent = 'The check could not run.'
