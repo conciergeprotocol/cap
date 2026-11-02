@@ -50,9 +50,10 @@ export function checkPageBody() {
     return el
   }
 
-  function copyText(text, control, fallback) {
-    var idle = control.textContent
+  function copyText(text, control, fallback, report) {
+    var idle = control ? control.textContent : ''
     function done(ok) {
+      if (report) return report(ok)
       control.textContent = ok ? 'Copied' : (fallback || 'Copy the link')
       setTimeout(function () { control.textContent = idle }, 2000)
     }
@@ -73,7 +74,63 @@ export function checkPageBody() {
     else done(legacy())
   }
 
-  function showShare(domain, passed) {
+  function startBlock(domain) {
+    var block = document.createElement('div')
+    block.className = 'check-badge'
+    var title = document.createElement('p')
+    title.textContent = 'No agent yet? This command builds a door that answers from the pages on ' + domain + '. It needs Node.js 22 and an AI Gateway key.'
+    var command = codeBlock()
+    command.code.textContent = 'npx create-cap-door ' + domain
+    var more = document.createElement('p')
+    var guide = document.createElement('a')
+    guide.href = '/publish#start-from-your-website'
+    guide.textContent = 'Start from your website'
+    more.append(guide, ' covers deploying it.')
+    block.append(title, command.block, more)
+    return block
+  }
+
+  var copyIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>'
+  var checkIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>'
+
+  // The page script binds code blocks at load. These are built later, so they bind here.
+  function codeBlock() {
+    var block = document.createElement('div')
+    block.className = 'codeblock'
+    var body = document.createElement('div')
+    body.className = 'codeblock-body'
+    var pre = document.createElement('pre')
+    var code = document.createElement('code')
+    pre.append(code)
+    var button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'code-copy'
+    button.setAttribute('aria-label', 'Copy')
+    button.innerHTML = '<span class="code-copy-icon">' + copyIcon + '</span><span class="code-copy-check">' + checkIcon + '</span><span class="code-copy-idle">Copy</span><span class="code-copy-done" hidden>Copied!</span>'
+    var idle = button.querySelector('.code-copy-idle')
+    var done = button.querySelector('.code-copy-done')
+    button.addEventListener('click', function () {
+      copyText(code.textContent, null, '', function (ok) {
+        if (!ok) {
+          getSelection().selectAllChildren(code)
+          return
+        }
+        button.classList.add('is-copied')
+        idle.hidden = true
+        done.hidden = false
+        setTimeout(function () {
+          button.classList.remove('is-copied')
+          idle.hidden = false
+          done.hidden = true
+        }, 1000)
+      })
+    })
+    body.append(pre, button)
+    block.append(body)
+    return { block: block, code: code }
+  }
+
+  function showShare(domain, passed, noDoor) {
     share.replaceChildren()
     share.hidden = false
     var note = document.createElement('p')
@@ -115,6 +172,7 @@ export function checkPageBody() {
     }
     share.append(note, actions)
     if (passed) share.append(badgeBlock(domain))
+    else if (noDoor) share.append(startBlock(domain))
   }
 
   var badgeStyles = [
@@ -140,9 +198,9 @@ export function checkPageBody() {
     picker.className = 'check-badge-styles'
     picker.setAttribute('role', 'radiogroup')
     picker.setAttribute('aria-label', 'Badge style')
-    var code = document.createElement('pre')
+    var snippet = codeBlock()
     function pick(file) {
-      code.textContent = badgeSnippet(domain, file)
+      snippet.code.textContent = badgeSnippet(domain, file)
       Array.prototype.forEach.call(picker.children, function (option) {
         option.setAttribute('aria-checked', String(option.dataset.file === file))
       })
@@ -164,15 +222,13 @@ export function checkPageBody() {
       picker.append(option)
     })
     pick(badgeStyles[0][0])
-    var copy = action('Copy badge HTML')
-    copy.addEventListener('click', function () { copyText(code.textContent, copy, 'Select the HTML above') })
     var more = document.createElement('p')
     more.append('Keep the line visible. ')
     var guide = document.createElement('a')
     guide.href = '/publish#5-add-the-badge'
     guide.textContent = 'Why it is not hidden'
     more.append(guide, '.')
-    block.append(title, picker, code, copy, more)
+    block.append(title, picker, snippet.block, more)
     return block
   }
 
@@ -286,7 +342,8 @@ export function checkPageBody() {
         }
         results.append(item)
       })
-      if (data.domain) showShare(data.domain, data.passed)
+      var noDoor = data.checks.some(function (check) { return check.id === 'card' && !check.pass })
+      if (data.domain) showShare(data.domain, data.passed, noDoor)
     }).catch(function () {
       results.replaceChildren()
       status.textContent = 'The check could not run.'

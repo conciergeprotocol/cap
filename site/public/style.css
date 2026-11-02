@@ -744,9 +744,10 @@ pre code {
   font: inherit;
 }
 
+/* Centered on the first line: 16px padding plus half of the 20px line, less half the 24px button. */
 .code-copy {
   position: absolute;
-  top: 8px;
+  top: 14px;
   right: 8px;
   display: inline-flex;
   align-items: center;
@@ -1063,8 +1064,12 @@ footer a {
   font-size: 13px;
 }
 
-.check-badge pre {
+.check-badge .codeblock {
   margin: 0 0 12px;
+}
+
+.check-badge .codeblock pre {
+  padding-right: 96px;
   white-space: pre-wrap;
   word-break: break-all;
 }
