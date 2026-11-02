@@ -1063,8 +1063,12 @@ footer a {
   font-size: 13px;
 }
 
-.check-badge pre {
+.check-badge .codeblock {
   margin: 0 0 12px;
+}
+
+.check-badge .codeblock pre {
+  padding-right: 96px;
   white-space: pre-wrap;
   word-break: break-all;
 }
