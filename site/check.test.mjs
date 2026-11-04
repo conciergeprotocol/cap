@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { agentPointer, checkDoor, isPublicAddress, parseHost, sameSite } from './check.mjs'
+import { agentPointer, checkDoor, isPublicAddress, parseHost, pickIcon, sameSite } from './check.mjs'
 import { checkPageBody } from './check-page.mjs'
 
 test('parseHost accepts a domain and rejects everything else', () => {
@@ -209,7 +209,7 @@ test('a host the check rejects has no address to share', async () => {
 test('the check page keeps the domain in the address and offers a share after the result', () => {
   const html = checkPageBody()
   assert.match(html, /Is your website CAP-able\?/)
-  assert.match(html, /Nothing is stored/)
+  assert.match(html, /A result is shared for 10 minutes/)
   assert.match(html, /check-bar/)
   assert.match(html, /Asking what it can help with/)
   assert.match(html, /history\.replaceState/)
@@ -219,7 +219,77 @@ test('the check page keeps the domain in the address and offers a share after th
   assert.match(html, /navigator\.share/)
   assert.match(html, /x\.com\/intent\/post/)
   assert.match(html, /linkedin\.com\/sharing\/share-offsite/)
-  assert.match(html, /if \(preset\) run\(\)/)
+  assert.match(html, /\/api\/door\?domain=/)
+  assert.match(html, /Run a fresh check/)
+})
+
+const door = (onPost) => ({
+  resolve: async () => ({ ok: true, addresses: ['8.8.8.8'] }),
+  request: async (options) => {
+    if (options.url.endsWith('/agent.txt')) {
+      return { ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'Protocol: CAP/1.0\nCAP: https://example.com/cap/v1\n' }
+    }
+    if (options.method === 'POST') return onPost(options)
+    if (options.headers['cap-from'] === 'agent:cap-check-other') return { ok: true, status: 404, headers: {}, body: '' }
+    return { ok: true, status: 200, headers: {}, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'Hi.' }) }
+  },
+})
+
+test('ask: false reads agent.txt and never sends the question', async () => {
+  let posted = false
+  const result = await checkDoor('example.com', { ...door(() => { posted = true }), ask: false })
+  assert.equal(posted, false)
+  assert.equal(result.passed, true)
+  assert.equal(result.asked, false)
+  assert.equal(result.cap, 'https://example.com/cap/v1')
+  assert.match(result.cardHash, /^[0-9a-f]{16}$/)
+  assert.deepEqual(result.checks.map((check) => check.id), ['host', 'card'])
+})
+
+test('a 429 from the door is skipped, not failed', async () => {
+  const result = await checkDoor('example.com', door(() => ({ ok: true, status: 429, headers: { 'retry-after': '3600' }, body: '' })))
+  assert.equal(result.passed, false)
+  assert.equal(result.skipped, true)
+  assert.equal(result.retryAfter, 3600)
+  assert.equal(result.checks.at(-1).skipped, true)
+})
+
+test('a rate_limited reply is skipped, not failed', async () => {
+  const body = JSON.stringify({ id: 'msg_abc12345', status: 'failed', error: { code: 'rate_limited', message: 'Daily cap reached.' } })
+  const result = await checkDoor('example.com', door(() => ({ ok: true, status: 200, headers: {}, body })))
+  assert.equal(result.skipped, true)
+  assert.match(result.checks.at(-1).detail, /Daily cap reached/)
+})
+
+test('a dropped POST is resent once with the same Idempotency-Key', async () => {
+  const keys = []
+  const result = await checkDoor('example.com', door((options) => {
+    keys.push(options.headers['idempotency-key'])
+    if (keys.length === 1) return { ok: false, detail: 'The host did not respond in time.' }
+    return { ok: true, status: 200, headers: {}, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'Hi.' }) }
+  }))
+  assert.equal(result.passed, true)
+  assert.equal(keys.length, 2)
+  assert.match(keys[0], /^cap-check-/)
+  assert.equal(keys[0], keys[1])
+})
+
+test('pickIcon prefers a small or SVG icon and skips oversized logos', () => {
+  const base = 'https://example.com/'
+  const head = (links) => `<html><head>${links}</head><body><link rel="icon" href="/body.png"></body></html>`
+  assert.equal(pickIcon(head('<link rel="icon" href="/big.png" sizes="5250x5250">'), base), null)
+  assert.equal(pickIcon(head('<link rel="apple-touch-icon" href="/apple.png"><link rel="icon" href="/32.png" sizes="32x32">'), base), 'https://example.com/32.png')
+  assert.equal(pickIcon(head('<link rel="icon" href="/32.png" sizes="32x32"><link rel="icon" href="/i.svg" type="image/svg+xml">'), base), 'https://example.com/i.svg')
+  assert.equal(pickIcon(head('<link rel="shortcut icon" href="http://example.com/x.ico">'), base), null)
+  assert.equal(pickIcon(head(''), base), null)
+})
+
+test('mayAsk can veto the question', async () => {
+  let posted = false
+  const result = await checkDoor('example.com', { ...door(() => { posted = true }), mayAsk: async () => false })
+  assert.equal(posted, false)
+  assert.equal(result.throttled, true)
+  assert.equal(result.asked, false)
 })
 
 test('a large 404 page reports the 404 and where to read about agent.txt', async () => {

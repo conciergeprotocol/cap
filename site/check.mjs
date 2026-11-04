@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from 'node:crypto'
 import { request as httpsRequest } from 'node:https'
 import { BlockList, isIP } from 'node:net'
 import { Resolver } from 'node:dns/promises'
@@ -11,6 +12,7 @@ const PAGE_MAX = 256 * 1024
 const BODY_MAX = 65_536
 const ID = /^msg_[A-Za-z0-9_-]{8,64}$/
 const HELP = 'https://conciergeprotocol.org/spec#front-door'
+const WAIT_CODES = new Set(['rate_limited', 'unavailable'])
 
 const blocked = new BlockList()
 for (const [net, prefix] of [
@@ -74,25 +76,34 @@ export function parseHost(input) {
   return { ok: true, hostname }
 }
 
-/** Read agent.txt, or the homepage link to it, ask one public question, and confirm the reply is private to the caller. */
+/**
+ * Read agent.txt, or the homepage link to it, ask one public question, and confirm the reply is private to the caller.
+ * With `ask: false` it stops after agent.txt, so the owner's agent never runs.
+ * `mayAsk(cap)` can veto the question for an endpoint that was asked recently.
+ */
 export async function checkDoor(input, deps = {}) {
   const resolve = deps.resolve || resolvePublic
   const request = deps.request || pinnedRequest
+  const asking = deps.ask !== false
   const deadline = Date.now() + BUDGET_MS
   const checks = []
   const host = parseHost(input)
-  const stop = (check) => {
-    const result = { passed: false, checks: checks.concat(check) }
+  let asked = false
+  let card
+  const finish = (result) => {
     if (host.ok) result.domain = host.hostname
+    if (card?.ok) Object.assign(result, { cap: card.cap, cardHash: card.hash })
+    result.asked = asked
     return result
   }
+  const stop = (check, extra) => finish({ passed: false, checks: checks.concat(check), ...extra })
 
   if (!host.ok) return stop({ id: 'host', title: 'Public https host', pass: false, detail: host.detail })
   const addresses = await resolve(host.hostname)
   if (!addresses.ok) return stop({ id: 'host', title: 'Public https host', pass: false, detail: addresses.detail })
   checks.push({ id: 'host', title: 'Public https host', pass: true, detail: host.hostname })
 
-  const card = await readCard(host.hostname, addresses.addresses, resolve, request, deadline)
+  card = await readCard(host.hostname, addresses.addresses, resolve, request, deadline)
   if (!card.ok) {
     const missed = { id: 'card', title: 'agent.txt', pass: false, detail: card.detail }
     if (card.status) missed.status = card.status
@@ -100,15 +111,24 @@ export async function checkDoor(input, deps = {}) {
     return stop(missed)
   }
   checks.push({ id: 'card', title: 'agent.txt', pass: true, detail: card.detail })
+  if (!asking) return finish({ passed: true, checks })
+  if (deps.mayAsk && !(await deps.mayAsk(card.cap))) {
+    const detail = `${card.cap} answered a check in the last 10 minutes, so it was not asked again.`
+    return stop({ id: 'reply', title: 'A public reply', pass: false, skipped: true, detail }, { skipped: true, throttled: true })
+  }
 
+  asked = true
   const reply = await ask(card.cap, card.addresses, request, deadline)
+  if (reply.skipped) {
+    return stop({ id: 'reply', title: 'A public reply', pass: false, skipped: true, detail: reply.detail }, { skipped: true, retryAfter: reply.retryAfter })
+  }
   if (!reply.ok) return stop({ id: 'reply', title: 'A public reply', pass: false, detail: reply.detail })
   checks.push({ id: 'reply', title: 'A public reply', pass: true, detail: reply.detail })
 
   const privacy = await hiddenFromOthers(card.cap, card.addresses, reply.id, request, deadline)
   if (!privacy.ok) return stop({ id: 'private', title: 'Private to the caller', pass: false, detail: privacy.detail })
   checks.push({ id: 'private', title: 'Private to the caller', pass: true, detail: privacy.detail })
-  return { passed: true, domain: host.hostname, checks }
+  return finish({ passed: true, checks })
 }
 
 export async function resolvePublic(hostname) {
@@ -281,6 +301,64 @@ function agentLinkHref(html) {
   return null
 }
 
+/** The site's own icon for the directory: the best declared one, else /favicon.ico. Null when there is none worth showing. */
+export async function findIcon(hostname, deps = {}) {
+  const resolve = deps.resolve || resolvePublic
+  const request = deps.request || pinnedRequest
+  const deadline = Date.now() + 8_000
+  const found = await resolve(hostname)
+  if (!found.ok) return null
+  let current = `https://${hostname}/`
+  let ips = found.addresses
+  for (let hop = 0; hop < 4; hop++) {
+    const res = await request({ url: current, method: 'GET', addresses: ips, timeoutMs: Math.min(5_000, left(deadline)), maxBytes: PAGE_MAX, truncate: true })
+    if (!res.ok) return null
+    if (res.status >= 300 && res.status < 400) {
+      const next = homeRedirect(res, current, hostname)
+      if (!next.ok) return null
+      const again = await resolve(next.host)
+      if (!again.ok) return null
+      current = next.href
+      ips = again.addresses
+      continue
+    }
+    if (res.status === 200) {
+      const icon = pickIcon(res.body, current)
+      if (icon) return icon
+    }
+    break
+  }
+  const ico = `${new URL(current).origin}/favicon.ico`
+  const res = await request({ url: ico, method: 'GET', addresses: ips, timeoutMs: Math.min(5_000, left(deadline)), maxBytes: 4_096, truncate: true })
+  return res.ok && res.status === 200 && /^image\//i.test(headerValue(res.headers, 'content-type')) ? ico : null
+}
+
+// Closest to 64px wins. Icons declared over 1024px are skipped: they are logos, too heavy for a list.
+export function pickIcon(html, base) {
+  const source = String(html || '')
+  const headAt = source.search(/<\/head>/i)
+  const tags = source.slice(0, headAt === -1 ? source.length : headAt).match(/<link\b[^>]*>/gi) || []
+  let best = null
+  for (const tag of tags) {
+    const rel = attr(tag, 'rel').toLowerCase().split(/\s+/)
+    if (!rel.includes('icon') && !rel.includes('apple-touch-icon')) continue
+    let url
+    try {
+      url = new URL(attr(tag, 'href'), base)
+    } catch {
+      continue
+    }
+    if (url.protocol !== 'https:') continue
+    const sizes = attr(tag, 'sizes').toLowerCase()
+    const side = Math.max(0, ...[...sizes.matchAll(/(\d+)x\d+/g)].map((match) => Number(match[1])))
+    if (side > 1024) continue
+    const svg = /svg/i.test(attr(tag, 'type')) || /\.svg$/i.test(url.pathname)
+    const score = svg || sizes === 'any' ? 0 : side ? Math.abs(side - 64) : rel.includes('apple-touch-icon') ? 116 : 40
+    if (!best || score < best.score) best = { score, href: url.href }
+  }
+  return best?.href || null
+}
+
 function attr(tag, name) {
   const match = tag.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`, 'i'))
   return match ? (match[1] ?? match[2] ?? match[3] ?? '') : ''
@@ -312,25 +390,33 @@ async function parseCard(body, fileUrl, currentAddresses, resolve) {
     addresses = again.addresses
   }
   const href = cap.href.replace(/\/$/, '')
-  return { ok: true, cap: href, addresses, detail: `CAP: ${href}` }
+  const hash = createHash('sha256').update(body).digest('hex').slice(0, 16)
+  return { ok: true, cap: href, addresses, hash, detail: `CAP: ${href}` }
 }
 
 async function ask(cap, fallbackAddresses, request, deadline) {
   const addresses = fallbackAddresses
   if (!addresses) return fail('The CAP host has no DNS address.')
   const url = endpoint(cap, '')
-  const res = await request({
+  // The same key on a resend after a dropped connection gets the original message, so the door answers once.
+  const key = `cap-check-${randomUUID()}`
+  const post = () => request({
     url,
     method: 'POST',
     addresses,
     timeoutMs: Math.min(20_000, left(deadline)),
-    headers: capHeaders(CALLER),
+    headers: { ...capHeaders(CALLER), 'idempotency-key': key },
     body: JSON.stringify({ message: QUESTION }),
   })
+  let res = await post()
+  if (!res.ok && left(deadline) > 10_000) res = await post()
   if (!res.ok) return fail(res.detail)
   if (res.status >= 300 && res.status < 400) return fail('The CAP endpoint redirected. It should answer the POST itself.')
   let message = await readMessage(res, cap, addresses, request, deadline)
   if (!message.ok) return message
+  if (message.status === 'failed' && WAIT_CODES.has(message.error?.code)) {
+    return skip(`The door asked the check to wait${message.error?.message ? `: ${clip(message.error.message)}` : '.'}`, message.retryAfter)
+  }
   if (message.status === 'failed') {
     const why = message.error?.code === 'login_required'
       ? 'A public question came back login_required. The door should answer it without a token.'
@@ -381,6 +467,11 @@ async function hiddenFromOthers(cap, addresses, id, request, deadline) {
 }
 
 function parseMessage(res) {
+  if (res.status === 429 || res.status === 503) {
+    const wait = Number(res.headers?.['retry-after'])
+    const what = res.status === 429 ? 'is limiting this caller' : 'is not answering right now'
+    return skip(`The CAP endpoint returned ${res.status}: it ${what}. Not counted as a failure.`, Number.isFinite(wait) ? wait : undefined)
+  }
   if (res.status !== 200 && res.status !== 202) {
     return fail(`The CAP endpoint returned ${res.status}. Send CAP-Version: 1.0 and CAP-From: agent:{id}.`)
   }
@@ -520,6 +611,10 @@ function clip(text) {
 
 function fail(detail) {
   return { ok: false, detail }
+}
+
+function skip(detail, retryAfter) {
+  return { ok: false, skipped: true, detail, retryAfter }
 }
 
 function sleep(ms) {

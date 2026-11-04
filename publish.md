@@ -108,6 +108,18 @@ The [checker](https://conciergeprotocol.org/check) reads your `agent.txt`, sends
 
 Then ask your own door the questions your customers ask, from an assistant with the [CAP MCP server](callers.md#mcp). Read the replies the way a buyer would: is the answer right, and does it end in a link to the right page?
 
+### How the check treats your door
+
+Each question the check sends is answered by your agent, so it is sent rarely:
+
+- **Who it is.** The check sends `CAP-From: agent:cap-check` and `User-Agent: CAP-Check`. The privacy step reads the message as `agent:cap-check-other`, which only reads and never asks. Exclude these from your own budgets or limits if you want to.
+- **One answer per window.** A result is shared for 10 minutes. However many people open the check or click your badge, your agent answers at most once in that window, and at most once per CAP endpoint across all the domains that point at it.
+- **The badge reads the saved result.** The badge link shows your last result without asking your door. A new question goes out only when someone runs a fresh check.
+- **Rechecks are mostly free.** A door that passes joins the [directory](https://conciergeprotocol.org/directory). Viewing the directory or the door's entry rechecks it, at most once a day. Most rechecks only read `agent.txt`, which runs no agent. The question goes out once every 7 days, or once every 30 days after four passes in a row, and sooner only when `agent.txt` changes or a check failed.
+- **Your limits are respected.** A `429` or `503`, or a reply that failed with `rate_limited` or `unavailable`, counts as skipped, not failed. The check waits at least a day, or your `Retry-After` if it is longer. Returning `429` to `agent:cap-check` is a fine way to say no.
+- **Three strikes.** A door drops off the directory after three failed checks in a row. A passing check puts it back.
+- **One answer per attempt.** The question carries an `Idempotency-Key`, so a resend after a dropped connection does not ask twice.
+
 ## 5. Add the badge
 
 <div class="badge-styles">
