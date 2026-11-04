@@ -1,8 +1,11 @@
 import { CALLER, QUESTION } from './check.mjs'
+import { ASK_EVERY_DAYS, DELIST_AFTER, RESULT_TTL_S } from './doors.mjs'
+import { siteIconScript } from './directory-page.mjs'
 
 export function checkPageBody() {
   return `<h1>Is your website CAP-able?</h1>
-<p>Enter a domain. This page reads <code>agent.txt</code>, sends one public question, and reports what passed. The question is "${QUESTION}" from <code>${CALLER}</code>. Nothing is stored. The address keeps the domain, so the same check can be opened again.</p>
+<p>Enter a domain. This page reads <code>agent.txt</code>, sends one public question, and reports what passed. The question is "${QUESTION}" from <code>${CALLER}</code>. A result is shared for ${RESULT_TTL_S / 60} minutes, so your agent answers at most once in that window however many people check.</p>
+<p>A door that passes joins the <a href="/directory">directory</a>. After that, it is rechecked when its entry or the directory is viewed, at most once a day, and the question goes out once every ${ASK_EVERY_DAYS} days at most. <a href="/publish#how-the-check-treats-your-door">How the check treats your door</a>.</p>
 <form class="check-form">
 <label for="domain">Domain</label>
 <input id="domain" name="domain" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="example.com" required>
@@ -11,6 +14,7 @@ export function checkPageBody() {
 <p class="check-status" role="status"></p>
 <div class="check-bar" hidden><span></span></div>
 <div class="check-site" hidden></div>
+<div class="check-record" hidden></div>
 <ol class="check-results"></ol>
 <div class="check-share" hidden></div>
 <script>
@@ -23,6 +27,7 @@ export function checkPageBody() {
   var button = form.querySelector('button')
   var bar = document.querySelector('.check-bar')
   var site = document.querySelector('.check-site')
+  var record = document.querySelector('.check-record')
   var timers = []
   var steps = [
     ['host', 'Public https host', 'Checking the public host.'],
@@ -232,22 +237,85 @@ export function checkPageBody() {
     return block
   }
 
-  function showSite(domain) {
+  ${siteIconScript}
+
+  function showSite(domain, src) {
     site.replaceChildren()
     site.hidden = !domain
     if (!domain) return
-    var icon = document.createElement('img')
-    icon.src = 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=64'
-    icon.alt = ''
-    icon.width = 24
-    icon.height = 24
-    icon.addEventListener('error', function () { icon.remove() })
+    var icon = siteIcon(domain, src)
     var name = document.createElement('span')
     name.textContent = domain
     site.append(icon, name)
   }
 
+  function when(iso) {
+    return new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+  }
+
+  function minutesAgo(iso) {
+    var minutes = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000))
+    return minutes < 1 ? 'less than a minute ago' : minutes === 1 ? '1 minute ago' : minutes + ' minutes ago'
+  }
+
+  // A badge click lands here. It shows the saved record and only asks the door when someone runs a fresh check.
+  function showSaved(door) {
+    remember(door.domain)
+    input.value = door.host || door.domain
+    showSite(door.domain, door.icon)
+    record.replaceChildren()
+    record.hidden = false
+    var list = document.createElement('dl')
+    function row(label, value) {
+      if (!value) return
+      var term = document.createElement('dt')
+      term.textContent = label
+      var detail = document.createElement('dd')
+      detail.textContent = value
+      list.append(term, detail)
+    }
+    row('Directory', door.listed ? 'Listed' : 'Removed after ${DELIST_AFTER} failed checks in a row')
+    row('First passed', door.firstPassedAt && when(door.firstPassedAt))
+    row('Last answered', door.lastAnsweredAt && when(door.lastAnsweredAt))
+    row('Last checked', door.lastCheckedAt && when(door.lastCheckedAt))
+    if (door.listed) row('Next question', door.nextAskAt && 'Around ' + when(door.nextAskAt))
+    var again = action('Run a fresh check')
+    again.addEventListener('click', run)
+    record.append(list, again)
+    status.textContent = door.listed
+      ? door.domain + ' has a CAP front door. These are the results of its last check.'
+      : door.domain + ' is no longer passing. Run a fresh check after fixing it.'
+    showChecks(door.lastChecks || [])
+    showShare(door.domain, door.listed, false)
+  }
+
+  function showChecks(checks) {
+    results.replaceChildren()
+    checks.forEach(function (check) {
+      var item = document.createElement('li')
+      item.dataset.pass = check.skipped ? 'skipped' : String(check.pass)
+      var title = document.createElement('strong')
+      title.textContent = check.title
+      var state = document.createElement('span')
+      state.className = 'check-state'
+      state.textContent = stateText(check)
+      var detail = document.createElement('p')
+      detail.textContent = check.detail || ''
+      item.append(title, state, detail)
+      if (check.help) {
+        var help = document.createElement('p')
+        var link = document.createElement('a')
+        link.href = check.help
+        link.textContent = 'How to add agent.txt'
+        help.append(link)
+        item.append(help)
+      }
+      results.append(item)
+    })
+  }
+
   function stateText(check) {
+    if (check.skipped) return 'Skipped'
     if (check.pass) return 'Passed'
     if (check.status === 404) return '404 Not found'
     if (check.status) return 'Failed (' + check.status + ')'
@@ -306,6 +374,8 @@ export function checkPageBody() {
     bar.hidden = false
     share.hidden = true
     share.replaceChildren()
+    record.hidden = true
+    record.replaceChildren()
     showSite('')
     showPending()
     fetch('/api/check', {
@@ -319,29 +389,11 @@ export function checkPageBody() {
         return
       }
       if (data.domain) remember(data.domain)
-      showSite(data.domain)
-      status.textContent = data.passed ? 'This door passes.' : 'This door does not pass yet.'
-      data.checks.forEach(function (check) {
-        var item = document.createElement('li')
-        item.dataset.pass = String(check.pass)
-        var title = document.createElement('strong')
-        title.textContent = check.title
-        var state = document.createElement('span')
-        state.className = 'check-state'
-        state.textContent = stateText(check)
-        var detail = document.createElement('p')
-        detail.textContent = check.detail || ''
-        item.append(title, state, detail)
-        if (check.help) {
-          var help = document.createElement('p')
-          var link = document.createElement('a')
-          link.href = check.help
-          link.textContent = 'How to add agent.txt'
-          help.append(link)
-          item.append(help)
-        }
-        results.append(item)
-      })
+      showSite(data.domain, data.icon)
+      var sentence = data.passed ? 'This door passes.' : data.skipped ? 'The door was not asked this time. That is not counted as a failure.' : 'This door does not pass yet.'
+      if (data.cached && data.checkedAt) sentence += ' Checked ' + minutesAgo(data.checkedAt) + '. Results are shared for ${RESULT_TTL_S / 60} minutes.'
+      status.textContent = sentence
+      showChecks(data.checks)
       var noDoor = data.checks.some(function (check) { return check.id === 'card' && !check.pass })
       if (data.domain) showShare(data.domain, data.passed, noDoor)
     }).catch(function () {
@@ -359,7 +411,12 @@ export function checkPageBody() {
     event.preventDefault()
     run()
   })
-  if (preset) run()
+  if (preset) {
+    fetch('/api/door?domain=' + encodeURIComponent(preset))
+      .then(function (res) { return res.ok ? res.json() : null })
+      .then(function (door) { if (door && door.domain) showSaved(door); else run() })
+      .catch(run)
+  }
 })()
 </script>`
 }

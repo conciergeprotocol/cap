@@ -961,8 +961,82 @@ footer a {
   color: #fca5a5;
 }
 
+.check-results li[data-pass='skipped'] .check-state {
+  color: #a16207;
+}
+
+:root.dark .check-results li[data-pass='skipped'] .check-state {
+  color: #fde047;
+}
+
 .check-results p {
   margin: 4px 0 0;
+}
+
+.check-record {
+  margin-top: 12px;
+}
+
+.check-record dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0 0 16px;
+}
+
+.check-record dt {
+  color: var(--muted);
+}
+
+.check-record dd {
+  margin: 0;
+}
+
+.door-list {
+  margin: 24px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.door-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.door-list img {
+  border-radius: 4px;
+}
+
+.site-icon {
+  object-fit: contain;
+}
+
+.site-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--fg);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.door-list a {
+  font-weight: 600;
+}
+
+.door-list span {
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .check-share {

@@ -4,11 +4,15 @@
   "type": "module",
   "scripts": {
     "build": "node site/build.mjs",
-    "dev": "node site/serve.mjs",
-    "test": "node --test site/check.test.mjs"
+    "dev": "node --env-file-if-exists=.env site/serve.mjs",
+    "test": "node --test site/check.test.mjs site/doors.test.mjs"
   },
   "devDependencies": {
     "marked": "^16.0.0",
     "shiki": "^4.5.0"
+  },
+  "dependencies": {
+    "@cosmicjs/sdk": "^2.4.0",
+    "@vercel/functions": "^3.10.6"
   }
 }

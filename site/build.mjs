@@ -3,6 +3,7 @@ import { dirname, join, posix } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Marked } from 'marked'
 import { checkPageBody } from './check-page.mjs'
+import { directoryPageBody } from './directory-page.mjs'
 import { createCssVariablesTheme, createHighlighter } from 'shiki'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -325,7 +326,7 @@ ${withPrompt(body, route)}
 <p>Concierge Agent Protocol 1.0 Draft. Spec text under <a href="${repo}/blob/main/LICENSE-SPEC">CC BY 4.0</a>, code under <a href="${repo}/blob/main/LICENSE">Apache 2.0</a>.</p>
 <div class="footer-end">
 <a class="footer-badge" href="/publish#5-add-the-badge" title="Add this badge to your site"><img src="/badge.svg" width="156" height="22" alt="Agents welcome: CAP"></a>
-<p><a href="/governance">Governance</a> · <a href="/security">Security</a> · <a href="/changelog">Changelog</a> · <a href="/brand">Brand</a> · <a href="/cap.txt">cap.txt</a> · <a href="/implement.txt">implement.txt</a></p>
+<p><a href="/directory">Directory</a> · <a href="/governance">Governance</a> · <a href="/security">Security</a> · <a href="/changelog">Changelog</a> · <a href="/brand">Brand</a> · <a href="/cap.txt">cap.txt</a> · <a href="/implement.txt">implement.txt</a></p>
 ${themeControl}
 </div>
 </footer>
@@ -355,5 +356,14 @@ for (const page of pages) {
 
 const checkFile = join(out, 'check.html')
 writeFileSync(checkFile, layout({ title: 'Is your website CAP-able?', body: checkPageBody(), route: '/check' }))
+writeFileSync(
+  join(out, 'directory.html'),
+  layout({
+    title: 'Companies with a CAP front door',
+    body: directoryPageBody(),
+    route: '/directory',
+    description: 'Sites whose CAP front door passes the check. Entries are added and removed by the check, not by hand.'
+  })
+)
 
-console.log(`Built ${pages.length + 1} pages into site/dist`)
+console.log(`Built ${pages.length + 2} pages into site/dist`)

@@ -3,6 +3,14 @@ import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import checkHandler from '../api/check.js'
+import doorHandler from '../api/door.js'
+import doorsHandler from '../api/doors.js'
+
+const api = new Map([
+  ['/api/check', checkHandler],
+  ['/api/door', doorHandler],
+  ['/api/doors', doorsHandler]
+])
 
 const root = fileURLToPath(new URL('dist/', import.meta.url))
 const port = Number(process.env.PORT) || 8765
@@ -47,8 +55,8 @@ const server = createServer(async (req, res) => {
   let path = decodeURIComponent(url.pathname)
   if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1)
 
-  if (path === '/api/check') {
-    await runCheck(req, res)
+  if (api.has(path)) {
+    await runApi(api.get(path), req, res)
     return
   }
 
@@ -85,7 +93,7 @@ const server = createServer(async (req, res) => {
   await send(res, target)
 })
 
-async function runCheck(req, res) {
+async function runApi(handler, req, res) {
   const chunks = []
   for await (const chunk of req) chunks.push(chunk)
   req.body = Buffer.concat(chunks).toString('utf8')
@@ -97,7 +105,7 @@ async function runCheck(req, res) {
     res.setHeader('content-type', 'application/json; charset=utf-8')
     res.end(JSON.stringify(data))
   }
-  await checkHandler(req, res)
+  await handler(req, res)
 }
 
 server.listen(port, '127.0.0.1', () => {

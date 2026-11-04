@@ -1,4 +1,5 @@
-import { checkDoor } from '../site/check.mjs'
+import { publicCheck } from '../site/doors.mjs'
+import { getStore } from '../site/store.mjs'
 
 const hits = new Map()
 
@@ -21,9 +22,9 @@ export default async function handler(req, res) {
     return
   }
   try {
-    const result = await checkDoor(domain)
+    const { status, body } = await publicCheck(getStore(), domain)
     res.setHeader('cache-control', 'no-store')
-    res.status(200).json(result)
+    res.status(status).json(body)
   } catch {
     res.status(500).json({ error: { message: 'The check could not run.' } })
   }
