@@ -27,7 +27,17 @@ With a door, the path is shorter:
 - **A door you opened on purpose.** Agents use the door you published instead of scraping your pages. `CAP-From` names the caller, but it is a label, not proof. Rate limits handle abuse, and OAuth tokens authenticate the person.
 - **Only what the request may see.** The visiting agent never gets your tools, prompts, or keys. A public question gets a public answer. An account answer carries that one person's details, and only with a token they granted.
 
-The tradeoffs are plain. Each answer is a model call you pay for, so set a daily limit. The reply is only as good as your record, and your agent has to say "not available" when the record finds nothing. When every answer is already on a few accurate pages, a door adds little. [When to publish an agent](home.md#when-to-publish-an-agent) has the full test.
+The tradeoffs are plain. Each answer is a model call you pay for, so set a daily limit. The reply is only as good as your record, and your agent has to say "not available" when the record finds nothing. When every answer is already on a few accurate pages, a door adds little. [When to publish an agent](#when-to-publish-an-agent) is the test.
+
+## When to publish an agent
+
+Publish one when it knows something a visitor's agent cannot read for itself:
+
+- An account. The person logs in. The visiting agent never receives the company's keys.
+- A record too large for one prompt. The company searches its own catalog or CMS.
+- A record the pages do not reliably show. The page is stale, or the help page offers something the policy refuses.
+
+When every answer is already printed on a few accurate pages, reading those pages is faster.
 
 ## Start from your website
 
@@ -49,10 +59,44 @@ The door is a way in. Behind it, use whatever already knows the answers:
 
 - **The agent on your chat page.** A person on the chat page and an agent at the door reach the same agent. This is the usual case.
 - **Your own search or API.** Answer from a function that searches your catalog or CMS.
-- **The server package.** [`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) speaks `/cap/v1`. You pass an `answer` function. [`@conciergeprotocol/agent`](https://www.npmjs.com/package/@conciergeprotocol/agent) builds that function from a model and your website, an `llms.txt` file, or MCP tools. See [Run a server](home.md#run-a-server).
+- **The server package.** [`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) speaks `/cap/v1`. You pass an `answer` function. [`@conciergeprotocol/agent`](https://www.npmjs.com/package/@conciergeprotocol/agent) builds that function from a model and your website, an `llms.txt` file, or MCP tools. See [Run a server](#run-a-server).
 - **The reference server.** The same process, in this repository, with a fixed reply, an echo, or a POST to a URL you run. The spec is checked against it.
 
 A hosted agent works too. The chat page and the CAP URL can live on another host, because callers trust your domain, not the server.
+
+### Run a server
+
+[`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) is one process that speaks `/cap/v1`. You pass an `answer` function. [`@conciergeprotocol/agent`](https://www.npmjs.com/package/@conciergeprotocol/agent) builds that function from a model and your website, an `llms.txt` file, or MCP tools. Node.js 22 or newer. It needs no account on any vendor. SQLite is built in.
+
+```bash
+npm install @conciergeprotocol/server
+```
+
+```js
+import { createCapServer } from '@conciergeprotocol/server'
+
+const cap = await createCapServer({
+  agent: { name: 'Harbor Goods', chat: 'https://harborgoods.example/chat' },
+  answer: async ({ message }) => `You asked: ${message}`,
+})
+await cap.listen(8088)
+```
+
+A company that already has a bot uses that bot as `answer`. The agent package is for a site that has no bot yet. A `site` source reads the home page, the pages it links to, and `sitemap.xml`:
+
+```js
+import { createAnswer } from '@conciergeprotocol/agent'
+
+const answer = await createAnswer({
+  model: 'anthropic/claude-sonnet-4.5',
+  instructions: 'You answer for Harbor Goods. Link to the page.',
+  sources: [{ type: 'site', url: 'https://harborgoods.example' }],
+})
+```
+
+`npx create-cap-door harborgoods.example` writes this project for you. See [Start from your website](#start-from-your-website).
+
+The [reference server](reference/README.md) in this repository is the same process, and the one the spec is checked against. Configuration, logins, and deployment are there. To answer account questions, or make changes for a logged-in person, follow [Add login to your agent](login.md).
 
 ## 2. Add two endpoints
 
@@ -94,13 +138,19 @@ CAP: https://harborgoods.example/cap/v1
 Spec: https://conciergeprotocol.org/cap.txt
 ```
 
-Serve it at `https://{domain}/agent.txt`. Add the homepage link even when the root file is valid, because agents that are reading the page follow it:
+`Protocol` comes first and names the format. `Name` is the public agent. `Chat` is the page a person opens. `CAP` is the base URL for `/cap/v1`. `OAuth` is the login server for account questions. Leave it off until you [add account questions](#add-account-questions). `Spec` points at the hosted caller card. Use it as written rather than hosting your own copy.
+
+Serve it at `https://{domain}/agent.txt`. The chat page and the CAP URL can live on another host. Callers trust your domain. Only the `CAP` line changes when the server moves.
+
+Add the homepage link even when the root file is valid, because agents that are reading the page follow it:
 
 ```html
 <link rel="agent" href="https://harborgoods.example/agent.txt">
 ```
 
-Add one line to `llms.txt` that points at `/agent.txt`. If your host cannot serve a file at the root, redirect `/agent.txt` to the file. [agent.txt](home.md#agenttxt) explains each line.
+A `Link` header on the homepage means the same thing: `Link: <https://harborgoods.example/agent.txt>; rel="agent"`. Add one line to `llms.txt` that points at `/agent.txt`. A site may list that file in `/.well-known/ai-catalog.json` with `type` `text/plain`.
+
+CAP callers still request `/agent.txt` first and skip the homepage when that file is a valid door. Some hosts will not serve a file at the site root. Redirect `/agent.txt` to the file, on any https URL. When that request is not a door, a caller follows the homepage link. The spec has the exact order.
 
 ## 4. Test your door
 

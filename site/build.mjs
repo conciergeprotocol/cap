@@ -220,7 +220,20 @@ const promptBlock = `<section class="prompt">
 `
 
 const filmPoster = 'https://media.conciergeprotocol.org/cap-thumbnail.png?v=20261027b'
-const film = `<figure class="film"><video controls playsinline preload="metadata" poster="${filmPoster}"><source src="https://media.conciergeprotocol.org/cap-explainer.mp4?v=20261027b" type="video/mp4"></video></figure>\n`
+
+const filmTag = (src, poster) =>
+  `<figure class="film"><video controls playsinline preload="metadata" poster="${poster}"><source src="${src}" type="video/mp4"></video></figure>\n`
+
+const films = {
+  '/': {
+    marker: 'cap-explainer.jpg',
+    html: filmTag('https://media.conciergeprotocol.org/cap-explainer.mp4?v=20261027b', filmPoster)
+  },
+  '/callers': {
+    marker: 'cap-fanout.png',
+    html: filmTag('/cap-fanout.mp4', '/cap-fanout.png')
+  }
+}
 
 // On the home page the video thumbnail becomes the player, then the prompt follows. On the owner guides the prompt opens the first section.
 const promptAnchor = { '/': '<ul', '/publish': '<h2', '/login': '<h2' }
@@ -239,12 +252,13 @@ const withMascot = (body, route) => {
 
 const withPrompt = (body, route) => {
   body = withMascot(body, route)
-  if (route === '/') {
-    body = body.replace('<div class="proof" data-proof></div>', proofBlock)
-    const at = [filmPoster, 'cap-explainer.jpg'].map((marker) => body.indexOf(marker)).find((index) => index !== -1) ?? -1
+  if (route === '/') body = body.replace('<div class="proof" data-proof></div>', proofBlock)
+  const filmForRoute = films[route]
+  if (filmForRoute) {
+    const at = body.indexOf(filmForRoute.marker)
     const start = at === -1 ? -1 : body.lastIndexOf('<p>', at)
     const end = at === -1 ? -1 : body.indexOf('</p>', at)
-    if (start !== -1 && end !== -1) body = body.slice(0, start) + film + body.slice(end + '</p>'.length)
+    if (start !== -1 && end !== -1) body = body.slice(0, start) + filmForRoute.html + body.slice(end + '</p>'.length)
   }
   if (!promptAnchor[route]) return body
   const at = body.indexOf(promptAnchor[route])
