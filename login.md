@@ -13,7 +13,7 @@ The visiting agent never gets your keys, your tools, or the person's password. I
 <li><span class="step-icon" data-icon="key"></span><strong>Ask again</strong><p>The same agent sends its token. It can read that account, and change it only if the person allowed changes.</p></li>
 </ol>
 
-See it running: the [store example](examples/store) is a shop you click through, from a product question to a login to a cancel that waits for your OK. The [Next.js example](examples/next) is the same door as a route in an app, without the login pages. The [reference server](reference/README.md) is the login itself.
+See it running: [Marlow](https://marlow.cosmic.site/) is a live vacation-rental site, from a public house question to a guest login to a reservation change that waits for your OK. The [store example](examples/store) is the same path on your machine. The [Next.js example](examples/next) is the door as a route in an app, without the login pages. The [reference server](reference/README.md) is the login itself.
 
 ## What you build
 

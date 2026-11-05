@@ -4,6 +4,10 @@ Two packages for an agent that visits a company. [@conciergeprotocol/client](htt
 
 The company publishes `agent.txt`. These packages call it. Source is at [github.com/conciergeprotocol/js](https://github.com/conciergeprotocol/js). Both are Apache 2.0. Node.js 18 or newer. To call the endpoints without a package, [Usage](usage.md) has every request and response.
 
+One question goes to five stores. The agent ranks the answers, and the purchase stays on the store's page.
+
+[![One question goes to five stores. The agent ranks the answers, and the purchase stays on the store's page.](site/public/cap-fanout.png)](/cap-fanout.mp4)
+
 ## Client
 
 ```sh
