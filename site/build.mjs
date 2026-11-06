@@ -492,7 +492,7 @@ ready.then(function(){flash(kind)}).catch(function(){})
 })()`
 
 const placePageCopy = (body, route, markdownPath) => {
-  if (route === '/' || route === '/chat' || !markdownPath) return body
+  if (route === '/' || route === '/chat' || route === '/directory' || !markdownPath) return body
   const at = body.indexOf('<h1')
   const end = at === -1 ? -1 : body.indexOf('</h1>', at)
   const copy = pageCopy(markdownPath)
