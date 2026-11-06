@@ -243,10 +243,10 @@ export function checkPageBody() {
     site.replaceChildren()
     site.hidden = !domain
     if (!domain) return
-    var icon = siteIcon(domain, src)
-    var name = document.createElement('span')
-    name.textContent = domain
-    site.append(icon, name)
+    var link = document.createElement('a')
+    link.href = 'https://' + domain
+    link.append(siteIcon(domain, src), domain)
+    site.append(link)
   }
 
   function when(iso) {
