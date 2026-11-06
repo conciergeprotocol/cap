@@ -221,6 +221,7 @@ test('the check page keeps the domain in the address and offers a share after th
   assert.match(html, /linkedin\.com\/sharing\/share-offsite/)
   assert.match(html, /\/api\/door\?domain=/)
   assert.match(html, /Run a fresh check/)
+  assert.match(html, /link\.href = 'https:\/\/' \+ domain/)
 })
 
 const door = (onPost) => ({
