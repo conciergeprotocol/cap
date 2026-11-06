@@ -1,6 +1,6 @@
 # Trademarks
 
-"Concierge Agent Protocol" and "CAP" are trademarks of Tony Spiro. The specification and code are openly licensed. The name is not.
+"Concierge Agent Protocol" and "CAP" are trademarks of Tony Spiro. The specification and code are openly licensed. The name is not. These marks move to a neutral foundation on the terms in [Governance](GOVERNANCE.md#foundation).
 
 ## You may, without asking
 
