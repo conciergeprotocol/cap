@@ -1127,22 +1127,64 @@ footer a {
 .badge-styles {
   display: flex;
   flex-wrap: wrap;
-  gap: 16px 32px;
-  margin: 16px 0 24px;
+  gap: 12px;
+  margin: 8px 0;
 }
 
-.badge-styles figure {
+.badge-styles + .codeblock {
+  margin-top: 0;
+}
+
+.badge-styles button {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
   margin: 0;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.badge-styles figcaption {
+.badge-styles button img {
+  border-radius: 4px;
+}
+
+.badge-styles button[aria-checked='true'] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.badge-styles button span {
   display: flex;
   gap: 8px;
   align-items: baseline;
   font-size: 13px;
+}
+
+.codeblock-bar.badge-tabs {
+  gap: 4px;
+  padding: 6px 10px;
+}
+
+.codeblock-bar.badge-tabs button {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #9ca3af;
+  font: inherit;
+  cursor: pointer;
+}
+
+.codeblock-bar.badge-tabs button[aria-checked='true'] {
+  background: #374151;
+  color: #fff;
 }
 
 .check-badge .codeblock {
@@ -1628,4 +1670,143 @@ footer a {
   .swatches {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+}
+
+.page-copy {
+  position: relative;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
+.page-copy-split {
+  display: inline-flex;
+}
+
+.page-copy-main,
+.page-copy-toggle {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  height: 36px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.page-copy-main {
+  padding: 0 12px;
+  border-right: 0;
+  border-radius: 8px 0 0 8px;
+}
+
+.page-copy-toggle {
+  padding: 0 8px;
+  border-radius: 0 8px 8px 0;
+}
+
+.page-copy-main:hover,
+.page-copy-toggle:hover,
+.page-copy-item:hover {
+  background: var(--code);
+}
+
+.page-copy-icon,
+.page-copy-check {
+  display: inline-flex;
+  flex: none;
+}
+
+.page-copy-check {
+  display: none;
+  color: #16a34a;
+}
+
+:root.dark .page-copy-check {
+  color: #4ade80;
+}
+
+.page-copy.is-copied-page [data-copy-kind='page'] .page-copy-icon,
+.page-copy.is-copied-mcp [data-copy-kind='mcp'] .page-copy-icon {
+  display: none;
+}
+
+.page-copy.is-copied-page [data-copy-kind='page'] .page-copy-check,
+.page-copy.is-copied-mcp [data-copy-kind='mcp'] .page-copy-check {
+  display: inline-flex;
+}
+
+.page-copy-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  width: min(320px, 100%);
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.16);
+}
+
+.page-copy.is-open .page-copy-panel {
+  display: block;
+}
+
+.page-copy-item {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--fg);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.page-copy-item .page-copy-icon,
+.page-copy-item > svg {
+  color: var(--muted);
+}
+
+.page-copy-label {
+  min-width: 0;
+  flex: 1;
+}
+
+.page-copy-label strong,
+.page-copy-label small {
+  display: block;
+}
+
+.page-copy-label strong {
+  overflow: hidden;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.page-copy-label small {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.page-copy-external {
+  display: inline-flex;
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+  opacity: 0.6;
 }

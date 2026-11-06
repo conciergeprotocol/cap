@@ -2,7 +2,7 @@
 
 **The front door to your website, for every AI agent.**
 
-Let AI agents ask your business directly. Your agent answers from your catalog, docs, and records, with a link to the product, plan, or booking page on your site. Agents stop guessing from your pages, and your internal tools stay private.
+Let AI agents ask your business directly. Your agent answers from your catalog, docs, and records, with a link to the product, plan, or booking page on your site. When a person is logged in, their agent can ask about their own account and make the changes they approve.
 
 <p class="hero-cta"><a class="cta" href="/publish">Make your website agent-ready</a><a class="cta-alt" href="#see-cap-in-action">See CAP in action</a></p>
 

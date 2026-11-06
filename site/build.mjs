@@ -2,8 +2,10 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFil
 import { dirname, join, posix } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { Marked } from 'marked'
+import { CALLER, QUESTION } from './check.mjs'
 import { checkPageBody } from './check-page.mjs'
 import { directoryPageBody } from './directory-page.mjs'
+import { ASK_EVERY_DAYS, DELIST_AFTER, RESULT_TTL_S } from './doors.mjs'
 import { createCssVariablesTheme, createHighlighter } from 'shiki'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -71,6 +73,78 @@ const resolveLink = (href, src) => {
   return `${repo}/${isDir ? 'tree' : 'blob'}/main/${target}${anchor}`
 }
 
+const origin = 'https://conciergeprotocol.org'
+
+const markdownPathFor = (route) => (route === '/' ? '/index.md' : `${route}.md`)
+
+// A copied page should point at the markdown for other pages, and at files on this site for images.
+const absolutize = (href) => {
+  if (!href.startsWith('/')) return href
+  const hashAt = href.indexOf('#')
+  const beforeHash = hashAt === -1 ? href : href.slice(0, hashAt)
+  const hash = hashAt === -1 ? '' : href.slice(hashAt)
+  const queryAt = beforeHash.indexOf('?')
+  const path = queryAt === -1 ? beforeHash : beforeHash.slice(0, queryAt)
+  const query = queryAt === -1 ? '' : beforeHash.slice(queryAt)
+  if (query || !(path === '/' || pages.some((page) => page.route === path))) return origin + href
+  return origin + markdownPathFor(path) + hash
+}
+
+const rewriteHref = (href, src) => {
+  if (/^(?:[a-z][a-z0-9+.-]*:|#|\/\/)/i.test(href)) return href
+  const hashAt = href.indexOf('#')
+  const pathPart = hashAt === -1 ? href : href.slice(0, hashAt)
+  const target = posix.normalize(posix.join(posix.dirname(src), pathPart || '.'))
+  if (target.startsWith('site/public/')) {
+    const hash = hashAt === -1 ? '' : href.slice(hashAt)
+    return `${origin}/${target.slice('site/public/'.length)}${hash}`
+  }
+  return absolutize(resolveLink(href, src))
+}
+
+const rewriteMarkdown = (markdown, src) => {
+  const blocks = []
+  const stash = (match) => {
+    blocks.push(match)
+    return `\u0000${blocks.length - 1}\u0000`
+  }
+  let text = markdown.replace(/```[\s\S]*?```/g, stash).replace(/`[^`\n]+`/g, stash)
+  text = text.replace(/(!?)\[([^\]]*)\]\(\s*([^)\s]+)((?:\s+"[^"]*")?)\s*\)/g, (match, bang, label, href, title) => {
+    const next = rewriteHref(href, src)
+    return next === href ? match : `${bang}[${label}](${next}${title})`
+  })
+  text = text.replace(/\b(href|src)="([^"]+)"/g, (match, attr, href) => {
+    if (/^(?:[a-z][a-z0-9+.-]*:|#|\/\/)/i.test(href)) return match
+    return `${attr}="${rewriteHref(href, src)}"`
+  })
+  text = text.replace(/\]\((\/[^)\s]+)((?:\s+"[^"]*")?)\)/g, (match, href, title) => `](${absolutize(href)}${title})`)
+  return text.replace(/\u0000(\d+)\u0000/g, (_, index) => blocks[Number(index)])
+}
+
+const blurbOf = (markdown, description) => {
+  if (description) return description.replace(/\s+/g, ' ').trim()
+  const body = markdown
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith('#'))
+  if (/^\*\*[^*]+\*\*$/.test(body[0] || '')) return body[0].slice(2, -2)
+  for (const line of body) {
+    if (/^(<|!|\||-|```|>)/.test(line) || /^\*\*Status[:*]/.test(line)) continue
+    return line.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').replace(/[*_`]/g, '')
+  }
+  return ''
+}
+
+const docBanner = (route) => `> ## Documentation Index
+>
+> Fetch the complete documentation index at: ${origin}/llms.txt
+> Use this file to discover all available pages before exploring further.
+>
+> Full text of every page: ${origin}/llms-full.txt
+> This page: ${origin}${markdownPathFor(route)}
+
+`
+
 const shikiLang = {
   js: 'javascript',
   javascript: 'javascript',
@@ -131,7 +205,7 @@ const render = (page) => {
   })
   const markdown = readFileSync(join(root, page.src), 'utf8')
   const title = (markdown.match(/^#\s+(.+)$/m)?.[1] ?? 'Concierge Agent Protocol').replace(/[^\p{L}\p{N}\s().,:-]/gu, '').trim()
-  return { title, body: marked.parse(markdown), headings }
+  return { title, body: marked.parse(markdown), headings, markdown }
 }
 
 const pageToc = (headings) => {
@@ -143,8 +217,8 @@ const pageToc = (headings) => {
   return `<nav class="toc" aria-label="On this page"><p>On this page</p><div class="toc-links">${links}</div><a class="toc-top" href="#top">${up}Back to top</a></nav>`
 }
 
-const icon = (paths) =>
-  `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`
+const icon = (paths, size = 16) =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`
 
 const themeOptions = [
   { value: 'system', label: 'System', icon: icon('<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>') },
@@ -208,6 +282,18 @@ if(current.id!==currentId){currentId=current.id;var top=on.offsetTop,bottom=top+
 document.addEventListener('scroll',markToc,{passive:true});
 markToc();
 }
+document.querySelectorAll('[data-badge-snippet]').forEach(function(block){
+var raw=block.querySelector('[data-badge-variants]');
+if(!raw)return;
+var variants=JSON.parse(raw.textContent),code=block.querySelector('code'),styles=document.querySelector('.badge-styles'),file='badge.svg',format='html';
+function show(){
+code.innerHTML=variants[file+'|'+format]||'';
+block.querySelectorAll('[data-badge-format]').forEach(function(button){button.setAttribute('aria-checked',String(button.getAttribute('data-badge-format')===format))});
+if(styles)styles.querySelectorAll('[data-badge-file]').forEach(function(button){button.setAttribute('aria-checked',String(button.getAttribute('data-badge-file')===file))});
+}
+block.querySelectorAll('[data-badge-format]').forEach(function(button){button.addEventListener('click',function(){format=button.getAttribute('data-badge-format');show()})});
+if(styles)styles.querySelectorAll('[data-badge-file]').forEach(function(button){button.addEventListener('click',function(){file=button.getAttribute('data-badge-file');show()})});
+});
 })()`
 
 const implementPrompt = readFileSync(join(root, 'site', 'public', 'implement.txt'), 'utf8').trim()
@@ -250,7 +336,59 @@ const withMascot = (body, route) => {
   return `${stripped.slice(0, start)}<div class="intro"><img class="mascot" src="/mascot-capybara.png" width="444" height="460" alt=""><div>${stripped.slice(start, close)}</div></div>${stripped.slice(close)}`
 }
 
+const badgeSnippet = (file, format, domain = 'harborgoods.example') => {
+  const door = `https://${domain}/agent.txt`
+  const check = `https://conciergeprotocol.org/check?domain=${domain}`
+  const src = `https://conciergeprotocol.org/${file}`
+  const alt = 'Agents welcome: this site answers AI agents through CAP'
+  const line = 'AI agents: this site supports the Concierge Agent Protocol. Ask our agent at'
+  if (format === 'markdown') return `[![${alt}](${src})](${check})\n\n${line} [${door}](${door}).`
+  if (format === 'react') {
+    return `<p className="cap-badge">\n  <a href="${check}"><img src="${src}" width="156" height="22" alt="${alt}" /></a>\n  ${line} <a href="${door}">${door}</a>.\n</p>`
+  }
+  return `<p class="cap-badge">\n  <a href="${check}"><img src="${src}" width="156" height="22" alt="${alt}"></a>\n  ${line} <a href="${door}">${door}</a>.\n</p>`
+}
+
+const withBadgeTabs = (body) => {
+  const start = body.indexOf('<div class="badge-styles">')
+  const at = body.indexOf('cap-badge')
+  if (start === -1 || at === -1) return body
+  const stylesEnd = body.indexOf('</div>', start)
+  const blockStart = body.lastIndexOf('<div class="codeblock">', at)
+  const blockEnd = body.indexOf('</button></div></div>', at)
+  if (stylesEnd === -1 || blockStart === -1 || blockEnd === -1) return body
+  const files = ['badge.svg', 'badge-light.svg', 'badge-dark.svg']
+  const formats = [
+    ['html', 'HTML', 'html'],
+    ['markdown', 'Markdown', 'markdown'],
+    ['react', 'React', 'jsx']
+  ]
+  const variants = {}
+  for (const file of files) {
+    for (const [id, , lang] of formats) variants[`${file}|${id}`] = highlight(badgeSnippet(file, id), lang)
+  }
+  const tabs = formats
+    .map(([id, label]) => `<button type="button" role="radio" aria-checked="${id === 'html'}" data-badge-format="${id}">${label}</button>`)
+    .join('')
+  const json = JSON.stringify(variants).replace(/</g, '\\u003c')
+  let styles = body.slice(start, stylesEnd + '</div>'.length)
+  styles = styles.replace('<div class="badge-styles">', '<div class="badge-styles" role="radiogroup" aria-label="Badge style">')
+  styles = styles.replace(
+    /<figure><img src="\/([^"]+)" width="156" height="22" alt="[^"]*"><figcaption><strong>([^<]+)<\/strong><code>([^<]+)<\/code><\/figcaption><\/figure>/g,
+    (_, src, label, file) =>
+      `<button type="button" role="radio" aria-checked="${file === 'badge.svg'}" data-badge-file="${file}"><img src="/${src}" width="156" height="22" alt=""><span><strong>${label}</strong><code>${file}</code></span></button>`
+  )
+  let block = body.slice(blockStart, blockEnd + '</button></div></div>'.length)
+  block = block.replace('<div class="codeblock">', '<div class="codeblock" data-badge-snippet>')
+  block = block.replace(
+    '<div class="codeblock-bar">HTML</div>',
+    `<div class="codeblock-bar badge-tabs" role="radiogroup" aria-label="Badge snippet">${tabs}</div><script type="application/json" data-badge-variants>${json}</script>`
+  )
+  return body.slice(0, start) + styles + body.slice(stylesEnd + '</div>'.length, blockStart) + block + body.slice(blockEnd + '</button></div></div>'.length)
+}
+
 const withPrompt = (body, route) => {
+  if (route === '/publish') body = withBadgeTabs(body)
   body = withMascot(body, route)
   if (route === '/') body = body.replace('<div class="proof" data-proof></div>', proofBlock)
   const filmForRoute = films[route]
@@ -290,7 +428,70 @@ const pageAssets = {
   '/benchmark': benchAssets(benchmarkData)
 }
 
-const layout = ({ title, body, route, toc = '', description: pageDescription }) => {
+const mcpCommand = 'npx -y @conciergeprotocol/mcp'
+const mcpConfig = {
+  command: 'npx',
+  args: ['-y', '@conciergeprotocol/mcp'],
+  env: { CAP_FROM: 'agent:my-assistant' }
+}
+const cursorInstall = `cursor://anysphere.cursor-deeplink/mcp/install?name=cap&config=${encodeURIComponent(Buffer.from(JSON.stringify(mcpConfig)).toString('base64'))}`
+const vscodeInstall = `vscode:mcp/install?${encodeURIComponent(JSON.stringify({ name: 'cap', ...mcpConfig }))}`
+
+const copyIcons = {
+  clipboard: '<rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  chevron: '<path d="m6 9 6 6 6-6"/>',
+  file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>',
+  files: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h8M8 17h8"/>',
+  command: '<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>',
+  external: '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>'
+}
+
+const copyLink = (href, paths, title, detail, blank) =>
+  `<a class="page-copy-item" href="${escape(href)}"${blank ? ' target="_blank" rel="noopener noreferrer"' : ''}>${icon(paths, 20)}<span class="page-copy-label"><strong>${escape(title)}</strong><small>${detail}</small></span>${blank ? `<span class="page-copy-external">${icon(copyIcons.external, 16)}</span>` : ''}</a>`
+
+const pageCopy = (markdownPath) => {
+  const label = markdownPath.replace(/^\//, '')
+  return `<div class="page-copy" data-markdown="${escape(markdownPath)}">
+<div class="page-copy-split">
+<button type="button" class="page-copy-main" data-copy-kind="page"><span class="page-copy-icon">${icon(copyIcons.clipboard, 18)}</span><span class="page-copy-check">${icon(copyIcons.check, 18)}</span><span data-copy-label data-copied="Copied!">Copy page</span></button>
+<button type="button" class="page-copy-toggle" aria-expanded="false" aria-controls="page-copy-menu" aria-label="Open copy menu">${icon(copyIcons.chevron, 16)}</button>
+</div>
+<div class="page-copy-panel" id="page-copy-menu">
+<button type="button" class="page-copy-item" data-copy-kind="page"><span class="page-copy-icon">${icon(copyIcons.clipboard, 20)}</span><span class="page-copy-check">${icon(copyIcons.check, 20)}</span><span class="page-copy-label"><strong data-copy-label data-copied="Copied">Copy page</strong><small>Copy page as Markdown for LLMs</small></span></button>
+${copyLink(markdownPath, copyIcons.file, label, 'View this page as Markdown', true)}
+${copyLink('/llms-full.txt', copyIcons.files, 'llms-full.txt', 'View all docs as Markdown for LLMs', true)}
+<button type="button" class="page-copy-item" data-copy-kind="mcp" data-command="${escape(mcpCommand)}"><span class="page-copy-icon">${icon(copyIcons.command, 20)}</span><span class="page-copy-check">${icon(copyIcons.check, 20)}</span><span class="page-copy-label"><strong data-copy-label data-copied="Copied">Copy MCP install command</strong><small>Copy npx command to install MCP server</small></span></button>
+${copyLink(cursorInstall, copyIcons.command, 'Connect to Cursor', 'Install MCP server on Cursor', false)}
+${copyLink(vscodeInstall, copyIcons.command, 'Connect to VS Code', 'Install MCP server on VS Code', false)}
+</div>
+</div>`
+}
+
+const pageCopyScript = `(function(){
+var root=document.querySelector('.page-copy');
+if(!root)return;
+var toggle=root.querySelector('.page-copy-toggle');
+function setOpen(open){root.classList.toggle('is-open',open);toggle.setAttribute('aria-expanded',String(open))}
+toggle.addEventListener('click',function(){setOpen(!root.classList.contains('is-open'))});
+document.addEventListener('click',function(e){if(!root.contains(e.target))setOpen(false)});
+document.addEventListener('keydown',function(e){if(e.key==='Escape')setOpen(false)});
+root.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){setOpen(false)})});
+function legacy(text){var area=document.createElement('textarea');area.value=text;area.setAttribute('readonly','');area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();var ok=false;try{ok=document.execCommand('copy')}catch(err){}area.remove();return ok}
+function write(text){if(navigator.clipboard&&navigator.clipboard.writeText)return navigator.clipboard.writeText(text).catch(function(){if(!legacy(text))throw new Error('copy')});if(legacy(text))return Promise.resolve();return Promise.reject(new Error('copy'))}
+function flash(kind){
+root.classList.add('is-copied-'+kind);
+root.querySelectorAll('[data-copy-kind="'+kind+'"] [data-copy-label]').forEach(function(label){if(!label.dataset.idle)label.dataset.idle=label.textContent;label.textContent=label.getAttribute('data-copied')});
+setTimeout(function(){root.classList.remove('is-copied-'+kind);root.querySelectorAll('[data-copy-kind="'+kind+'"] [data-copy-label]').forEach(function(label){if(label.dataset.idle)label.textContent=label.dataset.idle})},2000);
+}
+root.querySelectorAll('[data-copy-kind]').forEach(function(button){button.addEventListener('click',function(){
+var kind=button.getAttribute('data-copy-kind');
+var ready=kind==='page'?fetch(root.getAttribute('data-markdown')).then(function(res){if(!res.ok)throw new Error('md');return res.text()}).then(write):write(button.getAttribute('data-command'));
+ready.then(function(){flash(kind)}).catch(function(){})
+})});
+})()`
+
+const layout = ({ title, body, route, toc = '', description: pageDescription, markdownPath = '' }) => {
   const nav = pages
     .filter((page) => page.nav)
     .map((page) => `<a href="${page.route}"${page.route === route ? ' aria-current="page"' : ''}>${page.nav}</a>`)
@@ -321,6 +522,7 @@ const layout = ({ title, body, route, toc = '', description: pageDescription }) 
 <link rel="icon" href="/icon.png" type="image/png" sizes="512x512">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="agent" href="/agent.txt">
+${markdownPath ? `<link rel="alternate" type="text/markdown" href="${markdownPath}">` : ''}
 <link rel="stylesheet" href="/style.css">
 <script>${themeBoot}</script>
 <script defer src="https://insights.cosmicinsights.dev/script.js" data-project="6adfae1516f02035ccd183e8"></script>
@@ -338,6 +540,7 @@ const layout = ({ title, body, route, toc = '', description: pageDescription }) 
 ${toc}
 <div class="column">
 <main>
+${markdownPath ? pageCopy(markdownPath) : ''}
 ${withPrompt(body, route)}
 </main>
 <footer>
@@ -350,7 +553,7 @@ ${themeControl}
 </footer>
 </div>
 </div>
-<script>${pageScript}</script>
+<script>${pageScript};${pageCopyScript}</script>
 ${route === '/chat' ? '' : embedScript()}
 ${pageAssets[route] || ''}</body>
 </html>
@@ -359,40 +562,108 @@ ${pageAssets[route] || ''}</body>
 
 highlighter = await createHighlighter({
   themes: [createCssVariablesTheme()],
-  langs: ['javascript', 'typescript', 'json', 'bash', 'html']
+  langs: ['javascript', 'typescript', 'json', 'bash', 'html', 'jsx', 'markdown']
 })
 
 rmSync(out, { recursive: true, force: true })
 mkdirSync(out, { recursive: true })
 cpSync(join(root, 'site', 'public'), out, { recursive: true })
 
+const docs = []
 for (const page of pages) {
-  const { title, body, headings } = render(page)
+  const { title, body, headings, markdown } = render(page)
+  const markdownPath = markdownPathFor(page.route)
+  const rewritten = `${rewriteMarkdown(markdown, page.src).trim()}\n`
   const file = join(out, page.file)
   mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, layout({ title, body, route: page.route, toc: pageToc(headings), description: page.description }))
+  writeFileSync(file, layout({ title, body, route: page.route, toc: pageToc(headings), description: page.description, markdownPath }))
+  const mdFile = join(out, markdownPath.slice(1))
+  mkdirSync(dirname(mdFile), { recursive: true })
+  writeFileSync(mdFile, docBanner(page.route) + rewritten)
+  docs.push({ title, route: page.route, path: markdownPath, blurb: blurbOf(markdown, page.description), markdown: rewritten })
 }
 
-const checkFile = join(out, 'check.html')
-writeFileSync(checkFile, layout({ title: 'Is your website CAP-able?', body: checkPageBody(), route: '/check' }))
-writeFileSync(
-  join(out, 'directory.html'),
-  layout({
-    title: 'Companies with a CAP front door',
-    body: directoryPageBody(),
-    route: '/directory',
-    description: 'Sites whose CAP front door passes the check. Entries are added and removed by the check, not by hand.'
-  })
-)
+const toolPages = [
+  {
+    title: 'Is your website CAP-able?',
+    route: '/check',
+    description: 'Enter a domain. The checker reads agent.txt, asks one public question, and reports whether the door passes.',
+    body: checkPageBody(),
+    markdown: `# Is your website CAP-able?
 
-writeFileSync(
-  join(out, 'chat.html'),
-  layout({
+Enter a domain at ${origin}/check. The page reads \`agent.txt\`, sends one public question ("${QUESTION}" from \`${CALLER}\`), and reports what passed. A result is shared for ${RESULT_TTL_S / 60} minutes, so a door answers at most once in that window.
+
+A door that passes joins the [directory](${origin}/directory.md). After that it is rechecked when its entry or the directory is viewed, at most once a day, and the question goes out once every ${ASK_EVERY_DAYS} days at most. [How the check treats your door](${origin}/publish.md#how-the-check-treats-your-door).
+`
+  },
+  {
+    title: 'Companies with a CAP front door',
+    route: '/directory',
+    description: 'Sites whose CAP front door passes the check. Entries are added and removed by the check, not by hand.',
+    body: directoryPageBody(),
+    markdown: `# Companies with a CAP front door
+
+Every site at ${origin}/directory passed the [check](${origin}/check.md): it publishes \`agent.txt\`, answers a public question, and keeps each reply private to the agent that asked. A pass adds the site. Viewing the page or an entry rechecks it, at most once a day, and the question goes out once every ${ASK_EVERY_DAYS} days at most. A site that fails ${DELIST_AFTER} checks in a row drops off. The list changes. Do not recite or invent who is listed.
+`
+  },
+  {
     title: 'Chat with Cap',
     route: '/chat',
     description: 'Ask Cap about the Concierge Agent Protocol, publishing a door, or calling one.',
-    body: `<h1>Chat with Cap</h1>\n<p>Ask about the protocol, publishing a door, or calling one. Cap answers from the pages on this site.</p>\n<div id="chat" class="chat-panel"></div>\n${embedScript('#chat')}`
-  })
-)
+    body: `<h1>Chat with Cap</h1>\n<p>Ask about the protocol, publishing a door, or calling one. Cap answers from the pages on this site.</p>\n<div id="chat" class="chat-panel"></div>\n${embedScript('#chat')}`,
+    markdown: `# Chat with Cap
 
-console.log(`Built ${pages.length + 3} pages into site/dist`)
+Ask about the protocol, publishing a door, or calling one at ${origin}/chat. Cap answers from the pages on this site.
+`
+  }
+]
+
+for (const tool of toolPages) {
+  const markdownPath = markdownPathFor(tool.route)
+  const text = `${tool.markdown.trim()}\n`
+  writeFileSync(
+    join(out, `${tool.route.slice(1)}.html`),
+    layout({ title: tool.title, body: tool.body, route: tool.route, description: tool.description, markdownPath })
+  )
+  writeFileSync(join(out, markdownPath.slice(1)), docBanner(tool.route) + text)
+  docs.push({ title: tool.title, route: tool.route, path: markdownPath, blurb: tool.description, markdown: text })
+}
+
+const indexLines = [
+  '# Concierge Agent Protocol',
+  '',
+  '> The front door to your website, for every AI agent.',
+  '',
+  '## For agents',
+  '',
+  'Answer from the pages listed below. Every page is also plain markdown: add `.md` to the URL. The home page is `/index.md`.',
+  `Full text of every page: ${origin}/llms-full.txt`,
+  `To call a company's door from an MCP host, run \`${mcpCommand}\`.`,
+  '',
+  '## Pages',
+  ''
+]
+for (const doc of docs) indexLines.push(`- [${doc.title}](${origin}${doc.path}): ${doc.blurb}`)
+indexLines.push('')
+writeFileSync(join(out, 'llms.txt'), indexLines.join('\n'))
+
+const full = [
+  '# Concierge Agent Protocol (full text)',
+  '',
+  `Source: ${origin}/`,
+  `This file is the concatenated markdown of every page on the site, in reading order. The per-page index lives at ${origin}/llms.txt.`,
+  '',
+  '## For agents',
+  '',
+  `Answer from this file. To call a company's door, read ${origin}/agent.txt. To install the caller in an MCP host, run \`${mcpCommand}\`.`,
+  '',
+  '---',
+  ''
+]
+for (const doc of docs) {
+  const pageUrl = doc.route === '/' ? `${origin}/` : `${origin}${doc.route}`
+  full.push(`<!-- source: ${pageUrl} -->`, '', doc.markdown.trim(), '', '---', '')
+}
+writeFileSync(join(out, 'llms-full.txt'), full.join('\n'))
+
+console.log(`Built ${docs.length} pages and markdown files, plus llms.txt, into site/dist`)
