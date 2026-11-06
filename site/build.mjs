@@ -491,6 +491,16 @@ ready.then(function(){flash(kind)}).catch(function(){})
 })});
 })()`
 
+const placePageCopy = (body, route, markdownPath) => {
+  if (route === '/' || route === '/chat' || route === '/directory' || !markdownPath) return body
+  const at = body.indexOf('<h1')
+  const end = at === -1 ? -1 : body.indexOf('</h1>', at)
+  const copy = pageCopy(markdownPath)
+  if (at === -1 || end === -1) return copy + body
+  const close = end + '</h1>'.length
+  return `${body.slice(0, at)}<div class="page-title">${body.slice(at, close)}${copy}</div>${body.slice(close)}`
+}
+
 const layout = ({ title, body, route, toc = '', description: pageDescription, markdownPath = '' }) => {
   const nav = pages
     .filter((page) => page.nav)
@@ -540,8 +550,7 @@ ${markdownPath ? `<link rel="alternate" type="text/markdown" href="${markdownPat
 ${toc}
 <div class="column">
 <main>
-${markdownPath ? pageCopy(markdownPath) : ''}
-${withPrompt(body, route)}
+${placePageCopy(withPrompt(body, route), route, markdownPath)}
 </main>
 <footer>
 <p>Concierge Agent Protocol 1.0 Draft. Spec text under <a href="${repo}/blob/main/LICENSE-SPEC">CC BY 4.0</a>, code under <a href="${repo}/blob/main/LICENSE">Apache 2.0</a>.</p>
