@@ -23,6 +23,7 @@ const types = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.txt': 'text/plain; charset=utf-8',
+  '.md': 'text/markdown; charset=utf-8',
   '.mp4': 'video/mp4'
 }
 

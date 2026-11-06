@@ -172,15 +172,15 @@ Each question the check sends is answered by your agent, so it is sent rarely:
 
 ## 5. Add the badge
 
+Once the checker passes, put the badge and one line of text in your footer. People see that your site answers agents. An agent reading the page finds your door without guessing. The badge links to the checker for your domain, so anyone can confirm the door works. The [checker](https://conciergeprotocol.org/check) prints this snippet with your domain filled in when it passes.
+
+Use the brand badge on most footers. Use the light one on cream, colored, or busy footers, and the dark one on navy or black footers. Pick a style, then HTML, Markdown, or React. The snippet updates.
+
 <div class="badge-styles">
 <figure><img src="/badge.svg" width="156" height="22" alt="Agents welcome: CAP, brand colors"><figcaption><strong>Brand</strong><code>badge.svg</code></figcaption></figure>
 <figure><img src="/badge-light.svg" width="156" height="22" alt="Agents welcome: CAP, light"><figcaption><strong>Light</strong><code>badge-light.svg</code></figcaption></figure>
 <figure><img src="/badge-dark.svg" width="156" height="22" alt="Agents welcome: CAP, dark"><figcaption><strong>Dark</strong><code>badge-dark.svg</code></figcaption></figure>
 </div>
-
-Once the checker passes, put the badge and one line of text in your footer. People see that your site answers agents. An agent reading the page finds your door without guessing. The badge links to the checker for your domain, so anyone can confirm the door works. The [checker](https://conciergeprotocol.org/check) prints this snippet with your domain filled in when it passes.
-
-Use the brand badge on most footers. Use the light one on cream, colored, or busy footers, and the dark one on navy or black footers. Change the file name in the snippet to switch.
 
 ```html
 <p class="cap-badge">
