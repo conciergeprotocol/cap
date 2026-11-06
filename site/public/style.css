@@ -1672,11 +1672,21 @@ footer a {
   }
 }
 
+.page-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px 24px;
+  margin: 0 0 0.75em;
+}
+
+.page-title h1 {
+  margin: 0;
+}
+
 .page-copy {
   position: relative;
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 8px;
+  flex: none;
 }
 
 .page-copy-split {
@@ -1746,7 +1756,7 @@ footer a {
   top: calc(100% + 8px);
   right: 0;
   z-index: 30;
-  width: min(320px, 100%);
+  width: 320px;
   padding: 4px;
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -1791,10 +1801,7 @@ footer a {
 }
 
 .page-copy-label strong {
-  overflow: hidden;
   font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .page-copy-label small {
