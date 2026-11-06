@@ -35,6 +35,14 @@ Maintainers decide by rough consensus in the issue or pull request. When consens
 
 Tony Spiro is the steward of CAP. He holds the copyright in the original specification and the CAP trademarks, and appoints maintainers. Maintainers do not acquire ownership of the name or the project by being added to the GitHub organization. See [TRADEMARKS.md](TRADEMARKS.md).
 
+## Foundation
+
+That holding is temporary. When three organizations independent of Cosmic serve CAP in production, or when version 1.0 becomes final, whichever comes first, the specification, the reference code, and the CAP trademarks will be transferred to a neutral foundation.
+
+The intended home is the [Agentic AI Foundation](https://aaif.io/projects) at the Linux Foundation, which already stewards the Model Context Protocol and AGENTS.md. If that home is not available, another neutral foundation will be named on this page before the transfer.
+
+The transfer covers the name and the stewardship. The licenses stay as they are: the specification under CC BY 4.0, and the code under Apache 2.0.
+
 ## Licenses
 
 - The specification text and documentation are licensed under [CC BY 4.0](LICENSE-SPEC).
