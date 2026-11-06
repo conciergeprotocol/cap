@@ -1152,6 +1152,11 @@ footer a {
   display: inline-flex;
   line-height: 0;
 }
+
+.chat-panel {
+  height: 70vh;
+  margin: 8px 0 24px;
+}
 /* Benchmark page. Colors follow the theme so the charts read in light and dark. */
 :root {
   --tone-cap: #1d4e89;

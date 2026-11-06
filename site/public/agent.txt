@@ -1,0 +1,5 @@
+Protocol: CAP/1.0
+Name: Cap, Concierge
+Chat: https://conciergeprotocol.org/chat
+CAP: https://conciergeprotocol.org/cap/v1
+Spec: https://conciergeprotocol.org/cap.txt

@@ -7,6 +7,11 @@
   "redirects": [
     { "source": "/owners", "destination": "/publish", "permanent": true }
   ],
+  "rewrites": [
+    { "source": "/cap/v1/messages", "destination": "https://dapi.cosmicjs.com/v3/cap/v1/ck_02ab6bf29e54a4eeac6654f912281f34/messages" },
+    { "source": "/cap/v1/messages/:messageId", "destination": "https://dapi.cosmicjs.com/v3/cap/v1/ck_02ab6bf29e54a4eeac6654f912281f34/messages/:messageId" },
+    { "source": "/cap/v1/:path*", "destination": "https://dapi.cosmicjs.com/v3/cap/v1/:path*" }
+  ],
   "functions": {
     "api/check.js": {
       "maxDuration": 30
@@ -20,6 +25,14 @@
     {
       "source": "/implement.txt",
       "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+    },
+    {
+      "source": "/agent.txt",
+      "headers": [{ "key": "Content-Type", "value": "text/plain; charset=utf-8" }]
+    },
+    {
+      "source": "/",
+      "headers": [{ "key": "Link", "value": "</agent.txt>; rel=\"agent\"" }]
     }
   ]
 }

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node site/build.mjs",
+    "build": "node site/build.mjs && node --env-file-if-exists=.env site/sync-pages.mjs",
     "dev": "node --env-file-if-exists=.env site/serve.mjs",
     "test": "node --test site/check.test.mjs site/doors.test.mjs"
   },

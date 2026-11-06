@@ -157,12 +157,12 @@ const themeControl = `<div class="theme" role="radiogroup" aria-label="Theme">${
   .join('')}</div>`
 
 // Runs before paint, so a saved theme never flashes the other one.
-const themeBoot = `(function(){try{var t=localStorage.getItem('cap_theme');var d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d)}catch(e){}})()`
+const themeBoot = `(function(){try{var t=localStorage.getItem('cap_theme');var d=t==='dark'||(t!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);var root=document.documentElement;root.classList.toggle('dark',d);root.classList.toggle('light',!d)}catch(e){}})()`
 
 const pageScript = `(function(){
 var root=document.documentElement,media=matchMedia('(prefers-color-scheme: dark)');
 function saved(){try{return localStorage.getItem('cap_theme')||'system'}catch(e){return 'system'}}
-function apply(t){root.classList.toggle('dark',t==='dark'||(t!=='light'&&media.matches));document.querySelectorAll('.theme button').forEach(function(b){b.setAttribute('aria-checked',String(b.dataset.theme===t))})}
+function apply(t){var d=t==='dark'||(t!=='light'&&media.matches);root.classList.toggle('dark',d);root.classList.toggle('light',!d);document.querySelectorAll('.theme button').forEach(function(b){b.setAttribute('aria-checked',String(b.dataset.theme===t))})}
 document.querySelectorAll('.theme button').forEach(function(b){b.addEventListener('click',function(){try{localStorage.setItem('cap_theme',b.dataset.theme)}catch(e){}apply(b.dataset.theme)})});
 media.addEventListener('change',function(){if(saved()==='system')apply('system')});
 apply(saved());
@@ -281,6 +281,9 @@ const proofBlock = (() => {
   const tiles = stats.map(([value, label]) => `<div class="bench-stat"><p class="bench-stat-value">${value}</p><p class="bench-stat-label">${label}</p></div>`).join('')
   return `<div class="bench-stats proof">${tiles}</div>\n<p class="proof-note">Cost per correct answer and tool calls across ${cap.n} tasks on a synthetic store. About the same answers: ${cap.ok} of ${cap.n} correct through CAP, ${fetch.ok} fetching, ${browse.ok} browsing. Not a guarantee for every site.</p>\n`
 })()
+const embedKey = 'pk_6169ef2c677e142d10a99f2a6b86add5'
+const embedScript = (target) =>
+  `<script src="https://www.cosmicjs.com/agent.js" data-key="${embedKey}"${target ? ` data-target="${target}"` : ''} async></script>\n`
 const benchAssets = (json) => `<script type="application/json" id="bench-data">${json}</script>\n<script src="/benchmark.js" defer></script>\n`
 const pageAssets = {
   '/': benchAssets(replayData),
@@ -317,6 +320,7 @@ const layout = ({ title, body, route, toc = '', description: pageDescription }) 
 <link rel="icon" href="/favicon.png" type="image/png" sizes="48x48">
 <link rel="icon" href="/icon.png" type="image/png" sizes="512x512">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="agent" href="/agent.txt">
 <link rel="stylesheet" href="/style.css">
 <script>${themeBoot}</script>
 <script defer src="https://insights.cosmicinsights.dev/script.js" data-project="6adfae1516f02035ccd183e8"></script>
@@ -340,13 +344,14 @@ ${withPrompt(body, route)}
 <p>Concierge Agent Protocol 1.0 Draft. Spec text under <a href="${repo}/blob/main/LICENSE-SPEC">CC BY 4.0</a>, code under <a href="${repo}/blob/main/LICENSE">Apache 2.0</a>.</p>
 <div class="footer-end">
 <a class="footer-badge" href="/publish#5-add-the-badge" title="Add this badge to your site"><img src="/badge.svg" width="156" height="22" alt="Agents welcome: CAP"></a>
-<p><a href="/directory">Directory</a> · <a href="/governance">Governance</a> · <a href="/security">Security</a> · <a href="/changelog">Changelog</a> · <a href="/brand">Brand</a> · <a href="/cap.txt">cap.txt</a> · <a href="/implement.txt">implement.txt</a></p>
+<p><a href="/chat">Chat</a> · <a href="/agent.txt">agent.txt</a> · <a href="/directory">Directory</a> · <a href="/governance">Governance</a> · <a href="/security">Security</a> · <a href="/changelog">Changelog</a> · <a href="/brand">Brand</a> · <a href="/cap.txt">cap.txt</a> · <a href="/implement.txt">implement.txt</a></p>
 ${themeControl}
 </div>
 </footer>
 </div>
 </div>
 <script>${pageScript}</script>
+${route === '/chat' ? '' : embedScript()}
 ${pageAssets[route] || ''}</body>
 </html>
 `
@@ -380,4 +385,14 @@ writeFileSync(
   })
 )
 
-console.log(`Built ${pages.length + 2} pages into site/dist`)
+writeFileSync(
+  join(out, 'chat.html'),
+  layout({
+    title: 'Chat with Cap',
+    route: '/chat',
+    description: 'Ask Cap about the Concierge Agent Protocol, publishing a door, or calling one.',
+    body: `<h1>Chat with Cap</h1>\n<p>Ask about the protocol, publishing a door, or calling one. Cap answers from the pages on this site.</p>\n<div id="chat" class="chat-panel"></div>\n${embedScript('#chat')}`
+  })
+)
+
+console.log(`Built ${pages.length + 3} pages into site/dist`)
