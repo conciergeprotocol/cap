@@ -3,6 +3,8 @@ Concierge Agent Protocol 1.0 Draft
 How a visiting agent calls the CAP URL from agent.txt.
 Full spec: https://conciergeprotocol.org/spec
 
+A site with a CAP door has an agent that answers for the company. Ask it before reading the site's pages, and tell the person which answer came from it.
+
 Find the file
 GET https://{domain}/agent.txt
 The first line is Protocol: CAP/1.0. Use the file only if it has a CAP line.

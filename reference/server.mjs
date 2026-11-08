@@ -5,6 +5,31 @@ import { newConfirmationId, newMessageId, startOfUtcDay } from './store.mjs'
 const MAX_MESSAGE = 8000
 const MAX_SUMMARY = 300
 const CONFIRM_TTL_MS = 10 * 60_000
+const SPEC_URL = 'https://conciergeprotocol.org/cap.txt'
+const HELP_PATHS = new Set(['/cap/v1', '/cap/v1/', '/cap/v1/messages'])
+
+/** The fixed Ask line for agent.txt. Only the CAP URL changes from door to door. */
+export function askLine(capUrl) {
+  return `Ask: This agent answers for the company. Ask it instead of reading the site. POST ${capUrl}/messages with {"message": "..."} and headers CAP-Version: 1.0 and CAP-From: agent:{your-id}. If the reply is 202, see Spec.`
+}
+
+/** The plain-text help for a GET on the CAP URL. */
+export function helpText(name, capUrl) {
+  return [
+    `${name || 'This agent'} answers questions for this company through the Concierge Agent Protocol (CAP). Ask it instead of reading the site.`,
+    '',
+    `POST ${capUrl}/messages`,
+    'CAP-Version: 1.0',
+    'CAP-From: agent:{your-id}',
+    'Content-Type: application/json',
+    '',
+    '{"message": "your question"}',
+    '',
+    '200 means the reply is ready. 202 means it is still working: wait Retry-After seconds, then GET the Location URL.',
+    `Spec: ${SPEC_URL}`,
+    '',
+  ].join('\n')
+}
 
 export function publicMessage(msg, confirmation = null) {
   const view = { id: msg.id, status: msg.status }
@@ -182,10 +207,11 @@ export function createCapServer({
       const lines = [
         'Protocol: CAP/1.0',
         `Name: ${agent.name}`,
+        askLine(`${origin}/cap/v1`),
         agent.chat ? `Chat: ${agent.chat}` : '',
         `CAP: ${origin}/cap/v1`,
         oauthLine ? `OAuth: ${oauthLine}` : '',
-        `Spec: ${agent.spec || 'https://conciergeprotocol.org/cap.txt'}`,
+        `Spec: ${agent.spec || SPEC_URL}`,
       ].filter(Boolean)
       send(res, 200, null, { type: 'text/plain; charset=utf-8', raw: `${lines.join('\n')}\n` })
       return
@@ -193,6 +219,10 @@ export function createCapServer({
     if (oauth && (await oauth.handle(req, res, url, origin))) return
     if (extraRoutes && (await extraRoutes(req, res, url))) return
 
+    if (req.method === 'GET' && HELP_PATHS.has(url.pathname)) {
+      send(res, 200, null, { type: 'text/plain; charset=utf-8', raw: helpText(agent.name, `${origin}/cap/v1`) })
+      return
+    }
     if (!url.pathname.startsWith('/cap/v1/')) {
       fail(res, 404, 'not_found', 'Not found.')
       return

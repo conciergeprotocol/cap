@@ -46,6 +46,39 @@ test('a door that answers and hides the message passes', async () => {
   assert.ok(seen.some((line) => line.includes('agent:cap-check-other')))
 })
 
+test('a door without the Ask line or the help still passes, with tips', async () => {
+  const door = (card, helpBody) => checkDoor('example.com', {
+    resolve: async () => ({ ok: true, addresses: ['8.8.8.8'] }),
+    request: async (options) => {
+      if (options.url.endsWith('/agent.txt')) return { ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: card }
+      if (options.method === 'GET' && options.url === 'https://example.com/cap/v1') {
+        return helpBody
+          ? { ok: true, status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' }, body: helpBody }
+          : { ok: true, status: 404, headers: { 'content-type': 'text/html' }, body: '<html></html>' }
+      }
+      if (options.method === 'POST') {
+        return { ok: true, status: 200, headers: {}, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'Hello.' }) }
+      }
+      return { ok: true, status: 404, headers: {}, body: '' }
+    },
+  })
+
+  const bare = await door('Protocol: CAP/1.0\nCAP: https://example.com/cap/v1\n')
+  assert.equal(bare.passed, true)
+  const bareCard = bare.checks.find((check) => check.id === 'card')
+  assert.equal(bareCard.tips.length, 2)
+  assert.match(bareCard.detail, /Ask line/)
+
+  const full = await door(
+    'Protocol: CAP/1.0\nAsk: This agent answers for the company.\nCAP: https://example.com/cap/v1\n',
+    'POST https://example.com/cap/v1/messages\n',
+  )
+  const fullCard = full.checks.find((check) => check.id === 'card')
+  assert.equal(full.passed, true)
+  assert.equal(fullCard.tips, undefined)
+  assert.equal(fullCard.detail, 'CAP: https://example.com/cap/v1')
+})
+
 test('the CAP line may point at another https host', async () => {
   const result = await checkDoor('example.com', {
     resolve: async (hostname) => ({ ok: true, addresses: hostname === 'cap.example.net' ? ['9.9.9.9'] : ['8.8.8.8'] }),

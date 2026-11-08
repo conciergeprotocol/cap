@@ -110,8 +110,18 @@ export async function checkDoor(input, deps = {}) {
     if (card.absent) missed.help = HELP
     return stop(missed)
   }
-  checks.push({ id: 'card', title: 'agent.txt', pass: true, detail: card.detail })
-  if (!asking) return finish({ passed: true, checks })
+  if (!asking) {
+    checks.push({ id: 'card', title: 'agent.txt', pass: true, detail: card.detail })
+    return finish({ passed: true, checks })
+  }
+  const tips = []
+  if (!card.asks) tips.push('Add the Ask line, so an agent that does not know CAP asks your agent instead of reading your site.')
+  if (!(await servesHelp(card.cap, card.addresses, request, deadline))) {
+    tips.push(`A GET on ${card.cap} should return the plain-text help with status 200, so an agent that opens the URL learns to post to it.`)
+  }
+  const cardCheck = { id: 'card', title: 'agent.txt', pass: true, detail: [card.detail, ...tips].join(' ') }
+  if (tips.length) cardCheck.tips = tips
+  checks.push(cardCheck)
   if (deps.mayAsk && !(await deps.mayAsk(card.cap))) {
     const detail = `${card.cap} answered a check in the last 10 minutes, so it was not asked again.`
     return stop({ id: 'reply', title: 'A public reply', pass: false, skipped: true, detail }, { skipped: true, throttled: true })
@@ -391,7 +401,25 @@ async function parseCard(body, fileUrl, currentAddresses, resolve) {
   }
   const href = cap.href.replace(/\/$/, '')
   const hash = createHash('sha256').update(body).digest('hex').slice(0, 16)
-  return { ok: true, cap: href, addresses, hash, detail: `CAP: ${href}` }
+  const asks = lines.some((line) => line.startsWith('Ask:'))
+  return { ok: true, cap: href, addresses, hash, asks, detail: `CAP: ${href}` }
+}
+
+// The help needs no CAP headers and runs no agent, so it is safe to read on every check.
+async function servesHelp(cap, addresses, request, deadline) {
+  if (!addresses) return false
+  const res = await request({
+    url: cap,
+    method: 'GET',
+    addresses,
+    headers: { accept: 'text/plain', 'user-agent': 'CAP-Check' },
+    timeoutMs: Math.min(5_000, left(deadline)),
+    maxBytes: CARD_MAX,
+    truncate: true,
+  })
+  return Boolean(res.ok && res.status === 200
+    && /text\/plain/i.test(headerValue(res.headers, 'content-type'))
+    && /\/messages/.test(String(res.body || '')))
 }
 
 async function ask(cap, fallbackAddresses, request, deadline) {

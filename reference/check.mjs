@@ -95,6 +95,14 @@ assert(cardText.includes('Name: Harbor Goods'), 'agent.txt name')
 assert(cardText.includes(`CAP: ${root}/cap/v1`), 'agent.txt cap url')
 assert(cardText.includes('Spec: https://conciergeprotocol.org/cap.txt'), 'agent.txt points at the hosted caller card')
 assert(!cardText.includes('OAuth:'), 'public card has no oauth line')
+assert(cardText.includes(`\nAsk: This agent answers for the company.`) && cardText.includes(`POST ${root}/cap/v1/messages`), 'agent.txt ask line')
+
+for (const path of ['/cap/v1', '/cap/v1/messages']) {
+  const help = await fetch(`${root}${path}`)
+  const helpText = await help.text()
+  assert(help.status === 200 && help.headers.get('content-type').includes('text/plain'), `help at ${path}`)
+  assert(helpText.includes(`POST ${root}/cap/v1/messages`) && helpText.includes('CAP-From: agent:{your-id}'), `help text at ${path}`)
+}
 
 const badVersion = await post(root, 'hi', { 'cap-version': '9' })
 assert(badVersion.status === 400 && badVersion.body.error.code === 'version_not_supported', 'bad version')

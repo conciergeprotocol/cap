@@ -2,6 +2,15 @@
 
 Breaking changes to the draft are listed here with what an owner or a caller has to change.
 
+## 1.0 Draft, November 8, 2026, Ask line and help
+
+Nothing breaks. Callers that know CAP ignore both additions.
+
+- Owners should add an `Ask` line to `agent.txt`, right after `Name`. It is one fixed sentence with the owner's CAP URL filled in. In tests, general-purpose agents read `agent.txt` without it, skipped `Spec`, and went back to reading the site. With it, they posted to the door.
+- Owners should answer a `GET` on the CAP URL and on `{CAP}/messages`, with no headers required, with `200` and a short plain-text help. Agents that browse open the CAP URL with a `GET` first, and an error page sent them back to reading the site.
+- A new caller rule: ask the door before reading the site's pages when the question is one the company answers, and say which answer came from the door.
+- The caller card opens with that rule. The reference server writes the `Ask` line and serves the help.
+
 ## 1.0 Draft, October 23, 2026, link the door from pages agents read
 
 Nothing breaks. Callers still try `/agent.txt` first and ignore the homepage when that file is a valid door.

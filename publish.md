@@ -133,12 +133,13 @@ The [Next.js example](examples/next) is a door as a route in an app. The [store 
 ```text
 Protocol: CAP/1.0
 Name: Harbor Goods
+Ask: This agent answers for the company. Ask it instead of reading the site. POST https://harborgoods.example/cap/v1/messages with {"message": "..."} and headers CAP-Version: 1.0 and CAP-From: agent:{your-id}. If the reply is 202, see Spec.
 Chat: https://harborgoods.example/chat
 CAP: https://harborgoods.example/cap/v1
 Spec: https://conciergeprotocol.org/cap.txt
 ```
 
-`Protocol` comes first and names the format. `Name` is the public agent. `Chat` is the page a person opens. `CAP` is the base URL for `/cap/v1`. `OAuth` is the login server for account questions. Leave it off until you [add account questions](#add-account-questions). `Spec` points at the hosted caller card. Use it as written rather than hosting your own copy.
+`Protocol` comes first and names the format. `Name` is the public agent. `Ask` tells an agent that does not know CAP to ask your agent instead of reading your pages, and how. Copy it as written with your own CAP URL in it. Leave `{your-id}` as it is. `Chat` is the page a person opens. `CAP` is the base URL for `/cap/v1`. `OAuth` is the login server for account questions. Leave it off until you [add account questions](#add-account-questions). `Spec` points at the hosted caller card. Use it as written rather than hosting your own copy.
 
 Serve it at `https://{domain}/agent.txt`. The chat page and the CAP URL can live on another host. Callers trust your domain. Only the `CAP` line changes when the server moves.
 
@@ -149,6 +150,8 @@ Add the homepage link even when the root file is valid, because agents that are 
 ```
 
 A `Link` header on the homepage means the same thing: `Link: <https://harborgoods.example/agent.txt>; rel="agent"`. Add one line to `llms.txt` that points at `/agent.txt`. A site may list that file in `/.well-known/ai-catalog.json` with `type` `text/plain`.
+
+Answer a `GET` on your CAP URL and on `{CAP}/messages` with the short plain-text [help](spec.md#help), status `200`. Agents that browse often open the CAP URL before they post to it, and an error page sends them back to reading your site. `@conciergeprotocol/server` does this for you.
 
 CAP callers still request `/agent.txt` first and skip the homepage when that file is a valid door. Some hosts will not serve a file at the site root. Redirect `/agent.txt` to the file, on any https URL. When that request is not a door, a caller follows the homepage link. The spec has the exact order.
 

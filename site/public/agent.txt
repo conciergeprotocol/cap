@@ -1,5 +1,6 @@
 Protocol: CAP/1.0
 Name: Cap, Concierge
+Ask: This agent answers for the company. Ask it instead of reading the site. POST https://conciergeprotocol.org/cap/v1/messages with {"message": "..."} and headers CAP-Version: 1.0 and CAP-From: agent:{your-id}. If the reply is 202, see Spec.
 Chat: https://conciergeprotocol.org/chat
 CAP: https://conciergeprotocol.org/cap/v1
 Spec: https://conciergeprotocol.org/cap.txt

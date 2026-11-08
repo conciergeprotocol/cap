@@ -11,13 +11,14 @@ A company publishes one text file at `https://{domain}/agent.txt`, next to `robo
 ```text
 Protocol: CAP/1.0
 Name: Harbor Goods
+Ask: This agent answers for the company. Ask it instead of reading the site. POST https://harborgoods.example/cap/v1/messages with {"message": "..."} and headers CAP-Version: 1.0 and CAP-From: agent:{your-id}. If the reply is 202, see Spec.
 Chat: https://harborgoods.example/chat
 CAP: https://harborgoods.example/cap/v1
 OAuth: https://harborgoods.example/oauth
 Spec: https://conciergeprotocol.org/cap.txt
 ```
 
-`Protocol` is the first line. It names this format, so a caller can tell this file apart from an unrelated `agent.txt`. A caller that finds no `Protocol` line uses the file only when it has a `CAP` line. `Name` is the public agent. `Chat` is the page a person opens. `CAP` is the base URL for the two endpoints. `OAuth` is the authorization server for questions about a customer's account. Leave it off when the agent answers only public questions. `Spec` is a short caller card. Use the hosted card at `https://conciergeprotocol.org/cap.txt`. It covers every CAP 1.x door and is updated in one place, so do not copy it to your own domain. A caller may skip fetching it when it already knows CAP. Notes for your door belong in your agent's replies, not in a separate card. The file lists no tools, MCP servers, prompts, or credentials.
+`Protocol` is the first line. It names this format, so a caller can tell this file apart from an unrelated `agent.txt`. A caller that finds no `Protocol` line uses the file only when it has a `CAP` line. `Name` is the public agent. `Ask` is one fixed sentence for an agent that does not know CAP. Without it, such an agent tends to read the file, skip `Spec`, and go back to reading the site. Owners SHOULD include it, copied as written with their own CAP URL in place of `https://harborgoods.example/cap/v1`, and `{your-id}` left as it is. It is the same on every door, so it is part of the format, not a prompt. A caller that knows CAP ignores it. `Chat` is the page a person opens. `CAP` is the base URL for the two endpoints. `OAuth` is the authorization server for questions about a customer's account. Leave it off when the agent answers only public questions. `Spec` is a short caller card. Use the hosted card at `https://conciergeprotocol.org/cap.txt`. It covers every CAP 1.x door and is updated in one place, so do not copy it to your own domain. A caller may skip fetching it when it already knows CAP. Notes for your door belong in your agent's replies, not in a separate card or in `Ask`. The file lists no tools, MCP servers, door-specific prompts, or credentials.
 
 One domain has one agent. A person uses the chat page. An agent fetches the file. Both reach the same agent and get the same answers.
 
@@ -64,9 +65,31 @@ An owner also points at the door from the pages an agent already reads. CAP call
 POST /cap/v1/messages
 GET  /cap/v1/messages/{id}
 GET  /cap/v1/confirmations/{id}   (only for owners that confirm actions)
+GET  /cap/v1                      (plain-text help, see below)
+GET  /cap/v1/messages             (the same help)
 ```
 
-Every request carries `CAP-Version: 1.0` and `CAP-From: agent:{id}`, naming the calling agent. A request for a logged-in person also carries `Authorization: Bearer` with an OAuth access token.
+Every request carries `CAP-Version: 1.0` and `CAP-From: agent:{id}`, naming the calling agent. A request for a logged-in person also carries `Authorization: Bearer` with an OAuth access token. The help is the one exception: it needs no headers.
+
+### Help
+
+An agent that only browses often opens the CAP URL from `agent.txt` with a `GET`. An error page there sends it back to reading the site. So a `GET` on the CAP URL, or on `{CAP}/messages`, with or without the CAP headers, returns `200` with `Content-Type: text/plain` and this text, with the owner's name and CAP URL filled in:
+
+```text
+Harbor Goods answers questions for this company through the Concierge Agent Protocol (CAP). Ask it instead of reading the site.
+
+POST https://harborgoods.example/cap/v1/messages
+CAP-Version: 1.0
+CAP-From: agent:{your-id}
+Content-Type: application/json
+
+{"message": "your question"}
+
+200 means the reply is ready. 202 means it is still working: wait Retry-After seconds, then GET the Location URL.
+Spec: https://conciergeprotocol.org/cap.txt
+```
+
+The help is the same on every door. The status is `200`, not `405`, because many agent fetch tools drop the body of an error.
 
 ### Send a message
 
@@ -240,20 +263,22 @@ An owner conforms if it:
 5. Keeps its limits private. When it will not take more from a caller, it returns `429` with `Retry-After`.
 6. Keeps finished messages for at least 24 hours.
 7. For account questions, publishes OAuth metadata and supports the code login, with no registration. Binds each token to the `CAP-From` that logged in. If it offers the redirect login, it accepts client id metadata documents and requires PKCE with `S256`.
+8. Answers a `GET` on the CAP URL and on `{CAP}/messages` with the [help](#help). Puts the `Ask` line in `agent.txt`.
 
 ## Caller rules
 
 A caller conforms if it:
 
 1. Never calls the owner's tools, MCP servers, or APIs to do or check the work.
-2. Uses `reply` only when `status` is `done`.
-3. Never invents a reply while a message is `working`. It tells the person the owner is still answering.
-4. Waits at least `Retry-After` between reads.
-5. Treats `failed` as final for that message. It sends a new one only when something changed, such as the person logging in.
-6. Sends a short brief in `context`. Never the person's password or another company's data.
-7. Sets `previous_message_id` to the last message when the person is continuing the same conversation, and leaves it off when they start a new one.
-8. Logs in only through the owner's page, with the code login or the redirect login. Never asks the person for their password, and never sends the `device_code` to the person.
-9. Gives the person a `confirmation` link as it is, and never reports a confirmed action as done until its status is `done`.
+2. Asks the door before reading the site's pages when the question is one the company answers, and tells the person which answer came from the door.
+3. Uses `reply` only when `status` is `done`.
+4. Never invents a reply while a message is `working`. It tells the person the owner is still answering.
+5. Waits at least `Retry-After` between reads.
+6. Treats `failed` as final for that message. It sends a new one only when something changed, such as the person logging in.
+7. Sends a short brief in `context`. Never the person's password or another company's data.
+8. Sets `previous_message_id` to the last message when the person is continuing the same conversation, and leaves it off when they start a new one.
+9. Logs in only through the owner's page, with the code login or the redirect login. Never asks the person for their password, and never sends the `device_code` to the person.
+10. Gives the person a `confirmation` link as it is, and never reports a confirmed action as done until its status is `done`.
 
 ## Errors
 
