@@ -288,7 +288,9 @@ else:
 
 An **owner** conforms if it:
 
-- [ ] Publishes `/agent.txt` starting with `Protocol: CAP/1.0`, with `Name`, `Chat`, `CAP`, and `OAuth` when it answers account questions
+- [ ] Publishes `/agent.txt` starting with `Protocol: CAP/1.0`, with `Name`, `Ask`, `Chat`, `CAP`, and `OAuth` when it answers account questions
+- [ ] Answers a `GET` on the CAP URL and on `{CAP}/messages` with `200` and the plain-text help, with no headers required
+- [ ] Accepts a public question as `GET {CAP}/messages?from=agent:{id}&message=...`, reads it back with `?from=`, refuses a token on a `GET`, and asks a repeated `GET` once
 - [ ] Returns `200` when it finished within its wait, otherwise `202` with `Location` and `Retry-After`
 - [ ] Returns only `id`, `status`, `reply` or `error`, `created_at`, and `finished_at`, plus `confirmation` when it holds an action
 - [ ] Answers account questions only with a token for that account. Returns `login_required` without one

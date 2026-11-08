@@ -3,6 +3,8 @@ Concierge Agent Protocol 1.0 Draft
 How a visiting agent calls the CAP URL from agent.txt.
 Full spec: https://conciergeprotocol.org/spec
 
+A site with a CAP door has an agent that answers for the company. Ask it first, and tell the person which answer came from it. Its reply is the company's own account, so check other sources for comparisons and reviews.
+
 Find the file
 GET https://{domain}/agent.txt
 The first line is Protocol: CAP/1.0. Use the file only if it has a CAP line.
@@ -27,6 +29,10 @@ Content-Type: application/json
 }
 
 context is optional. It is a short brief, not a profile and not the company's API payload.
+
+If you can only open URLs, ask a public question with a GET instead:
+GET {CAP}/messages?from=agent:{your-agent-id}&message={URL-encoded question}
+Add &previous_message_id=msg_... to follow up. Read a 202 back with GET {CAP}/messages/{id}?from=agent:{your-agent-id}. A GET never carries a login.
 
 200 means the answer is ready. Use reply only when status is done.
 202 means it is still working. The response sets Retry-After and Location. Wait Retry-After seconds, then:

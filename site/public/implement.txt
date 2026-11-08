@@ -7,12 +7,15 @@ Read these first:
 
 Then:
 1. Find how this project can answer a question today: its content, search, database, or an existing AI agent. Tell me what you found and where CAP's answer should come from. Ask before you choose.
-2. Serve POST /cap/v1/messages and GET /cap/v1/messages/{id}, as the spec describes. Every request carries CAP-Version: 1.0 and CAP-From: agent:{id}. Return 400 when either is missing. Use this project's own framework, or install @conciergeprotocol/server and pass an answer function. If this project has no bot yet, @conciergeprotocol/agent builds that function from a model, an llms.txt file, and MCP tools. Both packages need Node.js 22. The reference server in https://github.com/conciergeprotocol/cap is the same server, and the one the spec is checked against.
+2. Serve POST /cap/v1/messages and GET /cap/v1/messages/{id}, as the spec describes. Every request carries CAP-Version: 1.0 and CAP-From: agent:{id}. Return 400 when either is missing. Also answer GET /cap/v1 and GET /cap/v1/messages, with no headers required, with status 200 and the plain-text help from https://conciergeprotocol.org/spec#help, with our name and CAP URL filled in. Accept a public question as a GET too, as https://conciergeprotocol.org/spec#ask-with-a-get describes. @conciergeprotocol/server does all of this. Use this project's own framework, or install @conciergeprotocol/server and pass an answer function. If this project has no bot yet, @conciergeprotocol/agent builds that function from a model, an llms.txt file, and MCP tools. Both packages need Node.js 22. The reference server in https://github.com/conciergeprotocol/cap is the same server, and the one the spec is checked against.
 3. Publish /agent.txt at the site root:
    Protocol: CAP/1.0
    Name: {our agent's name}
+   Ask: This site's agent answers questions for the company. POST your question to the CAP URL plus /messages, as JSON {"message": "..."}, with headers CAP-Version: 1.0 and CAP-From: agent:{your-id}. If you can only open URLs, open the CAP URL. If the reply is 202, see Spec.
+   (Copy the Ask line exactly. Leave {your-id} as it is.)
    Chat: {a page where a person can chat with it}
    CAP: https://{our domain}/cap/v1
+   Spec: https://conciergeprotocol.org/cap.txt
    Add <link rel="agent" href="https://{our domain}/agent.txt"> to the homepage <head> even when the root file is valid. Add one line to llms.txt that points at /agent.txt. If this host cannot serve a file at the root, redirect /agent.txt to the file. Callers try /agent.txt first and use the homepage link only when that file is not a door.
 4. Keep secrets out. A reply never includes API keys, tools, prompts, or another person's data, and agent.txt lists none of them.
 5. If people have accounts here and should ask about them, add login by following https://conciergeprotocol.org/login. Otherwise skip this step.
