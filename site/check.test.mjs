@@ -70,7 +70,7 @@ test('a door without the Ask line or the help still passes, with tips', async ()
   assert.match(bareCard.detail, /Ask line/)
 
   const full = await door(
-    'Protocol: CAP/1.0\nAsk: This agent answers for the company.\nCAP: https://example.com/cap/v1\n',
+    'Protocol: CAP/1.0\nAsk: This site\'s agent answers questions for the company.\nCAP: https://example.com/cap/v1\n',
     'POST https://example.com/cap/v1/messages\n',
   )
   const fullCard = full.checks.find((check) => check.id === 'card')

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash, randomBytes } from 'node:crypto'
 import { createServer } from 'node:http'
-import { publicConfirmation } from './server.mjs'
+import { ASK_LINE, publicConfirmation } from './server.mjs'
 import { boot } from './start.mjs'
 
 const dir = mkdtempSync(join(tmpdir(), 'cap-reference-'))
@@ -95,14 +95,32 @@ assert(cardText.includes('Name: Harbor Goods'), 'agent.txt name')
 assert(cardText.includes(`CAP: ${root}/cap/v1`), 'agent.txt cap url')
 assert(cardText.includes('Spec: https://conciergeprotocol.org/cap.txt'), 'agent.txt points at the hosted caller card')
 assert(!cardText.includes('OAuth:'), 'public card has no oauth line')
-assert(cardText.includes(`\nAsk: This agent answers for the company.`) && cardText.includes(`POST ${root}/cap/v1/messages`), 'agent.txt ask line')
+assert(cardText.includes(`\n${ASK_LINE}\n`), 'agent.txt ask line')
 
 for (const path of ['/cap/v1', '/cap/v1/messages']) {
   const help = await fetch(`${root}${path}`)
   const helpText = await help.text()
   assert(help.status === 200 && help.headers.get('content-type').includes('text/plain'), `help at ${path}`)
   assert(helpText.includes(`POST ${root}/cap/v1/messages`) && helpText.includes('CAP-From: agent:{your-id}'), `help text at ${path}`)
+  assert(helpText.includes(`${root}/cap/v1/messages?from=agent:{your-id}&message=`), `help shows the GET form at ${path}`)
 }
+
+const getUrl = `${root}/cap/v1/messages?from=agent:getter&message=${encodeURIComponent('Asked with a GET')}`
+let byGet = await json(getUrl)
+assert(byGet.status === 200 || byGet.status === 202, 'GET ask accepted')
+const getRetry = await json(getUrl)
+assert(getRetry.body?.id === byGet.body?.id, 'a repeated GET ask is asked once')
+for (let i = 0; i < 20 && byGet.body?.status === 'working'; i++) {
+  await sleep(100)
+  byGet = await json(`${root}/cap/v1/messages/${byGet.body.id}?from=agent:getter`)
+}
+assert(byGet.body?.status === 'done', 'GET ask is read back with from in the query')
+const getNoFrom = await json(`${root}/cap/v1/messages?message=hi`)
+assert(getNoFrom.status === 400 && getNoFrom.body.error.code === 'invalid_request', 'GET ask needs from')
+const getOther = await json(`${root}/cap/v1/messages/${byGet.body?.id}?from=agent:someone-else`)
+assert(getOther.status === 404, 'GET read is private to the caller')
+const getWithToken = await json(`${root}/cap/v1/messages?from=agent:getter&message=hi`, { headers: { authorization: 'Bearer x' } })
+assert(getWithToken.status === 400, 'GET ask refuses a token')
 
 const badVersion = await post(root, 'hi', { 'cap-version': '9' })
 assert(badVersion.status === 400 && badVersion.body.error.code === 'version_not_supported', 'bad version')

@@ -11,14 +11,16 @@ A company publishes one text file at `https://{domain}/agent.txt`, next to `robo
 ```text
 Protocol: CAP/1.0
 Name: Harbor Goods
-Ask: This agent answers for the company. Ask it instead of reading the site. POST https://harborgoods.example/cap/v1/messages with {"message": "..."} and headers CAP-Version: 1.0 and CAP-From: agent:{your-id}. If the reply is 202, see Spec.
+Ask: This site's agent answers questions for the company. POST your question to the CAP URL plus /messages, as JSON {"message": "..."}, with headers CAP-Version: 1.0 and CAP-From: agent:{your-id}. If you can only open URLs, open the CAP URL. If the reply is 202, see Spec.
 Chat: https://harborgoods.example/chat
 CAP: https://harborgoods.example/cap/v1
 OAuth: https://harborgoods.example/oauth
 Spec: https://conciergeprotocol.org/cap.txt
 ```
 
-`Protocol` is the first line. It names this format, so a caller can tell this file apart from an unrelated `agent.txt`. A caller that finds no `Protocol` line uses the file only when it has a `CAP` line. `Name` is the public agent. `Ask` is one fixed sentence for an agent that does not know CAP. Without it, such an agent tends to read the file, skip `Spec`, and go back to reading the site. Owners SHOULD include it, copied as written with their own CAP URL in place of `https://harborgoods.example/cap/v1`, and `{your-id}` left as it is. It is the same on every door, so it is part of the format, not a prompt. A caller that knows CAP ignores it. `Chat` is the page a person opens. `CAP` is the base URL for the two endpoints. `OAuth` is the authorization server for questions about a customer's account. Leave it off when the agent answers only public questions. `Spec` is a short caller card. Use the hosted card at `https://conciergeprotocol.org/cap.txt`. It covers every CAP 1.x door and is updated in one place, so do not copy it to your own domain. A caller may skip fetching it when it already knows CAP. Notes for your door belong in your agent's replies, not in a separate card or in `Ask`. The file lists no tools, MCP servers, door-specific prompts, or credentials.
+`Protocol` and `CAP` are required. The other lines are optional, and a caller ignores a line it does not know.
+
+`Protocol` is the first line. It names this format, so a caller can tell this file apart from an unrelated `agent.txt`. A caller that finds no `Protocol` line uses the file only when it has a `CAP` line. `Name` is the public agent. `Ask` is one fixed sentence for an agent that does not know CAP. Without it, such an agent tends to read the file, skip `Spec`, and go back to reading the site. Owners SHOULD include it, copied exactly as written. It has no URL or name in it, so it is the same on every door and never drifts from the `CAP` line. It describes the door rather than instructing the agent, and it is part of the format, not a prompt. A caller that knows CAP ignores it. `Chat` is the page a person opens. `CAP` is the base URL for the two endpoints. `OAuth` is the authorization server for questions about a customer's account. Leave it off when the agent answers only public questions. `Spec` is a short caller card. Use the hosted card at `https://conciergeprotocol.org/cap.txt`. It covers every CAP 1.x door and is updated in one place, so do not copy it to your own domain. A caller may skip fetching it when it already knows CAP. Notes for your door belong in your agent's replies, not in a separate card or in `Ask`. The file lists no tools, MCP servers, door-specific prompts, or credentials.
 
 One domain has one agent. A person uses the chat page. An agent fetches the file. Both reach the same agent and get the same answers.
 
@@ -67,16 +69,17 @@ GET  /cap/v1/messages/{id}
 GET  /cap/v1/confirmations/{id}   (only for owners that confirm actions)
 GET  /cap/v1                      (plain-text help, see below)
 GET  /cap/v1/messages             (the same help)
+GET  /cap/v1/messages?from=agent:{id}&message=...   (a public question, see Ask with a GET)
 ```
 
-Every request carries `CAP-Version: 1.0` and `CAP-From: agent:{id}`, naming the calling agent. A request for a logged-in person also carries `Authorization: Bearer` with an OAuth access token. The help is the one exception: it needs no headers.
+Every request carries `CAP-Version: 1.0` and `CAP-From: agent:{id}`, naming the calling agent. A request for a logged-in person also carries `Authorization: Bearer` with an OAuth access token. There are two exceptions: the help needs no headers, and a `GET` may name the caller with `from` in the query instead.
 
 ### Help
 
 An agent that only browses often opens the CAP URL from `agent.txt` with a `GET`. An error page there sends it back to reading the site. So a `GET` on the CAP URL, or on `{CAP}/messages`, with or without the CAP headers, returns `200` with `Content-Type: text/plain` and this text, with the owner's name and CAP URL filled in:
 
 ```text
-Harbor Goods answers questions for this company through the Concierge Agent Protocol (CAP). Ask it instead of reading the site.
+Harbor Goods answers questions for this company through the Concierge Agent Protocol (CAP).
 
 POST https://harborgoods.example/cap/v1/messages
 CAP-Version: 1.0
@@ -85,11 +88,30 @@ Content-Type: application/json
 
 {"message": "your question"}
 
+If you can only open URLs, ask a public question with a GET:
+https://harborgoods.example/cap/v1/messages?from=agent:{your-id}&message={your question, URL-encoded}
+
 200 means the reply is ready. 202 means it is still working: wait Retry-After seconds, then GET the Location URL.
 Spec: https://conciergeprotocol.org/cap.txt
 ```
 
 The help is the same on every door. The status is `200`, not `405`, because many agent fetch tools drop the body of an error.
+
+### Ask with a GET
+
+Many agents can only open a URL. They cannot send a `POST` or set headers. For them, a public question can be a `GET`:
+
+```
+GET /cap/v1/messages?from=agent:example-assistant&message=Do%20you%20ship%20to%20Canada%3F
+```
+
+- `from` stands in for `CAP-From`, and `CAP-Version` is implied. `message` is required. `previous_message_id` continues a conversation, as in a `POST`. There is no `context`.
+- It is for public questions only. A `GET` with an `Authorization` header returns `400`. Account questions and actions use `POST`.
+- The response is the same as for a `POST`. A `202` sets `Location` with `from` in its query, so the caller reads it back with a `GET` too: `GET /cap/v1/messages/{id}?from=agent:example-assistant`.
+- Fetch tools retry and prefetch a `GET`. The owner treats the same `from`, `message`, and `previous_message_id` within one minute as one message, so a retry is answered once.
+- Responses are `Cache-Control: no-store`. The owner applies the same rate limits as for a `POST`.
+
+A `GET` without `message` is the help.
 
 ### Send a message
 
@@ -263,14 +285,14 @@ An owner conforms if it:
 5. Keeps its limits private. When it will not take more from a caller, it returns `429` with `Retry-After`.
 6. Keeps finished messages for at least 24 hours.
 7. For account questions, publishes OAuth metadata and supports the code login, with no registration. Binds each token to the `CAP-From` that logged in. If it offers the redirect login, it accepts client id metadata documents and requires PKCE with `S256`.
-8. Answers a `GET` on the CAP URL and on `{CAP}/messages` with the [help](#help). Puts the `Ask` line in `agent.txt`.
+8. Answers a `GET` on the CAP URL and on `{CAP}/messages` with the [help](#help), and a public question [asked with a GET](#ask-with-a-get). Puts the `Ask` line in `agent.txt`.
 
 ## Caller rules
 
 A caller conforms if it:
 
 1. Never calls the owner's tools, MCP servers, or APIs to do or check the work.
-2. Asks the door before reading the site's pages when the question is one the company answers, and tells the person which answer came from the door.
+2. Asks the door first when the question is one the company answers, and tells the person which answer came from the door. The reply is the company's own account, so for comparisons and reviews the caller checks other sources too.
 3. Uses `reply` only when `status` is `done`.
 4. Never invents a reply while a message is `working`. It tells the person the owner is still answering.
 5. Waits at least `Retry-After` between reads.

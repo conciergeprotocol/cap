@@ -6,9 +6,11 @@ Breaking changes to the draft are listed here with what an owner or a caller has
 
 Nothing breaks. Callers that know CAP ignore both additions.
 
-- Owners should add an `Ask` line to `agent.txt`, right after `Name`. It is one fixed sentence with the owner's CAP URL filled in. In tests, general-purpose agents read `agent.txt` without it, skipped `Spec`, and went back to reading the site. With it, they posted to the door.
+- Owners should add an `Ask` line to `agent.txt`, right after `Name`. It is one fixed sentence, copied exactly, with no URL in it, so it never drifts from the `CAP` line. In tests, general-purpose agents read `agent.txt` without it, skipped `Spec`, and went back to reading the site. With it, they posted to the door.
+- `Protocol` and `CAP` are the only required lines. This was already true and is now stated once.
 - Owners should answer a `GET` on the CAP URL and on `{CAP}/messages`, with no headers required, with `200` and a short plain-text help. Agents that browse open the CAP URL with a `GET` first, and an error page sent them back to reading the site.
-- A new caller rule: ask the door before reading the site's pages when the question is one the company answers, and say which answer came from the door.
+- Owners should accept a public question as a `GET`: `{CAP}/messages?from=agent:{id}&message=...`, read back with `?from=` on the message URL. Many agents can only open URLs and could not reach a door at all. A `GET` never carries a login, and the same question from the same agent within a minute is asked once.
+- A new caller rule: ask the door first when the question is one the company answers, say which answer came from the door, and check other sources for comparisons and reviews.
 - The caller card opens with that rule. The reference server writes the `Ask` line and serves the help.
 
 ## 1.0 Draft, October 23, 2026, link the door from pages agents read

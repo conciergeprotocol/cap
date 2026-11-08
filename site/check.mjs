@@ -115,7 +115,7 @@ export async function checkDoor(input, deps = {}) {
     return finish({ passed: true, checks })
   }
   const tips = []
-  if (!card.asks) tips.push('Add the Ask line, so an agent that does not know CAP asks your agent instead of reading your site.')
+  if (!card.asks) tips.push('Add the Ask line, so an agent that does not know CAP knows your agent answers questions and how to ask.')
   if (!(await servesHelp(card.cap, card.addresses, request, deadline))) {
     tips.push(`A GET on ${card.cap} should return the plain-text help with status 200, so an agent that opens the URL learns to post to it.`)
   }

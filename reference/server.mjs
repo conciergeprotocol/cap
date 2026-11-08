@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { createServer } from 'node:http'
 import { fail, readBody, requestOrigin, send } from './http.mjs'
 import { newConfirmationId, newMessageId, startOfUtcDay } from './store.mjs'
@@ -8,15 +9,13 @@ const CONFIRM_TTL_MS = 10 * 60_000
 const SPEC_URL = 'https://conciergeprotocol.org/cap.txt'
 const HELP_PATHS = new Set(['/cap/v1', '/cap/v1/', '/cap/v1/messages'])
 
-/** The fixed Ask line for agent.txt. Only the CAP URL changes from door to door. */
-export function askLine(capUrl) {
-  return `Ask: This agent answers for the company. Ask it instead of reading the site. POST ${capUrl}/messages with {"message": "..."} and headers CAP-Version: 1.0 and CAP-From: agent:{your-id}. If the reply is 202, see Spec.`
-}
+/** The spec fixes this line. It is the same on every door. */
+export const ASK_LINE = 'Ask: This site\'s agent answers questions for the company. POST your question to the CAP URL plus /messages, as JSON {"message": "..."}, with headers CAP-Version: 1.0 and CAP-From: agent:{your-id}. If you can only open URLs, open the CAP URL. If the reply is 202, see Spec.'
 
 /** The plain-text help for a GET on the CAP URL. */
 export function helpText(name, capUrl) {
   return [
-    `${name || 'This agent'} answers questions for this company through the Concierge Agent Protocol (CAP). Ask it instead of reading the site.`,
+    `${name || 'This agent'} answers questions for this company through the Concierge Agent Protocol (CAP).`,
     '',
     `POST ${capUrl}/messages`,
     'CAP-Version: 1.0',
@@ -25,10 +24,19 @@ export function helpText(name, capUrl) {
     '',
     '{"message": "your question"}',
     '',
+    'If you can only open URLs, ask a public question with a GET:',
+    `${capUrl}/messages?from=agent:{your-id}&message={your question, URL-encoded}`,
+    '',
     '200 means the reply is ready. 202 means it is still working: wait Retry-After seconds, then GET the Location URL.',
     `Spec: ${SPEC_URL}`,
     '',
   ].join('\n')
+}
+
+/** Fetch tools retry a GET, so the same question from the same agent within a minute is asked once. */
+function getAskKey(caller, message, previousId) {
+  const minute = Math.floor(Date.now() / 60_000)
+  return `get-${createHash('sha256').update(JSON.stringify([caller, message, previousId, minute])).digest('hex').slice(0, 32)}`
 }
 
 export function publicMessage(msg, confirmation = null) {
@@ -60,6 +68,11 @@ function bearer(req) {
 
 function callerId(req) {
   const match = String(req.headers['cap-from'] || '').match(/^agent:([A-Za-z0-9_.-]{1,64})$/)
+  return match ? match[1] : ''
+}
+
+function queryCaller(url) {
+  const match = String(url.searchParams.get('from') || '').match(/^agent:([A-Za-z0-9_.-]{1,64})$/)
   return match ? match[1] : ''
 }
 
@@ -112,10 +125,10 @@ export function createCapServer({
     return publicMessage(msg, confirmation ? publicConfirmation(confirmation, oauth.confirmUrl(origin, confirmation.id)) : null)
   }
 
-  async function respond(res, msg, origin) {
+  async function respond(res, msg, origin, locationQuery = '') {
     if (msg.status === 'working') {
       send(res, 202, publicMessage(msg), {
-        headers: { location: `/cap/v1/messages/${msg.id}`, 'retry-after': String(retryAfter) },
+        headers: { location: `/cap/v1/messages/${msg.id}${locationQuery}`, 'retry-after': String(retryAfter) },
       })
       return
     }
@@ -207,7 +220,7 @@ export function createCapServer({
       const lines = [
         'Protocol: CAP/1.0',
         `Name: ${agent.name}`,
-        askLine(`${origin}/cap/v1`),
+        ASK_LINE,
         agent.chat ? `Chat: ${agent.chat}` : '',
         `CAP: ${origin}/cap/v1`,
         oauthLine ? `OAuth: ${oauthLine}` : '',
@@ -219,7 +232,8 @@ export function createCapServer({
     if (oauth && (await oauth.handle(req, res, url, origin))) return
     if (extraRoutes && (await extraRoutes(req, res, url))) return
 
-    if (req.method === 'GET' && HELP_PATHS.has(url.pathname)) {
+    const asking = url.searchParams.has('message')
+    if (req.method === 'GET' && HELP_PATHS.has(url.pathname) && !asking) {
       send(res, 200, null, { type: 'text/plain; charset=utf-8', raw: helpText(agent.name, `${origin}/cap/v1`) })
       return
     }
@@ -227,11 +241,17 @@ export function createCapServer({
       fail(res, 404, 'not_found', 'Not found.')
       return
     }
-    if (req.headers['cap-version'] !== '1.0') {
-      fail(res, 400, 'version_not_supported', 'CAP-Version must be 1.0.')
+    // A GET may name the caller in the query instead of headers, for agents that can only open URLs.
+    const byQuery = req.method === 'GET' && url.searchParams.has('from')
+    if (!byQuery && req.headers['cap-version'] !== '1.0') {
+      if (req.method === 'GET' && asking) {
+        fail(res, 400, 'invalid_request', 'Add from=agent:{your-id} to the URL.')
+      } else {
+        fail(res, 400, 'version_not_supported', 'CAP-Version must be 1.0.')
+      }
       return
     }
-    const caller = callerId(req)
+    const caller = callerId(req) || (byQuery ? queryCaller(url) : '')
     if (!caller) {
       fail(res, 400, 'invalid_request', 'CAP-From must be agent:{id}.')
       return
@@ -239,6 +259,20 @@ export function createCapServer({
 
     if (req.method === 'POST' && url.pathname === '/cap/v1/messages') {
       await sendMessage(req, res, caller, origin)
+      return
+    }
+    if (req.method === 'GET' && url.pathname === '/cap/v1/messages' && asking) {
+      if (req.headers.authorization) {
+        fail(res, 400, 'invalid_request', 'A GET asks public questions only. Send account questions with POST.')
+        return
+      }
+      const message = url.searchParams.get('message') || ''
+      const previousId = url.searchParams.get('previous_message_id') || null
+      await sendMessage(req, res, caller, origin, {
+        body: { message, previous_message_id: previousId },
+        key: getAskKey(caller, message, previousId),
+        locationQuery: byQuery ? `?from=${encodeURIComponent(`agent:${caller}`)}` : '',
+      })
       return
     }
     const readMatch = url.pathname.match(/^\/cap\/v1\/messages\/([^/]+)$/)
@@ -254,7 +288,7 @@ export function createCapServer({
     fail(res, 404, 'not_found', 'Not found.')
   }
 
-  async function sendMessage(req, res, caller, origin) {
+  async function sendMessage(req, res, caller, origin, options = {}) {
     if (agent.status && agent.status !== 'active') {
       fail(res, 503, 'unavailable', `${agent.name} is not answering right now.`)
       return
@@ -265,13 +299,16 @@ export function createCapServer({
       return
     }
 
-    let body
-    try {
-      body = JSON.parse(await readBody(req) || '{}')
-    } catch {
-      fail(res, 400, 'invalid_request', 'Body must be JSON.')
-      return
+    let body = options.body
+    if (!body) {
+      try {
+        body = JSON.parse(await readBody(req) || '{}')
+      } catch {
+        fail(res, 400, 'invalid_request', 'Body must be JSON.')
+        return
+      }
     }
+    const locationQuery = options.locationQuery || ''
     const text = typeof body.message === 'string' ? body.message.trim() : ''
     if (!text || text.length > MAX_MESSAGE) {
       fail(res, 400, 'invalid_request', `message must be text, up to ${MAX_MESSAGE} characters.`)
@@ -290,7 +327,7 @@ export function createCapServer({
     const account = access.grant?.account || ''
     const client = access.grant?.client_id || ''
     const scope = access.grant ? (access.grant.scope === 'write' ? 'write' : 'read') : null
-    const key = String(req.headers['idempotency-key'] || '')
+    const key = options.key || String(req.headers['idempotency-key'] || '')
     if (key && !/^[A-Za-z0-9_.:-]{1,128}$/.test(key)) {
       fail(res, 400, 'invalid_request', 'Idempotency-Key is invalid.')
       return
@@ -298,7 +335,7 @@ export function createCapServer({
     if (key) {
       const existing = await store.byIdempotency({ callerId: caller, account, clientId: client, key })
       if (existing) {
-        await respond(res, existing, origin)
+        await respond(res, existing, origin, locationQuery)
         return
       }
     }
@@ -335,7 +372,7 @@ export function createCapServer({
     }
     const saved = await store.insert(msg)
     if (!saved.created) {
-      await respond(res, saved.message, origin)
+      await respond(res, saved.message, origin, locationQuery)
       return
     }
 
@@ -354,7 +391,7 @@ export function createCapServer({
     const waited = new Promise((resolve) => { timer = setTimeout(resolve, waitMs) })
     await Promise.race([work, waited])
     clearTimeout(timer)
-    await respond(res, msg, origin)
+    await respond(res, msg, origin, locationQuery)
   }
 
   async function readConfirmation(req, res, caller, id, origin) {
