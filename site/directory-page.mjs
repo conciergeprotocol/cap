@@ -52,10 +52,11 @@ export function directoryPageBody() {
     item.append(icon, link, since)
     return item
   }
-  function load() {
+  // The CDN caches /api/doors, so a reload right after an add asks for an uncached copy.
+  function load(fresh) {
     list.replaceChildren()
     status.textContent = 'Loading the directory.'
-    return fetch('/api/doors').then(function (res) { return res.json() }).then(function (data) {
+    return fetch(fresh ? '/api/doors?t=' + Date.now() : '/api/doors').then(function (res) { return res.json() }).then(function (data) {
       var doors = (data && data.doors) || []
       if (!doors.length) {
         status.textContent = 'No doors are listed yet.'
@@ -86,7 +87,7 @@ export function directoryPageBody() {
       if (data.passed) {
         addStatus.textContent = name + ' passed and is listed.'
         addForm.reset()
-        return load()
+        return load(true)
       }
       var failed = (data.checks || []).filter(function (check) { return !check.pass && !check.skipped })[0]
       addStatus.replaceChildren((failed && failed.detail) || (name + ' did not pass.') )
