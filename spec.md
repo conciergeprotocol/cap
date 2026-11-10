@@ -255,9 +255,45 @@ A write token does not let an agent delete or pay on its own. When a message ask
 
 1. The caller gives the person `url` and `summary`. It never says the action is done.
 2. The person opens the link, logged in on the owner's page, and approves or denies. The owner runs an approved action once, as the person, and never twice.
-3. The caller reads `GET /cap/v1/confirmations/{id}` with the same token and `CAP-From`, waiting `Retry-After` between reads. `status` is `pending`, `working`, `done`, `failed`, `denied`, or `expired`. `done` and `failed` may carry `result.message`, written for the person.
+3. The caller reads `GET /cap/v1/confirmations/{id}` with the same token and `CAP-From`, waiting `Retry-After` between reads. `status` is `pending`, `working`, `done`, `failed`, `denied`, or `expired`. `done` and `failed` may carry `result.message`, written for the person. `done` may also carry `result.reference`, a short id the person can quote, such as an order or booking number.
 
-A confirmation is visible only to the `CAP-From` and account that asked for it. It expires within 10 minutes if no one decides. `authorization_details` describes the action in the owner's own types, in the style of Rich Authorization Requests (RFC 9396). The pattern is the one OpenID CIBA uses for approving an action out of band, applied to one action.
+A confirmation is visible only to the `CAP-From` and account that asked for it. It expires within 10 minutes if no one decides. Deciding means approving or denying. Work that starts on approval, such as a payment, may run longer, with `status` `working` until it ends. `authorization_details` describes the action in the owner's own types, in the style of Rich Authorization Requests (RFC 9396). The pattern is the one OpenID CIBA uses for approving an action out of band, applied to one action.
+
+### Purchases
+
+A payment is a confirmed action. The person pays on the owner's page, with the owner's checkout. The caller never receives a card, a payment token, or the person's password, and never pays on its own.
+
+The owner keeps what it is selling on its own side: a cart tied to the account, or the items named in the message. A cart that lives only in a browser session cannot be reached by the owner's agent, so an owner that sells through CAP stores the cart against the account.
+
+To hold a purchase, the owner prices it from its own records, freezes the items and the total, and returns a confirmation with one `authorization_details` entry of type `purchase`:
+
+```json
+{
+  "type": "purchase",
+  "merchant": "Harbor Goods",
+  "items": [
+    { "name": "Stride Runner", "options": { "color": "Black", "size": "12" }, "quantity": 1, "unit_price": "120.00" }
+  ],
+  "subtotal": "120.00",
+  "shipping": "0.00",
+  "tax": "9.90",
+  "total": "129.90",
+  "currency": "USD"
+}
+```
+
+| Field | Notes |
+| --- | --- |
+| `type` | `purchase` |
+| `merchant` | The name the person will see on the charge |
+| `items` | `name`, `quantity`, and `unit_price`. `options` is optional, for variants such as size or color |
+| `total` | What the person will be charged. Omit it only when the owner's page computes part of it, such as shipping to an address entered there |
+| `subtotal`, `shipping`, `tax` | Optional |
+| `currency` | ISO 4217 code |
+
+Amounts are decimal strings in `currency`, not numbers. The person pays what the confirmation shows. When the price, the stock, or the tax changes before they pay, the owner ends the old confirmation as `failed`, with a `result.message` that says why, and the caller asks again. The owner never charges a different amount on the old approval. When the payment succeeds, `status` is `done`, and `result.reference` is the order number.
+
+A caller may show a `purchase` as a checkout card: the items, the total, and a button that opens `url`. It says the order is waiting for the person, never that it is placed, until `status` is `done`.
 
 ### Use, renew, and revoke
 
