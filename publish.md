@@ -64,6 +64,16 @@ The door is a way in. Behind it, use whatever already knows the answers:
 
 A hosted agent works too. The chat page and the CAP URL can live on another host, because callers trust your domain, not the server.
 
+### Hosted services
+
+These services run the agent and `/cap/v1` for you. You still publish `agent.txt` on your own domain, with its `CAP` line pointing at the service. To move to another service or your own server later, change that one line.
+
+| Service | What answers |
+| ------- | ------------ |
+| [Cosmic](https://www.cosmicjs.com/cap) | An agent built from content you publish in Cosmic, or from your public pages |
+
+A service is listed when a door it hosts passes the [checker](https://conciergeprotocol.org/check) and any site can sign up for it. To add one, open a pull request that changes this table.
+
 ### Run a server
 
 [`@conciergeprotocol/server`](https://www.npmjs.com/package/@conciergeprotocol/server) is one process that speaks `/cap/v1`. You pass an `answer` function. [`@conciergeprotocol/agent`](https://www.npmjs.com/package/@conciergeprotocol/agent) builds that function from a model and your website, an `llms.txt` file, or MCP tools. Node.js 22 or newer. It needs no account on any vendor. SQLite is built in.
