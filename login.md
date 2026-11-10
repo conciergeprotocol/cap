@@ -184,6 +184,32 @@ A `read` login cannot ask for a confirmed action at all. The server answers `wri
 
 With the `http` handler, your hook returns `{ "reply": "...", "confirm": { ... } }`, and after approval it receives `{ "confirmed": { "account", "authorization_details", "caller" } }` and returns `{ "message": "..." }`.
 
+## Take payments
+
+A purchase is a confirmed action, and the person pays on your page with your own checkout. The visiting agent never sees a card.
+
+1. **Keep the cart on your side.** A cart in `localStorage` or a browser session is out of reach of your agent. Store it against the account, so the person's browser and their agent change the same cart.
+2. **Hold the order.** When the person asks to check out, price the order from your own records, freeze the items and total, and return `confirm` with one `purchase` entry. See [Purchases](spec.md#purchases) for the fields.
+3. **Charge on approval.** Your confirm page shows the order and a pay button that goes to your checkout, for the frozen items and amount only. The status is `working` while the person pays.
+4. **Finish from your payment provider.** When the payment succeeds, mark the confirmation `done` with `result.message` and `result.reference` set to the order number. Do this from the provider's webhook, not only from the return page, because the person may close the tab after paying.
+
+```js
+return {
+  confirm: {
+    summary: `Buy Stride Runner (black, size 12) from Harbor Goods for $120.00.`,
+    authorization_details: [{
+      type: 'purchase',
+      merchant: 'Harbor Goods',
+      items: [{ name: 'Stride Runner', options: { color: 'Black', size: '12' }, quantity: 1, unit_price: '120.00' }],
+      total: '120.00',
+      currency: 'USD',
+    }],
+  },
+}
+```
+
+The [SWSH demo store](https://github.com/cosmic-community/nike-clone-9c2g) does this with a server-side cart, a confirm page, and Stripe Checkout.
+
 ## Use your own sign-in
 
 The reference login pages ask for a username and password. If your users sign in with SSO, a social login, passkeys, or two-factor, put your own pages in front instead. Visiting agents never see the difference, as long as the endpoints behave the same.

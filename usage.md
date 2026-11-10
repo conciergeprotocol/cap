@@ -248,6 +248,8 @@ An action that is hard to undo, such as a cancel, a delete, or a payment, does n
 
 A request expires within 10 minutes if no one decides. To try again, send a new message.
 
+A purchase works the same way. Its `authorization_details` entry has `type: "purchase"`, with `items`, `total`, and `currency`, so you can show the order as a checkout card. The person pays on the company's page. When it is `done`, `result.reference` is the order number. See [Purchases](spec.md#purchases).
+
 ## Errors
 
 A request the owner will not accept returns an HTTP error:

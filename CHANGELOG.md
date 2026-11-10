@@ -2,6 +2,16 @@
 
 Breaking changes to the draft are listed here with what an owner or a caller has to change.
 
+## 1.0 Draft, November 10, 2026, purchases
+
+Nothing breaks. A purchase is a confirmed action, and callers that already handle confirmations handle it.
+
+- A new `authorization_details` type, `purchase`, with `merchant`, `items`, `total`, and `currency`, and optional `subtotal`, `shipping`, and `tax`. Amounts are decimal strings. Callers can show one checkout card for every store.
+- The person pays on the owner's page. A caller never receives a card or a payment token.
+- An owner that sells through CAP stores the cart against the account. A cart that lives only in a browser session cannot be reached by the owner's agent.
+- `result.reference` on a `done` confirmation is a short id the person can quote, such as an order number.
+- The 10-minute limit is for deciding. Work that starts on approval, such as a payment, stays `working` until it ends.
+
 ## 1.0 Draft, November 8, 2026, Ask line and help
 
 Nothing breaks. Callers that know CAP ignore both additions.

@@ -82,9 +82,9 @@ grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code={device_code
 If you cannot keep polling, ask the person to tell you once they have allowed access, then ask for the token once.
 
 Confirm an action
-Some changes, such as deletes, wait for the person. Then the done message also has confirmation, with id, url, and summary. Give the person the url and summary, and say it happens once they approve. Never say it is done yet. Then read:
+Some changes, such as deletes and payments, wait for the person. Then the done message also has confirmation, with id, url, and summary. Give the person the url and summary, and say it happens once they approve. Never say it is done yet. Then read:
 GET {CAP}/confirmations/{id}
-with the same headers and token, waiting Retry-After between reads. status pending: keep waiting. done: tell the person it is done. denied or expired: tell the person nothing changed. failed: tell the person it did not go through, with result.message if set.
+with the same headers and token, waiting Retry-After between reads. status pending or working: keep waiting. done: tell the person it is done, with result.reference if set. denied or expired: tell the person nothing changed. failed: tell the person it did not go through, with result.message if set.
 
 The token works only with that CAP-From. When it expires, you get 401. Renew at the token_endpoint with grant_type=refresh_token&refresh_token={refresh_token}&client_id=agent:{your-agent-id}. The refresh token rotates. Never ask the person for their password.
 
