@@ -32,6 +32,12 @@ const pages = [
     nav: 'Benchmark',
     description: 'Same answers, a fifth of the cost, a third of the steps. 861 frozen runs compare asking a store through CAP with fetching its pages and browsing them.'
   },
+  {
+    src: 'efficiency.md',
+    route: '/efficiency',
+    file: 'efficiency.html',
+    description: 'Counting both the visiting agent and the site, a CAP answer took about 19,000 tokens, against 48,000 to fetch a realistic site and 112,000 to browse it. Where it saves, where it does not, and what that does not show.'
+  },
   { src: 'concepts/README.md', route: '/concepts', file: 'concepts.html' },
   { src: 'concepts/messages.md', route: '/concepts/messages', file: 'concepts/messages.html' },
   { src: 'concepts/access.md', route: '/concepts/access', file: 'concepts/access.html' },

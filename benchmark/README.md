@@ -63,7 +63,7 @@ A site owner wants two things from a visiting agent: the right answer, and a lin
 
 On that measure, asking matched reading. What changed was the work before the answer. Through CAP the visitor took 3.4 steps and 15.8 seconds. Reading the realistic site took 11.1 steps and 21.1 seconds by fetch, and 13.1 steps and 24.6 seconds in a browser. Every step is a page the visitor has to load and parse before the person sees an answer and a link.
 
-The site pays for its share. The concierge's model calls are part of the CAP cost above, and an owner bounds them with its own limits. A concierge that answers a negative from a partial lookup, as this one did on local stock, sends the person to the wrong store. The answer is only as good as the record and the tools behind the door.
+The site pays for its share. The concierge's model calls are part of the CAP cost above, and an owner bounds them with its own limits. The same runs counted in tokens, both sides together, are in [Fewer tokens per answer](../efficiency.md). A concierge that answers a negative from a partial lookup, as this one did on local stock, sends the person to the wrong store. The answer is only as good as the record and the tools behind the door.
 
 ## One task, read and asked
 
