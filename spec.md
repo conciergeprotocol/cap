@@ -124,6 +124,8 @@ A `GET` without `message` is the help.
 - `200` with the message when the owner finished within its own wait. The status is `done` or `failed`.
 - `202` with the message when it did not. The status is `working`. The response sets `Location: /cap/v1/messages/{id}` and `Retry-After` in seconds.
 
+`Location` is on the same origin as the CAP URL. The owner sends a path, as above, or an absolute URL on that origin. The caller resolves it against the request URL. If the result has another origin, the caller does not send a token or `CAP-From` there, and reads `{CAP}/messages/{id}` instead. The same holds for an HTTP redirect from any CAP endpoint: the caller does not carry `Authorization` or `CAP-From` to another origin.
+
 The owner picks the wait, and it SHOULD be under 30 seconds. The caller sends nothing extra to get it.
 
 `Idempotency-Key` is optional. The same key from the same `CAP-From`, with the same grant or none, returns the original message and does not answer again.
@@ -163,7 +165,20 @@ OAuth: https://harborgoods.example/oauth
 GET https://harborgoods.example/.well-known/oauth-authorization-server/oauth
 ```
 
-The metadata includes `issuer`, `device_authorization_endpoint`, `token_endpoint`, and `revocation_endpoint`. An owner with the redirect login also lists `authorization_endpoint`, `code_challenge_methods_supported` with `S256`, and `client_id_metadata_document_supported: true`.
+The metadata includes `issuer`, `device_authorization_endpoint`, `token_endpoint`, `revocation_endpoint`, and `protected_resources`. An owner with the redirect login also lists `authorization_endpoint`, `code_challenge_methods_supported` with `S256`, and `client_id_metadata_document_supported: true`.
+
+`issuer` matches the `OAuth` line exactly. `protected_resources` (RFC 9728 §4) lists the CAP URL exactly as the `CAP` line gives it:
+
+```json
+{
+  "issuer": "https://harborgoods.example/oauth",
+  "protected_resources": ["https://harborgoods.example/cap/v1"]
+}
+```
+
+Before a caller starts a login, and before it sends a token to a CAP URL, it checks that `issuer` is the `OAuth` line and that the door's CAP URL is in `protected_resources`, both compared character for character. If either check fails, the caller does not log in and sends no token to that CAP URL. Public questions still work. Without this check, any domain could put another company's authorization server in its `OAuth` line. The person would log in on the real company's page, and the caller would hand the token to the other domain's CAP URL, which could use it at the real one.
+
+An issuer lists only the CAP URLs that answer for the accounts it logs people into. A provider that hosts doors for several companies gives each company its own issuer, such as `https://auth.provider.example/harbor-goods`, so a token from one company is never sent to another's door.
 
 ### Log in with a code
 
@@ -320,7 +335,7 @@ An owner conforms if it:
 4. Returns `202` with `Location` and `Retry-After` when it cannot finish within its wait.
 5. Keeps its limits private. When it will not take more from a caller, it returns `429` with `Retry-After`.
 6. Keeps finished messages for at least 24 hours.
-7. For account questions, publishes OAuth metadata and supports the code login, with no registration. Binds each token to the `CAP-From` that logged in. If it offers the redirect login, it accepts client id metadata documents and requires PKCE with `S256`.
+7. For account questions, publishes OAuth metadata that lists its CAP URL in `protected_resources`, and supports the code login, with no registration. Binds each token to the `CAP-From` that logged in. If it offers the redirect login, it accepts client id metadata documents and requires PKCE with `S256`.
 8. Answers a `GET` on the CAP URL and on `{CAP}/messages` with the [help](#help), and a public question [asked with a GET](#ask-with-a-get). Puts the `Ask` line in `agent.txt`.
 
 ## Caller rules
@@ -337,6 +352,7 @@ A caller conforms if it:
 8. Sets `previous_message_id` to the last message when the person is continuing the same conversation, and leaves it off when they start a new one.
 9. Logs in only through the owner's page, with the code login or the redirect login. Never asks the person for their password, and never sends the `device_code` to the person.
 10. Gives the person a `confirmation` link as it is, and never reports a confirmed action as done until its status is `done`.
+11. Logs in, and sends a token to a CAP URL, only when the issuer's metadata lists that CAP URL in `protected_resources`. Never carries a token or `CAP-From` to a `Location` or redirect on another origin.
 
 ## Errors
 

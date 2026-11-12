@@ -24,8 +24,11 @@ function send(message, headers = shopper, context) {
 // The same steps the demo page takes in a browser: PKCE, the store's login page, the token exchange.
 async function login(account, { write = false } = {}) {
   const card = await (await fetch(`${store.base}/agent.txt`)).text()
-  const issuer = new URL(card.match(/^OAuth: (.+)$/m)[1])
+  const oauthLine = card.match(/^OAuth: (.+)$/m)[1]
+  const issuer = new URL(oauthLine)
   const meta = await (await fetch(`${issuer.origin}/.well-known/oauth-authorization-server${issuer.pathname}`)).json()
+  assert(meta.issuer === oauthLine, 'metadata issuer is the OAuth line')
+  assert(meta.protected_resources.includes(card.match(/^CAP: (.+)$/m)[1]), 'metadata lists the CAP line in protected_resources')
   const verifier = randomBytes(32).toString('base64url')
   const clientId = `${store.base}/client.json`
   const redirectUri = `${store.base}/`

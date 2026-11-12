@@ -89,7 +89,7 @@ Behavior:
 
 1. Sends `POST {cap}/messages` with `CAP-Version: 1.0`, `CAP-From`, and the bearer token when the store has one for that origin.
 2. On `200`, returns the message.
-3. On `202`, waits `Retry-After` seconds, with a floor of one second, then reads `GET {cap}/messages/{id}`. Repeats until the status is final or `maxWaitMs` passes. Then it returns the message still `working`, and the caller can resume with `cap.get`.
+3. On `202`, waits `Retry-After` seconds, with a floor of one second, then reads `GET {cap}/messages/{id}`. It builds that URL from the door, never from a `Location` on another origin, and does not follow redirects to another origin with the token. Repeats until the status is final or `maxWaitMs` passes. Then it returns the message still `working`, and the caller can resume with `cap.get`.
 4. Never fills in a `reply` that the owner did not send.
 5. Retries `429` and `503` once after `Retry-After` when the remaining wait allows it. Otherwise it throws.
 
@@ -130,7 +130,7 @@ Request errors throw a `CapError` with the spec's `code`, the HTTP status, and t
 
 The spec's [access section](spec.md#access) defines the login: OAuth 2.1 with PKCE, and a client id that is a URL to the agent's own client document. The client implements it:
 
-- `cap.login(target, { clientId, redirectUri, open })` reads the metadata, makes the PKCE pair and `state`, and calls `open(url)` so the application can show the company's login page. It resolves when the application passes the redirect back to `cap.finishLogin(url)`, which checks `state`, exchanges the code, and saves the tokens in the store.
+- `cap.login(target, { clientId, redirectUri, open })` reads the metadata, refuses to continue unless `issuer` is the door's `OAuth` line and `protected_resources` lists its CAP URL, makes the PKCE pair and `state`, and calls `open(url)` so the application can show the company's login page. It resolves when the application passes the redirect back to `cap.finishLogin(url)`, which checks `state`, exchanges the code, and saves the tokens in the store.
 - `ask` sends the stored access token. On `401`, it renews once with the refresh token, saves the new pair, and retries. If renewal fails, it deletes the tokens and returns the `401` as an error.
 - `cap.logout(target)` revokes the refresh token and clears the store.
 

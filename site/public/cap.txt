@@ -39,6 +39,8 @@ Add &previous_message_id=msg_... to follow up. Read a 202 back with GET {CAP}/me
 
 GET {CAP}/messages/{id}
 
+Location is on the CAP URL's origin. Never send a token or CAP-From to a Location or redirect on another origin.
+
 Keep reading until status is done or failed. Tell the person the company is still answering. Do not invent a reply while status is working.
 
 Follow up
@@ -56,6 +58,8 @@ Use HTTP only. There is no registration and no secret.
 
 1. Read the metadata. For OAuth: https://{domain}/oauth, that is
 GET https://{domain}/.well-known/oauth-authorization-server/oauth
+
+Check that issuer equals the OAuth line and that protected_resources lists the CAP line exactly. If not, do not log in and never send a token to that CAP URL. Public questions still work.
 
 2. Start a login at its device_authorization_endpoint:
 POST {device_authorization_endpoint}

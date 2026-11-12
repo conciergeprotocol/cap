@@ -20,7 +20,7 @@ See it running: [Marlow](https://marlow.cosmic.site/) is a live vacation-rental 
 | Piece | What it does | Required |
 | --- | --- | --- |
 | `OAuth` line in `agent.txt` | Tells visiting agents where to log in | Yes |
-| OAuth metadata | Lists your login endpoints at `/.well-known/oauth-authorization-server/...` | Yes |
+| OAuth metadata | Lists your login endpoints at `/.well-known/oauth-authorization-server/...`, and your CAP URL in `protected_resources` | Yes |
 | Code login | The agent shows the person a short code. They enter it on your page and allow access | Yes |
 | Token and revoke endpoints | Issue, renew, and end logins | Yes |
 | Redirect login | For agents that can open a browser and take a callback | Optional |
@@ -216,7 +216,8 @@ The reference login pages ask for a username and password. If your users sign in
 
 **Keep exactly as the spec says:**
 
-- The metadata, `device_authorization_endpoint`, `token_endpoint`, and `revocation_endpoint`, with OAuth's own errors (`authorization_pending`, `slow_down`, `access_denied`, `expired_token`, `invalid_grant`, `invalid_scope`).
+- The metadata, with `protected_resources` listing your CAP URL exactly as your `CAP` line gives it. Visiting agents will not log in without it.
+- `device_authorization_endpoint`, `token_endpoint`, and `revocation_endpoint`, with OAuth's own errors (`authorization_pending`, `slow_down`, `access_denied`, `expired_token`, `invalid_grant`, `invalid_scope`).
 - Each token bound to the `CAP-From` that started the login. Another agent using it gets `403`.
 - Refresh tokens that rotate, and revocation that ends the whole login.
 - The `scope` rules above, and the confirmation statuses.

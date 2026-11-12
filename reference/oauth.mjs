@@ -164,6 +164,7 @@ export function createOAuth({
   agentName,
   login,
   path = '/oauth',
+  capPath = '/cap/v1',
   accessTokenSeconds = 3600,
   writeAccessTokenSeconds = 900,
   write = false,
@@ -191,6 +192,7 @@ export function createOAuth({
       revocation_endpoint_auth_methods_supported: ['none'],
       client_id_metadata_document_supported: true,
       authorization_response_iss_parameter_supported: true,
+      protected_resources: [`${origin}${capPath}`],
       ...(write ? { scopes_supported: ['read', 'write'] } : {}),
     }
   }

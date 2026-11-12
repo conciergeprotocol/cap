@@ -78,6 +78,8 @@ It serves the OAuth metadata at `/.well-known/oauth-authorization-server/oauth`,
 
 Each token is bound to the `CAP-From` that logged in. Refresh tokens rotate and last 30 days. Revoking either token of a login ends both.
 
+The metadata lists this server's CAP URL in `protected_resources`, and visiting agents check it before they log in. If `agent.oauth` points at another authorization server, that server's metadata must list the CAP URL instead.
+
 ### Changes and confirmations
 
 `"write": true` offers the `write` scope. A caller asks with `scope=write`, and the person can allow changes, allow read only, or deny. The token response's `scope` is `read` or `read write`, and a renewed token keeps it. Write access tokens last `write_access_token_seconds` (default 900). The handler receives `scope`, and refuses a change on `read`, for example with `write_required`.

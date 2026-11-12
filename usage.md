@@ -98,6 +98,8 @@ GET /cap/v1/messages/msg_22eec828b542bf17
 
 Each `working` read sets a new `Retry-After`. Keep going until `done` or `failed`.
 
+`Location` is always on the CAP URL's origin. If it, or any redirect, points at another origin, do not send your token or `CAP-From` there. Read `{CAP}/messages/{id}` instead.
+
 Send `Idempotency-Key` when a resend after a dropped connection must not ask twice. The same key from the same `CAP-From`, with the same token or none, returns the original message.
 
 ## 5. Log in for account questions
@@ -114,7 +116,7 @@ Without a token, an account question fails:
 
 Your agent logs in with a code. It needs only HTTP: no browser, no callback URL, no secret, and no registration with the company.
 
-1. Read the server's metadata. For `OAuth: https://harborgoods.example/oauth`, that is `GET https://harborgoods.example/.well-known/oauth-authorization-server/oauth`.
+1. Read the server's metadata. For `OAuth: https://harborgoods.example/oauth`, that is `GET https://harborgoods.example/.well-known/oauth-authorization-server/oauth`. Check that `issuer` equals the `OAuth` line and that `protected_resources` lists the `CAP` line exactly. If either check fails, stop: that server does not log people in for this door, and a token from it must never go to this CAP URL.
 2. Start the login at its `device_authorization_endpoint`:
 
 ```
@@ -293,11 +295,11 @@ An **owner** conforms if it:
 - [ ] Publishes `/agent.txt` starting with `Protocol: CAP/1.0`, with `Name`, `Ask`, `Chat`, `CAP`, and `OAuth` when it answers account questions
 - [ ] Answers a `GET` on the CAP URL and on `{CAP}/messages` with `200` and the plain-text help, with no headers required
 - [ ] Accepts a public question as `GET {CAP}/messages?from=agent:{id}&message=...`, reads it back with `?from=`, refuses a token on a `GET`, and asks a repeated `GET` once
-- [ ] Returns `200` when it finished within its wait, otherwise `202` with `Location` and `Retry-After`
+- [ ] Returns `200` when it finished within its wait, otherwise `202` with `Location` on the CAP URL's origin and `Retry-After`
 - [ ] Returns only `id`, `status`, `reply` or `error`, `created_at`, and `finished_at`, plus `confirmation` when it holds an action
 - [ ] Answers account questions only with a token for that account. Returns `login_required` without one
 - [ ] Returns `401` for a bad token, and `403` for a token used by a different agent
-- [ ] Publishes OAuth metadata, supports the code login with a `device_authorization_endpoint`, and binds each token to the `CAP-From` that logged in
+- [ ] Publishes OAuth metadata that lists its CAP URL in `protected_resources`, supports the code login with a `device_authorization_endpoint`, and binds each token to the `CAP-From` that logged in
 - [ ] If it offers the redirect login, accepts a client id document in place of registration and requires PKCE with `S256`
 - [ ] Shows a message only to the agent and token that sent it
 - [ ] Returns the original message for a repeated `Idempotency-Key`
@@ -318,3 +320,4 @@ A **caller** conforms if it:
 - [ ] Sets `previous_message_id` only to continue the same conversation
 - [ ] Logs in only through the company's page, with the code login or the redirect login, never asks for the person's password, and never shows the `device_code`
 - [ ] Gives the person a `confirmation` link as it is, and never reports a confirmed action as done until its status is `done`
+- [ ] Logs in, and sends a token, only when the issuer's `protected_resources` lists the door's CAP URL, and never sends a token to a `Location` or redirect on another origin
