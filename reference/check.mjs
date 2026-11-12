@@ -297,6 +297,8 @@ assert(meta.status === 200 && meta.body.issuer === `${accountRoot}/oauth`, 'oaut
 assert(meta.body.code_challenge_methods_supported.includes('S256'), 'metadata lists S256')
 assert(meta.body.client_id_metadata_document_supported === true, 'metadata accepts client id documents')
 assert(meta.body.token_endpoint === `${accountRoot}/oauth/token` && meta.body.revocation_endpoint === `${accountRoot}/oauth/revoke`, 'metadata endpoints')
+const accountCap = accountCard.match(/^CAP: (.+)$/m)?.[1]
+assert(JSON.stringify(meta.body.protected_resources) === JSON.stringify([accountCap]), 'metadata lists the CAP line in protected_resources')
 
 const consent = await startLogin(accountRoot)
 assert(consent.res.status === 200 && consent.request, 'authorize shows the login page')

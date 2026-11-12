@@ -141,8 +141,14 @@
       // Find the OAuth server the way any visiting agent would: agent.txt, then its metadata.
       async function oauthMetadata() {
         const card = await (await fetch('/agent.txt')).text()
-        const issuer = new URL(card.match(/^OAuth: (.+)$/m)[1])
-        return (await fetch(issuer.origin + '/.well-known/oauth-authorization-server' + issuer.pathname)).json()
+        const oauthLine = card.match(/^OAuth: (.+)$/m)[1]
+        const capLine = card.match(/^CAP: (.+)$/m)[1]
+        const issuer = new URL(oauthLine)
+        const meta = await (await fetch(issuer.origin + '/.well-known/oauth-authorization-server' + issuer.pathname)).json()
+        if (meta.issuer !== oauthLine || !(meta.protected_resources || []).includes(capLine)) {
+          throw new Error('This OAuth server does not log people in for this door.')
+        }
+        return meta
       }
 
       async function login(write) {
@@ -193,8 +199,9 @@
       $('wrap').addEventListener('click', () => send('Add gift wrap to my order'))
       $('cancel').addEventListener('click', () => send('Cancel my order'))
       $('fresh').addEventListener('click', () => { lastId = ''; $('out').hidden = true })
-      $('login').addEventListener('click', () => login(false))
-      $('login-write').addEventListener('click', () => login(true))
+      const startLogin = (write) => login(write).catch((error) => { $('who').textContent = error.message })
+      $('login').addEventListener('click', () => startLogin(false))
+      $('login-write').addEventListener('click', () => startLogin(true))
       $('logout').addEventListener('click', async () => {
         if (token) {
           const meta = await oauthMetadata()

@@ -2,6 +2,14 @@
 
 Breaking changes to the draft are listed here with what an owner or a caller has to change.
 
+## 1.0 Draft, November 11, 2026, where tokens may go
+
+Owners with their own authorization server have to add one metadata field. Owners on the reference server or `@conciergeprotocol/server` change nothing once they update.
+
+- The authorization server's metadata lists the CAP URL in `protected_resources` (RFC 9728), exactly as the `CAP` line gives it. Before logging in, and before sending a token to a CAP URL, a caller checks that `issuer` is the `OAuth` line and that `protected_resources` lists the door's CAP URL. If not, it does not log in, and the door answers public questions only. Without this, any domain could name another company's authorization server in its `OAuth` line and receive the tokens the person granted to that company.
+- A provider that hosts doors for several companies gives each its own issuer, so one company's token never goes to another's door.
+- A `202`'s `Location` is on the CAP URL's origin. A caller never carries a token or `CAP-From` to a `Location` or redirect on another origin, and reads `{CAP}/messages/{id}` instead.
+
 ## 1.0 Draft, November 10, 2026, purchases
 
 Nothing breaks. A purchase is a confirmed action, and callers that already handle confirmations handle it.
