@@ -11,6 +11,7 @@ Nothing breaks. A door that never sends items is still a valid door, and a calle
 - A caller asks with `"accept": ["items"]`, or `&accept=items` on a GET. A door that supports items says so with one line in its help. A door may also send items when the caller did not ask.
 - At most 20 items. A malformed item is dropped. The reply still stands.
 - The same GET within one minute now includes `accept`, so asking again with items is a new message.
+- The caller card at `cap.txt` now says how to ask for items.
 
 ## 1.0 Draft, November 11, 2026, the check reads the login
 
