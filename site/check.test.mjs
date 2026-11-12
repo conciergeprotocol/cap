@@ -354,6 +354,104 @@ test('an agent.txt over the size limit fails without a help link', async () => {
   assert.equal(card.help, undefined)
 })
 
+const CARD = 'Protocol: CAP/1.0\nCAP: https://example.com/cap/v1\nOAuth: https://example.com/oauth\n'
+const META = 'https://example.com/.well-known/oauth-authorization-server/oauth'
+
+function loginDoor(meta, { status = 200, location } = {}) {
+  const seen = []
+  return {
+    seen,
+    deps: {
+      resolve: async () => ({ ok: true, addresses: ['8.8.8.8'] }),
+      request: async (options) => {
+        seen.push(options.url)
+        if (options.url.endsWith('/agent.txt')) {
+          return { ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: CARD }
+        }
+        if (options.url === META) {
+          return { ok: true, status, headers: { 'content-type': 'application/json' }, body: JSON.stringify(meta) }
+        }
+        if (options.method === 'POST') {
+          return {
+            ok: true,
+            status: location ? 202 : 200,
+            headers: { ...(location ? { location, 'retry-after': '0' } : {}) },
+            body: JSON.stringify({ id: 'msg_abc12345', status: location ? 'working' : 'done', reply: location ? undefined : 'Hello.' }),
+          }
+        }
+        if (options.headers?.['cap-from'] === 'agent:cap-check-other') return { ok: true, status: 404, headers: {}, body: '' }
+        if (options.headers?.['cap-from']) {
+          return { ok: true, status: 200, headers: {}, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'Hello.' }) }
+        }
+        return { ok: true, status: 404, headers: { 'content-type': 'text/html' }, body: '' }
+      },
+    },
+  }
+}
+
+test('a login whose metadata lists the CAP line passes', async () => {
+  const door = loginDoor({
+    issuer: 'https://example.com/oauth',
+    protected_resources: ['https://example.com/cap/v1'],
+  })
+  const result = await checkDoor('example.com', door.deps)
+  assert.equal(result.passed, true)
+  assert.equal(result.checks.find((check) => check.id === 'login').pass, true)
+  assert.ok(door.seen.includes(META))
+})
+
+test('a login fails when the issuer differs, and the public reply is still checked', async () => {
+  const door = loginDoor({
+    issuer: 'https://evil.example/oauth',
+    protected_resources: ['https://example.com/cap/v1'],
+  })
+  const result = await checkDoor('example.com', door.deps)
+  assert.equal(result.passed, false)
+  const login = result.checks.find((check) => check.id === 'login')
+  assert.match(login.detail, /must match the OAuth line, https:\/\/example.com\/oauth, exactly/)
+  assert.ok(result.checks.some((check) => check.id === 'reply' && check.pass))
+})
+
+test('a login fails when protected_resources omits the CAP line', async () => {
+  const result = await checkDoor('example.com', loginDoor({ issuer: 'https://example.com/oauth' }).deps)
+  assert.equal(result.passed, false)
+  assert.match(result.checks.find((check) => check.id === 'login').detail, /Add "protected_resources": \["https:\/\/example.com\/cap\/v1"\]/)
+})
+
+test('a trailing slash mismatch says so', async () => {
+  const result = await checkDoor('example.com', loginDoor({
+    issuer: 'https://example.com/oauth',
+    protected_resources: ['https://example.com/cap/v1/'],
+  }).deps)
+  assert.match(result.checks.find((check) => check.id === 'login').detail, /trailing slash/)
+})
+
+test('a redirect from the OAuth metadata is not followed', async () => {
+  const door = loginDoor(null, { status: 302 })
+  const result = await checkDoor('example.com', door.deps)
+  assert.match(result.checks.find((check) => check.id === 'login').detail, /redirected/)
+  assert.equal(door.seen.filter((url) => url === META).length, 1)
+})
+
+test('a file-only check still reads the login', async () => {
+  const door = loginDoor({ issuer: 'https://other.example/oauth' })
+  const result = await checkDoor('example.com', { ...door.deps, ask: false })
+  assert.equal(result.passed, false)
+  assert.deepEqual(result.checks.map((check) => check.id), ['host', 'card', 'login'])
+  assert.equal(door.seen.some((url) => url.includes('/messages')), false)
+})
+
+test('a 202 Location on another origin is a tip, not a failure', async () => {
+  const result = await checkDoor('example.com', loginDoor({
+    issuer: 'https://example.com/oauth',
+    protected_resources: ['https://example.com/cap/v1'],
+  }, { location: 'https://evil.example/cap/v1/messages/msg_abc12345' }).deps)
+  assert.equal(result.passed, true)
+  const reply = result.checks.find((check) => check.id === 'reply')
+  assert.match(reply.detail, /evil\.example/)
+  assert.equal(reply.tips.length, 1)
+})
+
 test('a private address is not fetched', async () => {
   let called = false
   const result = await checkDoor('example.com', {
