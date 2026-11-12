@@ -112,7 +112,8 @@ export async function checkDoor(input, deps = {}) {
   }
   if (!asking) {
     checks.push({ id: 'card', title: 'agent.txt', pass: true, detail: card.detail })
-    return finish({ passed: true, checks })
+    await addLogin(checks, card, resolve, request, deadline)
+    return finish({ passed: checks.every((check) => check.pass), checks })
   }
   const tips = []
   if (!card.asks) tips.push('Add the Ask line, so an agent that does not know CAP knows your agent answers questions and how to ask.')
@@ -122,6 +123,7 @@ export async function checkDoor(input, deps = {}) {
   const cardCheck = { id: 'card', title: 'agent.txt', pass: true, detail: [card.detail, ...tips].join(' ') }
   if (tips.length) cardCheck.tips = tips
   checks.push(cardCheck)
+  await addLogin(checks, card, resolve, request, deadline)
   if (deps.mayAsk && !(await deps.mayAsk(card.cap))) {
     const detail = `${card.cap} answered a check in the last 10 minutes, so it was not asked again.`
     return stop({ id: 'reply', title: 'A public reply', pass: false, skipped: true, detail }, { skipped: true, throttled: true })
@@ -133,12 +135,81 @@ export async function checkDoor(input, deps = {}) {
     return stop({ id: 'reply', title: 'A public reply', pass: false, skipped: true, detail: reply.detail }, { skipped: true, retryAfter: reply.retryAfter })
   }
   if (!reply.ok) return stop({ id: 'reply', title: 'A public reply', pass: false, detail: reply.detail })
-  checks.push({ id: 'reply', title: 'A public reply', pass: true, detail: reply.detail })
+  const replyCheck = { id: 'reply', title: 'A public reply', pass: true, detail: reply.detail }
+  if (reply.locationTip) {
+    replyCheck.tips = [reply.locationTip]
+    replyCheck.detail = `${reply.detail} ${reply.locationTip}`
+  }
+  checks.push(replyCheck)
 
   const privacy = await hiddenFromOthers(card.cap, card.addresses, reply.id, request, deadline)
   if (!privacy.ok) return stop({ id: 'private', title: 'Private to the caller', pass: false, detail: privacy.detail })
   checks.push({ id: 'private', title: 'Private to the caller', pass: true, detail: privacy.detail })
-  return finish({ passed: true, checks })
+  return finish({ passed: checks.every((check) => check.pass), checks })
+}
+
+// A failed login still lets the public checks run, so the report shows both.
+async function addLogin(checks, card, resolve, request, deadline) {
+  if (!card.oauth) return
+  checks.push(await checkLogin(card, resolve, request, deadline))
+}
+
+async function checkLogin(card, resolve, request, deadline) {
+  const title = 'Login'
+  let oauth
+  try {
+    oauth = new URL(card.oauth)
+  } catch {
+    return { id: 'login', title, pass: false, detail: 'The OAuth line must be an https URL.' }
+  }
+  if (oauth.protocol !== 'https:' || oauth.username || oauth.password || (oauth.port && oauth.port !== '443')) {
+    return { id: 'login', title, pass: false, detail: 'The OAuth line must be an https URL on port 443.' }
+  }
+  const found = await resolve(oauth.hostname.toLowerCase())
+  if (!found.ok) return { id: 'login', title, pass: false, detail: found.detail }
+  const path = oauth.pathname === '/' ? '' : oauth.pathname.replace(/\/$/, '')
+  const res = await request({
+    url: `${oauth.origin}/.well-known/oauth-authorization-server${path}`,
+    method: 'GET',
+    addresses: found.addresses,
+    timeoutMs: Math.min(8_000, left(deadline)),
+    maxBytes: CARD_MAX,
+    truncate: true,
+  })
+  if (!res.ok) return { id: 'login', title, pass: false, detail: res.detail }
+  if (res.status >= 300 && res.status < 400) {
+    return { id: 'login', title, pass: false, detail: 'The OAuth metadata redirected. Publish it at the well-known URL itself.' }
+  }
+  if (res.status !== 200) return { id: 'login', title, pass: false, detail: `The OAuth metadata returned ${res.status}.` }
+  if (res.truncated) return { id: 'login', title, pass: false, detail: 'The OAuth metadata is larger than 16 KB.' }
+  let meta
+  try {
+    meta = JSON.parse(res.body || '')
+  } catch {
+    return { id: 'login', title, pass: false, detail: 'The OAuth metadata is not JSON.' }
+  }
+  if (meta.issuer !== card.oauth) {
+    return {
+      id: 'login',
+      title,
+      pass: false,
+      detail: `The metadata's issuer is ${meta.issuer || 'missing'}. It must match the OAuth line, ${card.oauth}, exactly.`,
+    }
+  }
+  const resources = Array.isArray(meta.protected_resources) ? meta.protected_resources : []
+  if (!resources.includes(card.capRaw)) {
+    const slash = resources.some((entry) => typeof entry === 'string'
+      && entry.replace(/\/$/, '') === card.capRaw.replace(/\/$/, '')
+      && entry !== card.capRaw)
+    const hint = slash ? ` An entry differs only by a trailing slash. The CAP line is ${card.capRaw}.` : ''
+    return {
+      id: 'login',
+      title,
+      pass: false,
+      detail: `Add "protected_resources": ["${card.capRaw}"] to your OAuth metadata. Visiting agents will not log in without it.${hint}`,
+    }
+  }
+  return { id: 'login', title, pass: true, detail: 'The issuer matches the OAuth line and lists this CAP URL.' }
 }
 
 export async function resolvePublic(hostname) {
@@ -402,7 +473,9 @@ async function parseCard(body, fileUrl, currentAddresses, resolve) {
   const href = cap.href.replace(/\/$/, '')
   const hash = createHash('sha256').update(body).digest('hex').slice(0, 16)
   const asks = lines.some((line) => line.startsWith('Ask:'))
-  return { ok: true, cap: href, addresses, hash, asks, detail: `CAP: ${href}` }
+  const oauthLine = lines.find((line) => line.startsWith('OAuth:'))
+  const oauth = oauthLine ? oauthLine.slice('OAuth:'.length).trim() : ''
+  return { ok: true, cap: href, capRaw: capValue, oauth, addresses, hash, asks, detail: `CAP: ${href}` }
 }
 
 // The help needs no CAP headers and runs no agent, so it is safe to read on every check.
@@ -440,8 +513,10 @@ async function ask(cap, fallbackAddresses, request, deadline) {
   if (!res.ok && left(deadline) > 10_000) res = await post()
   if (!res.ok) return fail(res.detail)
   if (res.status >= 300 && res.status < 400) return fail('The CAP endpoint redirected. It should answer the POST itself.')
+  const tipped = offOriginLocation(res, cap)
   let message = await readMessage(res, cap, addresses, request, deadline)
   if (!message.ok) return message
+  if (!message.locationTip && tipped) message.locationTip = tipped
   if (message.status === 'failed' && WAIT_CODES.has(message.error?.code)) {
     return skip(`The door asked the check to wait${message.error?.message ? `: ${clip(message.error.message)}` : '.'}`, message.retryAfter)
   }
@@ -455,12 +530,13 @@ async function ask(cap, fallbackAddresses, request, deadline) {
     return fail('The door did not finish with a reply within 25 seconds. Return 200 when it is ready, or 202 with a GET that finishes.')
   }
   if (!ID.test(message.id || '')) return fail('The message id should look like msg_ followed by letters or numbers.')
-  return { ok: true, id: message.id, detail: clip(message.reply.trim()) }
+  return { ok: true, id: message.id, detail: clip(message.reply.trim()), locationTip: message.locationTip || '' }
 }
 
 async function readMessage(res, cap, addresses, request, deadline) {
   let current = parseMessage(res)
   if (!current.ok) return current
+  let locationTip = ''
   while (current.status === 'working') {
     if (left(deadline) < 1_000) return { ok: true, status: 'working' }
     const wait = Math.min(5, Math.max(1, current.retryAfter ?? 2)) * 1000
@@ -475,9 +551,12 @@ async function readMessage(res, cap, addresses, request, deadline) {
       headers: capHeaders(CALLER),
     })
     if (!next.ok) return fail(next.detail)
+    const tip = offOriginLocation(next, cap)
     current = parseMessage(next)
     if (!current.ok) return current
+    if (tip) locationTip = tip
   }
+  if (locationTip) current.locationTip = locationTip
   return current
 }
 
@@ -556,6 +635,21 @@ function headerValue(headers, name) {
 
 function miss(detail, status) {
   return status ? { ok: false, absent: true, detail, status } : { ok: false, absent: true, detail }
+}
+
+function offOriginLocation(res, cap) {
+  if (res.status !== 202) return ''
+  const location = headerValue(res.headers, 'location')
+  if (!location) return ''
+  let target
+  try {
+    target = new URL(location, cap)
+  } catch {
+    return 'The 202 Location is not a URL.'
+  }
+  const origin = new URL(cap).origin
+  if (target.origin === origin) return ''
+  return `The 202 Location is on ${target.origin}. Keep it on ${origin}: callers will not carry a token to another origin.`
 }
 
 function endpoint(cap, id) {

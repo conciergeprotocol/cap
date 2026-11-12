@@ -2,6 +2,13 @@
 
 Breaking changes to the draft are listed here with what an owner or a caller has to change.
 
+## 1.0 Draft, November 11, 2026, the check reads the login
+
+Nothing in the protocol changes.
+
+- When `agent.txt` has an `OAuth` line, the door check reads the authorization server metadata. The door fails unless `issuer` matches the `OAuth` line and `protected_resources` lists the `CAP` line, both exactly. The public question is still asked, so the report shows both.
+- A `202` whose `Location` is on another origin gets a tip. The check reads the message on the CAP URL either way.
+
 ## 1.0 Draft, November 11, 2026, where tokens may go
 
 Owners with their own authorization server have to add one metadata field. Owners on the reference server or `@conciergeprotocol/server` change nothing once they update.
