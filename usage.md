@@ -50,6 +50,8 @@ POST /cap/v1/messages
 
 `context` is a short brief from what your agent knows about the person. Not their profile, and not the company's API payload.
 
+To also get typed results, add `"accept": ["items"]`. A door that supports it adds `items` and `as_of` next to `reply`. The reply stays a complete answer without them. A price in `items` is what the page showed at `as_of`. It is not a hold. Checkout still uses a confirmation. The fields are in the [specification](spec.md#structured-results).
+
 If the answer is ready, the response is `200`:
 
 ```json

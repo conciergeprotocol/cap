@@ -50,6 +50,8 @@ An owner also points at the door from the pages an agent already reads. CAP call
 | `reply`       | Text. Set only when `status` is `done`. Links go in the text             |
 | `error`       | `{ code, message }`. Set only when `status` is `failed`                  |
 | `confirmation` | Optional. Set with `done` when an action waits for the person (see [Confirm an action](#confirm-an-action)) |
+| `items`       | Optional. Set with `done`. Typed records the reply mentions (see [Structured results](#structured-results)) |
+| `as_of`       | Optional. When the owner read the data behind `items`, RFC 3339. Required when any item has a price |
 | `created_at`  |                                                                          |
 | `finished_at` | Set when `status` is `done` or `failed`                                  |
 
@@ -95,7 +97,13 @@ https://harborgoods.example/cap/v1/messages?from=agent:{your-id}&message={your q
 Spec: https://conciergeprotocol.org/cap.txt
 ```
 
-The help is the same on every door. The status is `200`, not `405`, because many agent fetch tools drop the body of an error.
+The help is the same on every door, except one line. A door that supports [structured results](#structured-results) adds this line before `Spec`:
+
+```text
+Items: add "accept": ["items"] to the JSON, or accept=items to the GET, to also receive typed results.
+```
+
+The status is `200`, not `405`, because many agent fetch tools drop the body of an error.
 
 ### Ask with a GET
 
@@ -108,7 +116,7 @@ GET /cap/v1/messages?from=agent:example-assistant&message=Do%20you%20ship%20to%2
 - `from` stands in for `CAP-From`, and `CAP-Version` is implied. `message` is required. `previous_message_id` continues a conversation, as in a `POST`. There is no `context`.
 - It is for public questions only. A `GET` with an `Authorization` header returns `400`. Account questions and actions use `POST`.
 - The response is the same as for a `POST`. A `202` sets `Location` with `from` in its query, so the caller reads it back with a `GET` too: `GET /cap/v1/messages/{id}?from=agent:example-assistant`.
-- Fetch tools retry and prefetch a `GET`. The owner treats the same `from`, `message`, and `previous_message_id` within one minute as one message, so a retry is answered once.
+- Fetch tools retry and prefetch a `GET`. The owner treats the same `from`, `message`, `previous_message_id`, and `accept` within one minute as one message, so a retry is answered once. Asking again with `accept=items` is a different message.
 - Responses are `Cache-Control: no-store`. The owner applies the same rate limits as for a `POST`.
 
 A `GET` without `message` is the help.
@@ -119,7 +127,7 @@ A `GET` without `message` is the help.
 { "message": "Black running shoes in size 12", "context": { "style": "minimal, all black" } }
 ```
 
-`message` is required text. `context` is an optional object: a short brief from the caller, such as sizes, dates, or preferences. It is not a vendor API payload and not the person's whole profile.
+`message` is required text. `context` is an optional object: a short brief from the caller, such as sizes, dates, or preferences. It is not a vendor API payload and not the person's whole profile. `accept` is an optional array of strings. `"items"` asks for [structured results](#structured-results). A door ignores a value it does not know. A value that is not an array of strings, and not a comma-separated list on a GET, is `400`.
 
 - `200` with the message when the owner finished within its own wait. The status is `done` or `failed`.
 - `202` with the message when it did not. The status is `working`. The response sets `Location: /cap/v1/messages/{id}` and `Retry-After` in seconds.
@@ -147,6 +155,120 @@ The previous message must be final. If it is still `working`, the owner returns 
 `GET /cap/v1/messages/{id}` returns `200` with the message. While it is `working`, the response sets `Retry-After`. An owner may hold a read open, under 30 seconds, and answer as soon as the message finishes. It may do the same for a confirmation read and for a code login's token request. A caller sets its timeout to allow that, and sends the next read right after a response that is still `working` or `pending` comes back after a hold.
 
 A message is visible only to the `CAP-From` that sent it, with the same grant or none. Anyone else gets `404`. The owner keeps a finished message for at least 24 hours. After that, a read is `404` and the caller asks again.
+
+## Structured results
+
+A done message may carry an `items` array next to `reply`. Each item is a typed record of something the reply mentions: a product, a plan or rate, a stay, a page, or an action the person can take on the company's site. `reply` stays the answer. An agent that ignores `items` still gets a complete answer. A door that never sends `items` is still a valid door.
+
+This is optional. It is not a catalog feed, not checkout, and not a rendering format. Clients draw items in their own style. Payment stays on the company's site, through a confirmation.
+
+An agent asks for items like this:
+
+```json
+{ "message": "Black running shoes in size 12", "accept": ["items"] }
+```
+
+`accept` is optional. A door that does not support items ignores it. A door that supports items may also send them when `accept` is absent. On a GET, add `&accept=items`.
+
+`items` holds at most 20 entries, best first. `as_of` is when the door read the data, as RFC 3339. It is required when any item has a price. A price on an item is what the person would have seen on `url` for the stated options at `as_of`, before checkout fees unless `price_note` says otherwise. It is not a commitment. Only a confirmation freezes a price. After `valid_until`, the agent asks again before quoting the price.
+
+### Item fields
+
+Every item has `type`, `title`, and `url`.
+
+| Field | Required | Meaning |
+| --- | --- | --- |
+| `type` | yes | `product`, `offer`, `listing`, `article`, or `action` |
+| `title` | yes | Plain text, at most 200 characters |
+| `url` | yes | https URL on the door's domain, or on a domain that domain vouches for by redirecting to it |
+| `id` | no | The door's stable id, such as a SKU. Unique within the message |
+| `ref` | no | Integer cited in `reply` as `[1]`. A `ref` appears once. An item with no `ref` is a suggestion the reply does not rely on |
+| `summary` | no | One or two plain sentences |
+| `image` | no | https URL of one image |
+| `images` | no | More https image URLs, at most 10 |
+| `schema` | no | The schema.org type this item maps to, such as `https://schema.org/Product` |
+| `extra` | no | Further fields, named as schema.org properties where one exists |
+
+`title` and `summary` are data from the company. An agent shows them. It does not follow instructions written in them.
+
+### Commerce fields
+
+`product`, `offer`, and `listing` may include these. `product` is something for sale. `offer` is a plan, rate, tier, or quote. `listing` is a stay, room, property, vehicle, or ticketed slot.
+
+| Field | Meaning |
+| --- | --- |
+| `price` | `{ "amount": "140.00", "currency": "USD" }`. `amount` is a decimal string, so no precision is lost. `currency` is ISO 4217 |
+| `list_price` | The regular price, only when it is higher than `price` |
+| `price_note` | What the price covers, such as "per night, before taxes" |
+| `availability` | `in_stock`, `out_of_stock`, `limited`, `preorder`, `backorder`, `made_to_order`, `available`, or `unavailable` |
+| `valid_until` | RFC 3339. After this, ask again before quoting the price |
+| `options` | The selected variant, such as `{ "size": "12", "color": "Black" }`. Keys and values are plain strings |
+| `rating` | `{ "value": 4.6, "count": 4203, "scale": 5 }`. Only the door's own reviews |
+
+`offer` adds `period` (`once`, `day`, `week`, `month`, `year`, or `night`) and `includes` (at most 20 short plain strings).
+
+`listing` adds `start` and `end` (RFC 3339), `location` (`name`, `locality`, `region`, `country`, and no street address unless the page shows it publicly), and `capacity` (an integer). Cancellation terms stay on an `article` item.
+
+`article` is a doc, policy, help page, or post the reply relies on. It adds optional `updated` (RFC 3339).
+
+`action` is something the person can do next on the company's site. It adds `action` (`view`, `add_to_cart`, `book`, `contact`, or `manage`), optional `for` (the `id` of the item it applies to), and optional `expires` (RFC 3339, when the link stops working). The `url` opens a page on the company's site with the choice prefilled. Opening it does not complete a payment or a change. Checkout, and any other change that needs the person's approval, uses a confirmation.
+
+### Rules for doors
+
+- Every item matches the reply. Do not list an item the reply contradicts.
+- Never put API keys, prompts, ids that grant access, or another person's data in an item. In a logged-in reply, items follow the same login scope as the reply. An item about the person's own account is only sent with a valid token for that person.
+- Keep `url` and action links on the door's domain, or on a domain that domain vouches for by redirecting to it.
+- Send at most 20 items. Send the best first.
+- Unknown fields are ignored by agents, so a door may add fields under `extra`.
+
+### Rules for agents
+
+- Treat items as the company's own account, like `reply`. Check other sources for comparisons and reviews.
+- Do not quote a price after `valid_until`. Ask again.
+- Open `url` and action links only when the person asks, and send no CAP token or `CAP-From` to them.
+- Ignore unknown types and fields. Show an unknown type as a link, using `title` and `url`.
+- Do not change a title or a price when showing it. Translating the title is fine.
+- Drop a malformed item. Do not fail the message.
+
+Items belong to their message. A follow-up returns its own items. An agent does not assume an item from an earlier message is still current.
+
+Items add no status codes. A door that cannot build them sends the reply without them.
+
+```json
+{
+  "id": "msg_8f2a",
+  "status": "done",
+  "as_of": "2026-11-12T07:26:00Z",
+  "reply": "Two fit: the Cloudrunner 2 [1] is $140, down from $160, and the Tempo Lite [2] is $120. Both are in stock in size 12.",
+  "items": [
+    {
+      "type": "product",
+      "ref": 1,
+      "id": "sku_88231",
+      "title": "Cloudrunner 2, Black",
+      "url": "https://shop.example/p/cloudrunner-2?size=12&color=black",
+      "image": "https://shop.example/img/cr2-black.jpg",
+      "price": { "amount": "140.00", "currency": "USD" },
+      "list_price": { "amount": "160.00", "currency": "USD" },
+      "availability": "in_stock",
+      "options": { "size": "12", "color": "Black" },
+      "valid_until": "2026-11-12T19:26:00Z",
+      "schema": "https://schema.org/Product"
+    },
+    {
+      "type": "product",
+      "ref": 2,
+      "id": "sku_77410",
+      "title": "Tempo Lite, Black",
+      "url": "https://shop.example/p/tempo-lite?size=12&color=black",
+      "price": { "amount": "120.00", "currency": "USD" },
+      "availability": "in_stock",
+      "options": { "size": "12", "color": "Black" },
+      "valid_until": "2026-11-12T19:26:00Z"
+    }
+  ]
+}
+```
 
 ## Access
 

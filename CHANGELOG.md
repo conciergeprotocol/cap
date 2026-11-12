@@ -2,6 +2,16 @@
 
 Breaking changes to the draft are listed here with what an owner or a caller has to change.
 
+## 1.0 Draft, November 12, 2026, structured results
+
+Nothing breaks. A door that never sends items is still a valid door, and a caller that ignores them still gets the reply.
+
+- A done message may include `items` and `as_of`. Each item is a product, offer, listing, article, or action the reply mentions. `type`, `title`, and `url` are required. Prices are decimal strings with an ISO currency, and `as_of` is required when any item has a price.
+- An item price is what the person would have seen on the page at `as_of`. It is not a hold. Only a confirmation freezes a price. Checkout is not an item action.
+- A caller asks with `"accept": ["items"]`, or `&accept=items` on a GET. A door that supports items says so with one line in its help. A door may also send items when the caller did not ask.
+- At most 20 items. A malformed item is dropped. The reply still stands.
+- The same GET within one minute now includes `accept`, so asking again with items is a new message.
+
 ## 1.0 Draft, November 11, 2026, the check reads the login
 
 Nothing in the protocol changes.
