@@ -35,6 +35,7 @@ GET {CAP}/messages?from=agent:{your-agent-id}&message={URL-encoded question}
 Add &previous_message_id=msg_... to follow up. Read a 202 back with GET {CAP}/messages/{id}?from=agent:{your-agent-id}. A GET never carries a login.
 
 200 means the answer is ready. Use reply only when status is done.
+A door may also return items: typed records the reply mentions, each with type, title, and url. Ask by adding "accept": ["items"] to the JSON, or &accept=items on the GET. A price there is what the page showed, not a hold. Checkout stays a confirmation.
 202 means it is still working. The response sets Retry-After and Location. Wait Retry-After seconds, then:
 
 GET {CAP}/messages/{id}
