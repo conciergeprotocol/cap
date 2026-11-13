@@ -88,7 +88,7 @@ Configuration, logins, and deployment are in the [reference server README](refer
 - [Publish a door](publish.md) and [Add login to your agent](login.md)
 - [Call a door](callers.md)
 - [Benchmark](benchmark/README.md)
-- [Marlow](https://marlow.cosmic.site/), a live door, plus the [store example](examples/store) and [Next.js example](examples/next)
+- [Demos](demos.md): Marlow, SWSH, and Cosmic, plus the [store example](examples/store) and [Next.js example](examples/next)
 - [Check a door](https://conciergeprotocol.org/check)
 - [Introducing the Concierge Agent Protocol](article/introducing-the-concierge-agent-protocol.md) and the [white paper](article/white-paper.md)
 

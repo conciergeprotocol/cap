@@ -21,6 +21,12 @@ const pages = [
     description: 'Give AI agents your answer, from your own content, with a link to the product, plan, or booking page on your site. One file and two endpoints.'
   },
   { src: 'callers.md', route: '/callers', file: 'callers.html' },
+  {
+    src: 'demos.md',
+    route: '/demos',
+    file: 'demos.html',
+    description: 'Three live doors: Marlow for a stay, SWSH for a purchase, and Cosmic for a company site. The directory lists every site that passes.'
+  },
   { src: 'spec.md', route: '/spec', file: 'spec.html' },
   { src: 'usage.md', route: '/usage', file: 'usage.html' },
   { src: 'login.md', route: '/login', file: 'login.html' },
@@ -597,7 +603,8 @@ const navGroups = [
       { route: '/publish', label: 'Publish a door', hint: 'Make a website agent-ready' },
       { route: '/callers', label: 'Call a door', hint: 'Client library and MCP server' },
       { route: '/check', label: 'Check a site', hint: 'See whether a domain passes' },
-      { route: '/directory', label: 'Directory', hint: 'Sites with a passing front door' }
+      { route: '/directory', label: 'Directory', hint: 'Sites with a passing front door' },
+      { route: '/demos', label: 'Demos', hint: 'A rental, a store, and a company site' }
     ]
   },
   {

@@ -14,7 +14,7 @@ The same shopping question, read from the site and asked through CAP. [See the b
 
 <figure class="bench-replay" data-replay></figure>
 
-[Marlow](https://marlow.cosmic.site/) is a live vacation-rental door: a public catalog, and a guest login for one person's stay. The source is on [GitHub](https://github.com/cosmic-community/marlow). [Check this door](https://conciergeprotocol.org/check?domain=marlow.cosmic.site). CAP does not require Cosmic, or any other vendor.
+Three live doors are on the [demos](/demos) page: a vacation rental, a store, and a company site. CAP does not require Cosmic, or any other vendor.
 
 The stewardship is temporary. When three organizations independent of Cosmic serve CAP in production, or when version 1.0 is final, the specification, the reference code, and the trademarks move to a neutral foundation. [Read the commitment](/governance#foundation).
 
@@ -37,6 +37,7 @@ You publish one text file, `agent.txt`. A visiting agent reads it, sends a messa
 <a href="/callers"><span>AI agents</span><strong>Call a door</strong><p>Ask a company's agent directly, with the client library or the MCP server.</p></a>
 <a href="/check"><span>Verify</span><strong>Check a site</strong><p>Read its agent.txt, ask one public question, and see what passed.</p></a>
 <a href="/directory"><span>Live doors</span><strong>Directory</strong><p>Sites whose front door passes the check.</p></a>
+<a href="/demos"><span>Try one</span><strong>Demos</strong><p>A rental, a store, and a company site, each with a working door.</p></a>
 <a href="/spec"><span>Contract</span><strong>Specification</strong><p>Messages, access, and the rules a door and a caller both follow.</p></a>
 <a href="/benchmark"><span>Proof</span><strong>Benchmark</strong><p>The same shopping question, through CAP, fetching, and browsing.</p></a>
 <a href="/login"><span>Accounts</span><strong>Add login</strong><p>A person's agent can ask about their account and make the changes they approve.</p></a>
