@@ -25,6 +25,7 @@ const sources = [
   { src: 'home.md', route: '/' },
   { src: 'publish.md', route: '/publish', description: 'Give AI agents your answer, from your own content, with a link to the product, plan, or booking page on your site. One file and two endpoints.' },
   { src: 'callers.md', route: '/callers' },
+  { src: 'demos.md', route: '/demos', description: 'Three live doors: Marlow for a stay, SWSH for a purchase, and Cosmic for a company site. The directory lists every site that passes.' },
   { src: 'spec.md', route: '/spec' },
   { src: 'usage.md', route: '/usage' },
   { src: 'login.md', route: '/login' },
