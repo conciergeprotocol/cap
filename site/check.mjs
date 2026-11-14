@@ -113,6 +113,7 @@ export async function checkDoor(input, deps = {}) {
   if (!asking) {
     checks.push({ id: 'card', title: 'agent.txt', pass: true, detail: card.detail })
     await addLogin(checks, card, resolve, request, deadline)
+    await addPoppy(checks, host.hostname, addresses.addresses, card, request, deadline)
     return finish({ passed: checks.every((check) => check.pass), checks })
   }
   const tips = []
@@ -124,6 +125,7 @@ export async function checkDoor(input, deps = {}) {
   if (tips.length) cardCheck.tips = tips
   checks.push(cardCheck)
   await addLogin(checks, card, resolve, request, deadline)
+  await addPoppy(checks, host.hostname, addresses.addresses, card, request, deadline)
   if (deps.mayAsk && !(await deps.mayAsk(card.cap))) {
     const detail = `${card.cap} answered a check in the last 10 minutes, so it was not asked again.`
     return stop({ id: 'reply', title: 'A public reply', pass: false, skipped: true, detail }, { skipped: true, throttled: true })
@@ -146,6 +148,85 @@ export async function checkDoor(input, deps = {}) {
   if (!privacy.ok) return stop({ id: 'private', title: 'Private to the caller', pass: false, detail: privacy.detail })
   checks.push({ id: 'private', title: 'Private to the caller', pass: true, detail: privacy.detail })
   return finish({ passed: checks.every((check) => check.pass), checks })
+}
+
+// A published poppy.json is optional. A file that is not one is ignored, so a
+// site that returns its homepage for every path still passes. A file that lists
+// this door has to point at the CAP line and name the host that serves it.
+const CAP_POPPY_TYPE = 'conciergeprotocol.org/cap'
+
+async function addPoppy(checks, hostname, addresses, card, request, deadline) {
+  const found = await readPoppy(hostname, addresses, card, request, deadline)
+  if (found) checks.push(found)
+}
+
+async function readPoppy(hostname, addresses, card, request, deadline) {
+  const title = 'poppy.json'
+  let res
+  try {
+    res = await request({
+      url: `https://${hostname}/.well-known/poppy.json`,
+      method: 'GET',
+      addresses,
+      timeoutMs: Math.min(8_000, Math.max(1, left(deadline))),
+      maxBytes: CARD_MAX,
+      truncate: true,
+    })
+  } catch {
+    return null
+  }
+  if (!res?.ok || res.status !== 200 || res.truncated) return null
+  let doc
+  try {
+    doc = JSON.parse(res.body || '')
+  } catch {
+    return null
+  }
+  const protocols = doc?.agent?.protocols
+  if (typeof doc?.protocol_version !== 'string' || !Array.isArray(protocols)) return null
+  const listed = protocols.filter((entry) => entry && (entry.type === CAP_POPPY_TYPE || entry.type === 'cap'))
+  if (!listed.length) return null
+  if (listed[0].type !== CAP_POPPY_TYPE) {
+    return {
+      id: 'poppy',
+      title,
+      pass: false,
+      detail: `poppy.json lists type "cap". Use "${CAP_POPPY_TYPE}", the extension name, so a personal agent can tell it is this door.`,
+    }
+  }
+  const endpoint = typeof listed[0].endpoint === 'string' ? listed[0].endpoint : ''
+  if (endpoint !== card.capRaw) {
+    const slash = endpoint.replace(/\/$/, '') === String(card.capRaw).replace(/\/$/, '')
+    const hint = slash
+      ? ` It differs only by a trailing slash. The CAP line is ${card.capRaw}.`
+      : ` The CAP line is ${card.capRaw}.`
+    return {
+      id: 'poppy',
+      title,
+      pass: false,
+      detail: `poppy.json points personal agents at ${endpoint || 'no endpoint'}.${hint}`,
+    }
+  }
+  const domain = typeof doc.organization?.domain === 'string' ? doc.organization.domain : ''
+  if (domain.toLowerCase() !== hostname.toLowerCase()) {
+    return {
+      id: 'poppy',
+      title,
+      pass: false,
+      detail: `poppy.json says the company is ${domain || 'missing a domain'}. It must be ${hostname}, the host that serves the file.`,
+    }
+  }
+  const versions = doc.extensions?.[CAP_POPPY_TYPE]
+  const declared = Array.isArray(versions) && versions.some((entry) => entry && String(entry.version) === '1')
+  if (!declared) {
+    return {
+      id: 'poppy',
+      title,
+      pass: false,
+      detail: `Add "${CAP_POPPY_TYPE}": [{ "version": "1" }] to extensions in poppy.json.`,
+    }
+  }
+  return { id: 'poppy', title, pass: true, detail: 'poppy.json lists this CAP URL for personal agents.' }
 }
 
 // A failed login still lets the public checks run, so the report shows both.

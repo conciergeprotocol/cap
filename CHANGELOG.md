@@ -2,6 +2,14 @@
 
 Breaking changes to the draft are listed here with what an owner or a caller has to change.
 
+## 1.0 Draft, November 14, 2026, listed in Poppy
+
+Nothing breaks. This adds a way to be found and changes nothing on the wire.
+
+- CAP is a Personal Agent Protocol extension named `conciergeprotocol.org/cap`, version `1`. A company lists it in `extensions` in its `poppy.json`, and its door in `agent.protocols` with that name as the `type` and the CAP URL as the endpoint. Personal agents that do not know CAP skip the entry. The door still publishes `agent.txt`.
+- A company can log people in for both from one authorization server. A personal agent uses the redirect login with its Poppy client metadata document as `client_id`, adding `cap_from`. CAP's scopes and confirmations still apply on the door.
+- The door check reads `/.well-known/poppy.json` when the site publishes one that lists this door. It fails when the endpoint is not the CAP line, the domain is not the host that serves the file, or the extension is missing. A site with no such file is unchanged.
+
 ## 1.0 Draft, November 12, 2026, structured results
 
 Nothing breaks. A door that never sends items is still a valid door, and a caller that ignores them still gets the reply.

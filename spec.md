@@ -501,10 +501,43 @@ These are request errors. A message that was accepted and could not be answered 
 | ----------------- | -------- | ---------------------------------------------------------------------- |
 | Tools and data    | MCP      | An agent reaching its own tools, inside one boundary                   |
 | Agent integration | A2A      | Agents that integrate with each other: agent cards, tasks, streaming   |
-| Personal agents   | Personal Agent Protocol | A personal agent working with a company: sessions, sign-in, APIs, web, and the company agent |
+| Company directory | Personal Agent Protocol | What a company offers personal agents: sign-in, sessions, APIs, website, and which agents to talk to |
 | Front door        | CAP      | Any agent asking a company's agent, public or logged in, from a text file and two endpoints |
 
 CAP is the smallest of these on purpose: one file, one object, two endpoints, and common HTTP. It covers the public question and the account question. A public question needs nothing. An account question adds one OAuth token the person granted. There is no session to open and no browser to drive. An owner can serve CAP next to any of the others from the same agent. Each keeps its own discovery file (`/.well-known/agent-card.json` for A2A, `/.well-known/poppy.json` for Personal Agent Protocol), and `agent.txt` does not list them.
+
+### Personal Agent Protocol
+
+The Personal Agent Protocol (Poppy) and CAP do different jobs. `poppy.json` is a company's directory for personal agents: who the company is, where to sign in, which APIs and pages an agent may use, and which agents it can talk to. CAP is one of those agents: the one standing at the front door. A company can publish both, and its `poppy.json` can point to its CAP door.
+
+Poppy lists the company's agents in `agent.protocols`, each with a `type`, an `endpoint`, and a `description`. A personal agent picks a type it supports and skips the rest (Poppy 1.0, §8.1). Poppy reserves plain names for its own extensions, so CAP is a Poppy extension named `conciergeprotocol.org/cap`, version `1`. A company lists the extension in `extensions` and the door in `agent.protocols`, with that name as the `type` and the CAP URL as the endpoint:
+
+```json
+{
+  "protocol_version": "1.0",
+  "organization": { "name": "Harbor Goods", "domain": "harborgoods.example" },
+  "agent": {
+    "protocols": [
+      {
+        "type": "conciergeprotocol.org/cap",
+        "endpoint": "https://harborgoods.example/cap/v1",
+        "description": "Products, policies, orders, and returns"
+      }
+    ]
+  },
+  "extensions": {
+    "conciergeprotocol.org/cap": [{ "version": "1" }]
+  }
+}
+```
+
+The endpoint is the `CAP` line exactly, and the door still publishes `agent.txt`. Requests to it follow this specification, not Poppy's conversation format, and carry no `Poppy-Extensions` header. A personal agent that knows CAP reads `agent.txt` from the same domain for the `OAuth` line, then asks as in [Operations](#operations). One that does not know CAP skips the entry, so listing it costs nothing. A company that also serves Poppy's own conversations lists both entries, and the personal agent chooses.
+
+The two cover different callers. A personal agent that looks for `poppy.json` first finds the door there. Any other agent, such as a coding assistant or a browser agent, finds it from `agent.txt`. Neither has to know the other protocol exists.
+
+**Account questions.** A company can log people in for both from one authorization server. The `OAuth` line in `agent.txt` names the same issuer Poppy uses, and that issuer's `protected_resources` lists the CAP URL, as [Discovery](#discovery) requires. A personal agent signs in with the redirect login, using its Poppy client metadata document as its `client_id` with `cap_from` added. The token is bound to that `CAP-From`, as for any other caller. CAP's `read` and `write` scopes, and its [confirmations](#confirm-an-action), apply on the CAP door whatever Poppy scopes the same person granted elsewhere.
+
+### A2A
 
 An owner can serve both A2A and CAP from the same agent. A CAP message maps onto an A2A task:
 

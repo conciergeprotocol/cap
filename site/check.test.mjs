@@ -461,3 +461,60 @@ test('a private address is not fetched', async () => {
   assert.equal(called, false)
   assert.match(result.checks[0].detail, /private address/)
 })
+
+function poppyDoor(poppy) {
+  return checkDoor('example.com', {
+    resolve: async () => ({ ok: true, addresses: ['8.8.8.8'] }),
+    ask: false,
+    request: async (options) => {
+      if (options.url.endsWith('/agent.txt')) {
+        return { ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'Protocol: CAP/1.0\nCAP: https://example.com/cap/v1\n' }
+      }
+      if (options.url === 'https://example.com/.well-known/poppy.json') return poppy
+      return { ok: true, status: 404, headers: {}, body: '' }
+    },
+  })
+}
+
+function poppyFile(doc) {
+  return { ok: true, status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify(doc) }
+}
+
+const POPPY = {
+  protocol_version: '1.0',
+  organization: { name: 'Example', domain: 'example.com' },
+  agent: {
+    protocols: [{ type: 'conciergeprotocol.org/cap', endpoint: 'https://example.com/cap/v1', description: 'Questions' }],
+  },
+  extensions: { 'conciergeprotocol.org/cap': [{ version: '1' }] },
+}
+
+test('a poppy.json that lists this door passes', async () => {
+  const result = await poppyDoor(poppyFile(POPPY))
+  assert.equal(result.passed, true)
+  assert.equal(result.checks.find((check) => check.id === 'poppy').pass, true)
+})
+
+test('a poppy.json is ignored when it is not one, or lists no CAP door', async () => {
+  const html = await poppyDoor({ ok: true, status: 200, headers: { 'content-type': 'text/html' }, body: '<html></html>' })
+  assert.equal(html.passed, true)
+  assert.equal(html.checks.some((check) => check.id === 'poppy'), false)
+
+  const ucp = structuredClone(POPPY)
+  ucp.agent.protocols = [{ type: 'ucp', endpoint: 'https://example.com/.well-known/ucp', description: 'Shopping' }]
+  const commerce = await poppyDoor(poppyFile(ucp))
+  assert.equal(commerce.checks.some((check) => check.id === 'poppy'), false)
+})
+
+test('a poppy.json that points somewhere else fails', async () => {
+  const wrong = structuredClone(POPPY)
+  wrong.agent.protocols[0].endpoint = 'https://example.com/cap/v2'
+  const result = await poppyDoor(poppyFile(wrong))
+  assert.equal(result.passed, false)
+  assert.match(result.checks.find((check) => check.id === 'poppy').detail, /cap\/v2/)
+
+  const bare = structuredClone(POPPY)
+  bare.agent.protocols[0].type = 'cap'
+  const named = await poppyDoor(poppyFile(bare))
+  assert.match(named.checks.find((check) => check.id === 'poppy').detail, /conciergeprotocol\.org\/cap/)
+})
