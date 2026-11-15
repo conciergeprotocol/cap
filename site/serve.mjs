@@ -5,11 +5,17 @@ import { fileURLToPath } from 'node:url'
 import checkHandler from '../api/check.js'
 import doorHandler from '../api/door.js'
 import doorsHandler from '../api/doors.js'
+import readinessHandler from '../api/readiness.js'
+import readinessOgHandler from '../api/readiness-og.js'
+import readinessShareHandler from '../api/readiness-share.js'
 
 const api = new Map([
   ['/api/check', checkHandler],
   ['/api/door', doorHandler],
-  ['/api/doors', doorsHandler]
+  ['/api/doors', doorsHandler],
+  ['/api/readiness', readinessHandler],
+  ['/api/readiness-og', readinessOgHandler],
+  ['/api/readiness-share', readinessShareHandler]
 ])
 
 const root = fileURLToPath(new URL('dist/', import.meta.url))
@@ -86,6 +92,17 @@ const server = createServer(async (req, res) => {
   const exact = path === '/' ? join(root, 'index.html') : file
   const html = path === '/' ? exact : `${file}.html`
   const target = (await exists(exact)) ? exact : (await exists(html)) ? html : ''
+  if (!target && path.startsWith('/readiness/')) {
+    const rest = decodeURIComponent(path.slice('/readiness/'.length))
+    if (rest.startsWith('og/')) {
+      req.url = `/api/readiness-og?domain=${encodeURIComponent(rest.slice(3))}`
+      await runApi(readinessOgHandler, req, res)
+      return
+    }
+    req.url = `/api/readiness-share?domain=${encodeURIComponent(rest)}`
+    await runApi(readinessShareHandler, req, res)
+    return
+  }
   if (!target) {
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' })
     res.end('Not found')

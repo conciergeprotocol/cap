@@ -742,7 +742,7 @@ function capHeaders(from) {
   return { 'content-type': 'application/json', accept: 'application/json', 'cap-version': '1.0', 'cap-from': from, 'user-agent': 'CAP-Check' }
 }
 
-function pinnedRequest({ url, method, headers = {}, body, addresses, timeoutMs, maxBytes, truncate }) {
+export function pinnedRequest({ url, method, headers = {}, body, addresses, timeoutMs, maxBytes, truncate, binary }) {
   if (!addresses?.length || timeoutMs <= 0) return Promise.resolve(fail('The host did not respond in time.'))
   const address = addresses.find((ip) => isIP(ip) === 4) || addresses[0]
   const family = isIP(address)
@@ -777,7 +777,7 @@ function pinnedRequest({ url, method, headers = {}, body, addresses, timeoutMs, 
               ok: true,
               status: res.statusCode,
               headers: res.headers,
-              body: Buffer.concat(chunks).toString('utf8'),
+              body: responseBody(chunks, binary),
               truncated: true,
             })
             return
@@ -792,7 +792,7 @@ function pinnedRequest({ url, method, headers = {}, body, addresses, timeoutMs, 
         ok: true,
         status: res.statusCode,
         headers: res.headers,
-        body: Buffer.concat(chunks).toString('utf8'),
+        body: responseBody(chunks, binary),
       }))
       res.on('error', () => finish(fail('The host did not respond in time.')))
     })
@@ -801,6 +801,11 @@ function pinnedRequest({ url, method, headers = {}, body, addresses, timeoutMs, 
     if (body) req.write(body)
     req.end()
   })
+}
+
+function responseBody(chunks, binary) {
+  const buf = Buffer.concat(chunks)
+  return binary ? buf : buf.toString('utf8')
 }
 
 function left(deadline) {

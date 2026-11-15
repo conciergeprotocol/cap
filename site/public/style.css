@@ -2267,3 +2267,85 @@ footer a {
   color: var(--muted);
   opacity: 0.6;
 }
+
+.readiness-hero {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin: 24px 0 8px;
+}
+
+.readiness-dial {
+  width: 120px;
+  height: 120px;
+  flex: none;
+}
+
+.readiness-number {
+  margin: 0;
+  font-size: 56px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.readiness-caption,
+.readiness-host {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.readiness-host {
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.readiness-fix {
+  color: var(--muted);
+}
+
+.check-results li[data-status='pass'] .check-state {
+  color: #15803d;
+}
+
+:root.dark .check-results li[data-status='pass'] .check-state {
+  color: #86efac;
+}
+
+.check-results li[data-status='fail'] .check-state {
+  color: #b91c1c;
+}
+
+:root.dark .check-results li[data-status='fail'] .check-state {
+  color: #fca5a5;
+}
+
+.check-results li[data-status='partial'] .check-state,
+.check-results li[data-status='blocked'] .check-state {
+  color: #a16207;
+}
+
+:root.dark .check-results li[data-status='partial'] .check-state,
+:root.dark .check-results li[data-status='blocked'] .check-state {
+  color: #fde047;
+}
+
+.readiness-copy {
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--fg);
+  color: var(--bg);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.readiness-next {
+  margin-top: 36px;
+}
+
+.readiness-share {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 20px 80px;
+}
