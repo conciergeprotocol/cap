@@ -174,6 +174,34 @@ test('a site that is not a store skips catalog, schema, and policies', async () 
   assert.equal(result.score, WEIGHTS.llms + WEIGHTS.robots)
 })
 
+test('a SaaS site with /products/ feature pages is not a store', async () => {
+  const pricing = '<html><head><script type="application/ld+json">{"@type":"SoftwareApplication","name":"Observability","offers":{"@type":"Offer","price":"0","availability":"https://schema.org/InStock"}}</script></head><body><p>Observability</p></body></html>'
+  const result = await score({
+    '/': { body: '<html><body><a href="/products/observability">Observability</a><a href="/products/previews">Previews</a></body></html>', headers: { 'content-type': 'text/html' } },
+    '/sitemap.xml': { body: '<urlset><url><loc>https://example.com/products/observability</loc></url><url><loc>https://example.com/products/previews</loc></url></urlset>', headers: { 'content-type': 'application/xml' } },
+    '/products/observability': { body: pricing, headers: { 'content-type': 'text/html' } },
+    '/products/previews': { body: pricing, headers: { 'content-type': 'text/html' } },
+    '/policies/refund-policy': { body: policy('Not found'), headers: { 'content-type': 'text/html' } },
+    '/policies/shipping-policy': { body: policy('Not found'), headers: { 'content-type': 'text/html' } },
+    '/robots.txt': { body: 'User-agent: *\nAllow: /\n' },
+  })
+  assert.equal(byId(result, 'catalog').status, 'na')
+  assert.equal(byId(result, 'jsonld').status, 'na')
+  assert.equal(byId(result, 'policies').status, 'na')
+  assert.equal(result.applicableMax, WEIGHTS.door + WEIGHTS.llms + WEIGHTS.robots)
+})
+
+test('a software page that also has Product schema is still a store', async () => {
+  const result = await score({
+    '/': { body: '<html><body><a href="/products/hat">Hat</a></body></html>', headers: { 'content-type': 'text/html' } },
+    '/products/hat': { body: productPage.replace('<head>', '<head><script type="application/ld+json">{"@type":"Service","name":"Gift wrap"}</script>'), headers: { 'content-type': 'text/html' } },
+    '/robots.txt': { body: 'User-agent: *\nAllow: /\n' },
+  })
+  assert.equal(byId(result, 'jsonld').points, 10)
+  assert.notEqual(byId(result, 'catalog').status, 'na')
+  assert.equal(result.applicableMax, 100)
+})
+
 test('a valid door is worth 35', async () => {
   const result = await score({
     '/': { body: '<html><body><p>Docs</p></body></html>', headers: { 'content-type': 'text/html' } },
