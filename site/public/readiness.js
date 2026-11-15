@@ -67,7 +67,7 @@
     var caption = document.createElement('p')
     caption.className = 'readiness-caption'
     if (result.blocked) caption.textContent = result.checkedMax ? 'Blocked, ' + result.score + ' of ' + result.checkedMax + ' checked' : 'Blocked before any check could finish'
-    else if (result.applicableMax < 100) caption.textContent = 'of ' + result.applicableMax + ', because this is not a store'
+    else if (result.applicableMax < 100) caption.textContent = 'of ' + result.applicableMax + ', because this site does not sell products'
     else caption.textContent = 'of 100'
     var host = document.createElement('p')
     host.className = 'readiness-host'

@@ -17,7 +17,7 @@ const GAP_MS = 1000
 const POLICY_TEXT = 400
 
 const DOOR_FIX = 'Publish /agent.txt at the site root. The first line is "Protocol: CAP/1.0", then a CAP line with the https endpoint. The endpoint has to answer a public question.'
-const LLMS_FIX = 'Publish /llms.txt as plain text that tells an agent what this site sells and where to find products, shipping, and returns.'
+const LLMS_FIX = 'Publish /llms.txt as plain text that tells an agent what this site offers and where to find the pages that matter, such as products, pricing, docs, or policies.'
 const CATALOG_FIX = 'Publish /products.json with a price and availability (in stock or out of stock) on each variant.'
 const SCHEMA_FIX = 'Add schema.org Product JSON-LD on product pages, with an Offer that includes price and availability.'
 const ROBOTS_FIX = 'In robots.txt, allow GPTBot, ClaudeBot, PerplexityBot, and Google-Extended to fetch /.'
@@ -68,9 +68,15 @@ export async function scoreSite(input, deps = {}) {
   const catalog = await checkCatalog(ctx, home)
   const robots = await checkRobots(ctx, home)
   const store = isStore(home, catalog)
-  const jsonld = store.yes
-    ? await checkJsonld(ctx, catalog, home)
-    : notApplicable('jsonld', 'Product schema', WEIGHTS.jsonld, 'This site does not look like a store, so product schema does not apply.')
+  let jsonld = null
+  if (store.yes || store.maybe) {
+    const schema = await checkJsonld(ctx, catalog, home)
+    jsonld = schema.check
+    if (store.maybe) store.yes = schema.product || !schema.software
+  }
+  if (!store.yes) {
+    jsonld = notApplicable('jsonld', 'Product schema', WEIGHTS.jsonld, 'This site does not look like a store, so product schema does not apply.')
+  }
   const policies = store.yes
     ? await checkPolicies(ctx, home, llmsBody)
     : notApplicable('policies', 'Return and shipping policies', WEIGHTS.policies, 'This site does not look like a store, so return and shipping pages do not apply.')
@@ -412,22 +418,27 @@ async function checkJsonld(ctx, catalog, home) {
   const candidates = [...new Set([catalog.feed?.url, ...productLinks(home), catalog.sitemap?.sample].filter(Boolean))].slice(0, 3)
   const base = { id: 'jsonld', title: 'Product schema', max: WEIGHTS.jsonld, evidence: candidates.slice(0, 1) }
   if (!candidates.length) {
-    return { ...base, status: 'fail', points: 0, detail: 'No product page URL to inspect.', fix: SCHEMA_FIX }
+    return { check: { ...base, status: 'fail', points: 0, detail: 'No product page URL to inspect.', fix: SCHEMA_FIX }, product: false, software: false }
   }
   let last = null
+  let product = false
+  let software = false
   for (const productUrl of candidates) {
     const res = await fetchText(ctx, productUrl, 2_500_000)
     const card = { ...base, evidence: [productUrl] }
-    if (res.blocked) return { ...card, ...blockedFields(res) }
+    if (res.blocked) return { check: { ...card, ...blockedFields(res) }, product, software }
     if (res.status !== 200 || !res.text) {
       last = { ...card, status: 'fail', points: 0, detail: missDetail(res, 'the product page'), fix: SCHEMA_FIX }
       continue
     }
-    const scored = schemaCard(card, productSchema(res.text))
-    if (scored.points) return scored
+    const found = productSchema(res.text)
+    product ||= found.product
+    software ||= SOFTWARE_TYPE.test(res.text)
+    const scored = schemaCard(card, found)
+    if (scored.points) return { check: scored, product, software }
     last = scored
   }
-  return last
+  return { check: last, product, software }
 }
 
 function schemaCard(base, found) {
@@ -525,15 +536,21 @@ function choosePolicy(links, hostname, kind) {
   })
 }
 
+// A product URL pattern alone is weak: SaaS sites use /products/ for feature pages.
+// It counts unless the sampled page declares software or a service and no Product.
+const SITEMAP_CATALOG = 10
+const SOFTWARE_TYPE = /"@type"\s*:\s*\[?\s*"(?:https?:\/\/schema\.org\/)?(?:SoftwareApplication|WebApplication|MobileApplication|Service)"/
+
 function isStore(home, catalog) {
   if (catalog.check?.status === 'blocked') return { yes: true }
   if (catalog.feed?.count) return { yes: true }
-  if (catalog.sitemap?.products > 0) return { yes: true }
+  if (catalog.sitemap?.products >= SITEMAP_CATALOG) return { yes: true }
   const html = home.text || ''
   if (/cdn\.shopify\.com|Shopify\.theme|myshopify\.com/.test(html)) return { yes: true }
-  if (/href\s*=\s*["'][^"']*\/(?:products|collections)\//i.test(html)) return { yes: true }
   if (/"@type"\s*:\s*"Product/.test(html)) return { yes: true }
   if (/add to cart|add to bag/i.test(html)) return { yes: true }
+  if (catalog.sitemap?.products > 0) return { yes: false, maybe: true }
+  if (/href\s*=\s*["'][^"']*\/(?:products|collections)\//i.test(html)) return { yes: false, maybe: true }
   return { yes: false }
 }
 
