@@ -18,6 +18,11 @@ const readinessType = {
   ],
 }
 
+/** One record per site: www.example.com and example.com share a score. */
+export function siteKey(domain) {
+  return String(domain || '').toLowerCase().replace(/\.$/, '').replace(/^www\./, '')
+}
+
 export function monthOf(date = new Date()) {
   return date.toISOString().slice(0, 7)
 }
@@ -34,7 +39,7 @@ export function withRun(previous, result) {
     checks: result.checks.map(({ id, title, status, points, max }) => ({ id, title, status, points, max })),
   }
   const history = [...(previous?.history || []).filter((run) => run.month !== month), slim].slice(-24)
-  return { domain: result.domain, latest: result, history }
+  return { domain: siteKey(result.domain), latest: result, history }
 }
 
 export function fresh(record, now = Date.now()) {
@@ -60,13 +65,14 @@ export function memoryStore() {
   const copy = (value) => (value == null ? null : structuredClone(value))
   return {
     async get(domain) {
-      return copy(records.get(domain))
+      return copy(records.get(siteKey(domain)))
     },
     async many(domains) {
-      return domains.map((domain) => records.get(domain)).filter(Boolean).map(copy)
+      return [...new Set(domains.map(siteKey))].map((key) => records.get(key)).filter(Boolean).map(copy)
     },
     async put(record) {
-      records.set(record.domain, copy(record))
+      const key = siteKey(record.domain)
+      records.set(key, copy({ ...record, domain: key }))
     },
   }
 }
@@ -94,26 +100,37 @@ function cosmicStore(cosmic) {
     }
     return ready
   }
-  const toRecord = (object) => {
-    const record = object?.metadata?.record
-    if (!record?.domain) return null
-    ids.set(record.domain, object.id)
-    return record
+  // Records saved before siteKey may sit under www. A bare record wins when both exist.
+  const toRecords = (objects) => {
+    const found = new Map()
+    for (const object of objects || []) {
+      const record = object?.metadata?.record
+      if (!record?.domain) continue
+      const key = siteKey(record.domain)
+      if (found.has(key) && record.domain !== key) continue
+      found.set(key, { ...record, domain: key })
+      ids.set(key, object.id)
+    }
+    return [...found.values()]
   }
+  const variants = (keys) => keys.flatMap((key) => [key, `www.${key}`])
   return {
     async get(domain) {
       await ensure()
-      const data = await orNull(() => cosmic.objects.find({ type: READINESS_TYPE, 'metadata.domain': domain }).props('id,metadata').limit(1))
-      return (data?.objects || []).map(toRecord).find(Boolean) || null
+      const key = siteKey(domain)
+      const data = await orNull(() => cosmic.objects.find({ type: READINESS_TYPE, 'metadata.domain': { $in: variants([key]) } }).props('id,metadata').limit(2))
+      return toRecords(data?.objects)[0] || null
     },
     async many(domains) {
-      if (!domains.length) return []
+      const keys = [...new Set(domains.map(siteKey))]
+      if (!keys.length) return []
       await ensure()
-      const data = await orNull(() => cosmic.objects.find({ type: READINESS_TYPE, 'metadata.domain': { $in: domains } }).props('id,metadata').limit(domains.length))
-      return (data?.objects || []).map(toRecord).filter(Boolean)
+      const data = await orNull(() => cosmic.objects.find({ type: READINESS_TYPE, 'metadata.domain': { $in: variants(keys) } }).props('id,metadata').limit(keys.length * 2))
+      return toRecords(data?.objects)
     },
-    async put(record) {
+    async put(input) {
       await ensure()
+      const record = { ...input, domain: siteKey(input.domain) }
       const metadata = {
         domain: record.domain,
         score: record.latest?.score ?? '',

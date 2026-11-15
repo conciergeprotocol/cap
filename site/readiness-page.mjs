@@ -23,10 +23,11 @@ export function readinessPageBody() {
 <tr><td><code>llms.txt</code> is present (6). A page written for this site earns the other 4. The stock Agent Instructions template stays at 6.</td><td>10</td></tr>
 <tr><td>Structured catalog. <code>products.json</code> with price and availability earns 20. Price without availability earns 14. A sitemap of product URLs, with no price or stock, earns 8.</td><td>20</td></tr>
 <tr><td>robots.txt allows GPTBot (4), ClaudeBot (4), PerplexityBot (4), and Google-Extended (3). If robots.txt allows them but a firewall blocks this checker, the check fails.</td><td>15</td></tr>
-<tr><td>Product JSON-LD: a Product (4), a price (3), and availability (3)</td><td>10</td></tr>
-<tr><td>A return policy page (5) and a shipping policy page (5) that resolve and contain real text</td><td>10</td></tr>
+<tr><td>Product JSON-LD: a Product (4), a price (3), and availability (3). A rental can use VacationRental, Accommodation, or LodgingBusiness instead of Product.</td><td>10</td></tr>
+<tr><td>A return policy page (5) and a shipping policy page (5) that resolve and contain real text. A rental is asked for a cancellation policy and house rules instead. Links are read from the home page and <code>llms.txt</code>, then from a linked help center.</td><td>10</td></tr>
 </tbody>
 </table>
+<p>A domain that redirects to another domain, such as a brand domain that forwards to its store, is scored on the domain it lands on. <code>www.example.com</code> and <code>example.com</code> share one result.</p>
 <p>The checker identifies itself as <code>CAP-Readiness/1.0 (+https://conciergeprotocol.org/readiness)</code> and sends about one request a second. The door question uses the same identity as the <a href="/check">door check</a>.</p>
 <p>A response of 401, 403, or 429, or a challenge page, marks a check blocked. Blocked points are left out of the score, so the result reads, for example, 40 of 55 checked. A site that does not sell products skips the catalog, schema, and policy checks.</p>
 <h3>API</h3>
@@ -40,7 +41,7 @@ export function readinessMarkdown() {
 
 Score a domain at https://conciergeprotocol.org/readiness. Every site is checked for a CAP door, llms.txt, and crawler access. A site that sells products is also checked for a catalog with price and stock, product schema, and return and shipping pages. A result is cached for 24 hours.
 
-Methodology v1 weights: CAP door 35, llms.txt 10, structured catalog 20, AI crawlers 15, product schema 10, return and shipping policies 10. A blocked check is left out of the score. Sites that do not sell products skip the catalog, schema, and policy checks.
+Methodology v1 weights: CAP door 35, llms.txt 10, structured catalog 20, AI crawlers 15, product schema 10, return and shipping policies 10. A rental is checked for listing schema and for a cancellation policy and house rules. A blocked check is left out of the score. Sites that do not sell products or rent stays skip the catalog, schema, and policy checks. A domain that redirects to another domain is scored on the one it lands on, and www shares the bare domain's result.
 
 API: POST https://conciergeprotocol.org/api/readiness with {"domain": "example.com"}. GET https://conciergeprotocol.org/api/readiness?domains=a.com,b.com returns stored results with monthly history.
 
