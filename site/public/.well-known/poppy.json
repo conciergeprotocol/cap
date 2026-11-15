@@ -1,0 +1,19 @@
+{
+  "protocol_version": "1.0",
+  "organization": {
+    "name": "Concierge Agent Protocol",
+    "domain": "conciergeprotocol.org"
+  },
+  "agent": {
+    "protocols": [
+      {
+        "type": "conciergeprotocol.org/cap",
+        "endpoint": "https://conciergeprotocol.org/cap/v1",
+        "description": "Answers questions about the Concierge Agent Protocol"
+      }
+    ]
+  },
+  "extensions": {
+    "conciergeprotocol.org/cap": [{ "version": "1" }]
+  }
+}
