@@ -17,7 +17,7 @@ const GAP_MS = 1000
 const POLICY_TEXT = 400
 
 const DOOR_FIX = 'Publish /agent.txt at the site root. The first line is "Protocol: CAP/1.0", then a CAP line with the https endpoint. The endpoint has to answer a public question.'
-const LLMS_FIX = 'Publish /llms.txt as plain text that tells an agent what this site sells and where to find products, shipping, and returns.'
+const LLMS_FIX = 'Publish /llms.txt as plain text that tells an agent what this site offers and where to find the pages that matter, such as products, pricing, docs, or policies.'
 const CATALOG_FIX = 'Publish /products.json with a price and availability (in stock or out of stock) on each variant.'
 const SCHEMA_FIX = 'Add schema.org Product JSON-LD on product pages, with an Offer that includes price and availability.'
 const ROBOTS_FIX = 'In robots.txt, allow GPTBot, ClaudeBot, PerplexityBot, and Google-Extended to fetch /.'

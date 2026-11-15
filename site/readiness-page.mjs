@@ -1,9 +1,9 @@
 export function readinessPageBody() {
   return `<h1>Agent readiness</h1>
-<p>Score how ready a store is for an AI shopping agent. The check looks for a <a href="/spec#front-door">CAP door</a>, <code>llms.txt</code>, a catalog with price and stock, crawler access, product schema, and return and shipping pages. Results are cached for 24 hours.</p>
+<p>Score how ready a website is for AI agents. Every site is checked for a <a href="/spec#front-door">CAP door</a>, <code>llms.txt</code>, and crawler access. A site that sells products is also checked for a catalog with price and stock, product schema, and return and shipping pages. Results are cached for 24 hours.</p>
 <form class="check-form" id="readiness-form">
 <label for="domain">Domain</label>
-<input id="domain" name="domain" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="allbirds.com" required>
+<input id="domain" name="domain" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="example.com" required>
 <button type="submit">Score</button>
 </form>
 <p class="check-status" id="readiness-status" role="status"></p>
@@ -38,7 +38,7 @@ export function readinessPageBody() {
 export function readinessMarkdown() {
   return `# Agent readiness
 
-Score a domain at https://conciergeprotocol.org/readiness. The checker looks for a CAP door, llms.txt, a catalog with price and stock, crawler access, product schema, and return and shipping pages. A result is cached for 24 hours.
+Score a domain at https://conciergeprotocol.org/readiness. Every site is checked for a CAP door, llms.txt, and crawler access. A site that sells products is also checked for a catalog with price and stock, product schema, and return and shipping pages. A result is cached for 24 hours.
 
 Methodology v1 weights: CAP door 35, llms.txt 10, structured catalog 20, AI crawlers 15, product schema 10, return and shipping policies 10. A blocked check is left out of the score. Sites that do not sell products skip the catalog, schema, and policy checks.
 
@@ -55,7 +55,7 @@ export function readinessShare({ domain, result }) {
     : `Agent readiness for ${domain}`
   const description = result
     ? `${domain} scored ${score} of ${result.blocked ? result.checkedMax : result.applicableMax} on the CAP agent readiness check.`
-    : `How ready ${domain} is for an AI shopping agent.`
+    : `How ready ${domain} is for AI agents.`
   const image = `https://conciergeprotocol.org/readiness/og/${encodeURIComponent(domain)}`
   const data = result ? JSON.stringify(result).replace(/</g, '\\u003c') : ''
   return `<!doctype html>
