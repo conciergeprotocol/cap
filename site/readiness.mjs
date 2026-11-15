@@ -1,3 +1,4 @@
+import { isIP } from 'node:net'
 import { gunzipSync } from 'node:zlib'
 import { checkDoor, parseHost, pinnedRequest, resolvePublic } from './check.mjs'
 
@@ -19,7 +20,23 @@ const POLICY_TEXT = 400
 const DOOR_FIX = 'Publish /agent.txt at the site root. The first line is "Protocol: CAP/1.0", then a CAP line with the https endpoint. The endpoint has to answer a public question.'
 const LLMS_FIX = 'Publish /llms.txt as plain text that tells an agent what this site offers and where to find the pages that matter, such as products, pricing, docs, or policies.'
 const CATALOG_FIX = 'Publish /products.json with a price and availability (in stock or out of stock) on each variant.'
+const RENTAL_CATALOG_FIX = 'Publish /products.json with one entry per listing: its URL, the nightly price, and whether it has open dates.'
 const SCHEMA_FIX = 'Add schema.org Product JSON-LD on product pages, with an Offer that includes price and availability.'
+const RENTAL_SCHEMA_FIX = 'Add schema.org VacationRental or LodgingBusiness JSON-LD on each listing page, with an Offer that includes the nightly price and availability.'
+
+// What a store has to publish. A rental has no returns or shipping, so it is asked for its cancellation policy and house rules instead.
+const POLICY_KINDS = {
+  shop: {
+    title: 'Return and shipping policies',
+    first: { label: 'Return policy', match: /return|refund|exchange/i, guess: '/policies/refund-policy' },
+    second: { label: 'Shipping policy', match: /shipping|delivery/i, guess: '/policies/shipping-policy' },
+  },
+  rental: {
+    title: 'Cancellation policy and house rules',
+    first: { label: 'Cancellation policy', match: /cancel|refund/i, guess: '/cancellation-policy' },
+    second: { label: 'House rules', match: /house-rules|rules|booking-terms|rental-terms|terms/i, guess: '/house-rules' },
+  },
+}
 const ROBOTS_FIX = 'In robots.txt, allow GPTBot, ClaudeBot, PerplexityBot, and Google-Extended to fetch /.'
 
 /**
@@ -48,11 +65,27 @@ export async function scoreSite(input, deps = {}) {
     nextAt: 0,
   }
 
-  const door = scoreDoor(await runDoor(host.hostname, { request, resolve, ask: deps.ask !== false }), host.hostname)
-  const home = await fetchText(ctx, '/', 1_000_000)
+  // A brand domain can redirect to the domain the store runs on, such as vuori.com to vuoriclothing.com. Score the store.
+  const home = await fetchText(ctx, '/', 1_000_000, { anyHost: true })
+  const landed = hostOf(home.url)
+  let movedTo = ''
+  if (landed && !relatedHost(landed, ctx.hostname)) {
+    const moved = await resolve(landed)
+    if (!moved.ok) return { ok: false, error: `${host.hostname} redirects to ${landed}. ${moved.detail}` }
+    ctx.hostname = landed
+    ctx.addresses = moved.addresses
+    movedTo = landed
+  }
+  const finish = (checks) => {
+    const result = summarize(host.hostname, checks)
+    if (movedTo) result.redirectedTo = movedTo
+    return result
+  }
+
+  const door = scoreDoor(await runDoor(ctx.hostname, { request, resolve, ask: deps.ask !== false }), ctx.hostname)
   if (home.blocked) {
     const robots = await checkRobots(ctx, home)
-    return summarize(host.hostname, [
+    return finish([
       door.status === 'fail' ? blockedCheck('door', 'CAP door', WEIGHTS.door, home) : door,
       blockedCheck('llms', 'llms.txt', WEIGHTS.llms, home),
       blockedCheck('catalog', 'Structured catalog', WEIGHTS.catalog, home),
@@ -73,17 +106,22 @@ export async function scoreSite(input, deps = {}) {
     const schema = await checkJsonld(ctx, catalog, home)
     jsonld = schema.check
     if (store.maybe) store.yes = schema.product || !schema.software
+    if (schema.lodging) store.kind = 'rental'
   }
   if (!store.yes) {
     jsonld = notApplicable('jsonld', 'Product schema', WEIGHTS.jsonld, 'This site does not look like a store, so product schema does not apply.')
   }
   const policies = store.yes
-    ? await checkPolicies(ctx, home, llmsBody)
+    ? await checkPolicies(ctx, home, llmsBody, store.kind)
     : notApplicable('policies', 'Return and shipping policies', WEIGHTS.policies, 'This site does not look like a store, so return and shipping pages do not apply.')
   if (!store.yes) {
     catalog.check = notApplicable('catalog', 'Structured catalog', WEIGHTS.catalog, 'This site does not look like a store, so a product catalog does not apply.')
+  } else if (store.kind === 'rental') {
+    if (catalog.check.fix === CATALOG_FIX) catalog.check.fix = RENTAL_CATALOG_FIX
+    if (jsonld.fix === SCHEMA_FIX) jsonld.fix = RENTAL_SCHEMA_FIX
+    jsonld.title = 'Listing schema'
   }
-  return summarize(host.hostname, [door, llms, catalog.check, robots, jsonld, policies])
+  return finish([door, llms, catalog.check, robots, jsonld, policies])
 }
 
 export function summarize(domain, checks) {
@@ -176,7 +214,15 @@ async function checkCatalog(ctx, home) {
   const evidence = [url]
   const shell = shellKind(home.text)
   const feed = res.blocked ? null : readProducts(res.text)
-  if (feed?.handle) {
+  if (feed?.link) {
+    try {
+      const link = new URL(feed.link, res.url || `https://${ctx.hostname}/`)
+      if (link.protocol === 'https:' && relatedHost(link.hostname, ctx.hostname)) feed.url = link.href
+    } catch {
+      // Fall back to the handle.
+    }
+  }
+  if (!feed?.url && feed?.handle) {
     let origin = `https://${ctx.hostname}`
     try {
       origin = new URL(res.url).origin
@@ -418,27 +464,29 @@ async function checkJsonld(ctx, catalog, home) {
   const candidates = [...new Set([catalog.feed?.url, ...productLinks(home), catalog.sitemap?.sample].filter(Boolean))].slice(0, 3)
   const base = { id: 'jsonld', title: 'Product schema', max: WEIGHTS.jsonld, evidence: candidates.slice(0, 1) }
   if (!candidates.length) {
-    return { check: { ...base, status: 'fail', points: 0, detail: 'No product page URL to inspect.', fix: SCHEMA_FIX }, product: false, software: false }
+    return { check: { ...base, status: 'fail', points: 0, detail: 'No product page URL to inspect.', fix: SCHEMA_FIX }, product: false, software: false, lodging: false }
   }
   let last = null
   let product = false
   let software = false
+  let lodging = false
   for (const productUrl of candidates) {
     const res = await fetchText(ctx, productUrl, 2_500_000)
     const card = { ...base, evidence: [productUrl] }
-    if (res.blocked) return { check: { ...card, ...blockedFields(res) }, product, software }
+    if (res.blocked) return { check: { ...card, ...blockedFields(res) }, product, software, lodging }
     if (res.status !== 200 || !res.text) {
       last = { ...card, status: 'fail', points: 0, detail: missDetail(res, 'the product page'), fix: SCHEMA_FIX }
       continue
     }
     const found = productSchema(res.text)
     product ||= found.product
+    lodging ||= LODGING.test(found.type || '')
     software ||= SOFTWARE_TYPE.test(res.text)
     const scored = schemaCard(card, found)
-    if (scored.points) return { check: scored, product, software }
+    if (scored.points) return { check: scored, product, software, lodging }
     last = scored
   }
-  return { check: last, product, software }
+  return { check: last, product, software, lodging }
 }
 
 function schemaCard(base, found) {
@@ -446,7 +494,7 @@ function schemaCard(base, found) {
   const parts = []
   if (found.product) {
     points += 4
-    parts.push('Product')
+    parts.push(found.type && !/Product/.test(found.type) ? found.type : 'Product')
   }
   if (found.price) {
     points += 3
@@ -456,53 +504,70 @@ function schemaCard(base, found) {
     points += 3
     parts.push('availability')
   }
-  if (points === 10) return { ...base, status: 'pass', points, detail: `Product JSON-LD includes ${parts.join(', ')}.`, fix: '' }
+  const noun = LODGING.test(found.type || '') ? 'Listing' : 'Product'
+  if (points === 10) return { ...base, status: 'pass', points, detail: `${noun} JSON-LD includes ${parts.join(', ')}.`, fix: '' }
   return {
     ...base,
     status: points ? 'partial' : 'fail',
     points,
-    detail: points ? `Product JSON-LD includes ${parts.join(', ')}.` : 'No Product JSON-LD on the product page.',
+    detail: points ? `${noun} JSON-LD includes ${parts.join(', ')}.` : 'No Product JSON-LD on the product page.',
     fix: SCHEMA_FIX,
   }
 }
 
-async function checkPolicies(ctx, home, llmsBody) {
+async function checkPolicies(ctx, home, llmsBody, kind = 'shop') {
+  const spec = POLICY_KINDS[kind] || POLICY_KINDS.shop
   const pool = [
     ...markdownLinks(llmsBody, `https://${ctx.hostname}/`),
     ...htmlLinks(home.text, home.url || `https://${ctx.hostname}/`),
   ]
-  const returns = choosePolicy(pool, ctx.hostname, 'return') || `https://${ctx.hostname}/policies/refund-policy`
-  const shipping = choosePolicy(pool, ctx.hostname, 'shipping') || `https://${ctx.hostname}/policies/shipping-policy`
-  const returnPage = await fetchText(ctx, returns, 600_000)
-  const shippingPage = shipping === returns ? returnPage : await fetchText(ctx, shipping, 600_000)
-  if (returnPage.blocked && shippingPage.blocked) {
-    return {
-      id: 'policies',
-      title: 'Return and shipping policies',
-      max: WEIGHTS.policies,
-      evidence: [returns, shipping],
-      ...blockedFields(returnPage),
+  let firstUrl = choosePolicy(pool, ctx.hostname, spec.first.match)
+  let secondUrl = choosePolicy(pool, ctx.hostname, spec.second.match)
+  // Many stores keep policies in a help center and link only its front page.
+  let help = ''
+  if (!firstUrl || !secondUrl) {
+    help = chooseHelp(pool, ctx.hostname)
+    if (help) {
+      const page = await fetchText(ctx, help, 1_500_000)
+      if (page.status === 200 && !page.blocked) {
+        const links = [...htmlLinks(page.text, page.url || help), ...embeddedLinks(page.text, page.url || help)]
+        firstUrl ||= choosePolicy(links, ctx.hostname, spec.first.match)
+        secondUrl ||= choosePolicy(links, ctx.hostname, spec.second.match)
+      }
     }
   }
-  const returnScore = scorePolicy(returnPage, 'return')
-  const shippingScore = scorePolicy(shippingPage, 'shipping')
-  const points = returnScore.points + shippingScore.points
-  const evidence = [returnPage.url || returns, shippingPage.url || shipping].filter((url, index, all) => all.indexOf(url) === index)
-  const fixes = [returnScore.fix, shippingScore.fix].filter(Boolean)
+  const first = { ...spec.first, url: firstUrl || `https://${ctx.hostname}${spec.first.guess}`, guessed: !firstUrl, help }
+  const second = { ...spec.second, url: secondUrl || `https://${ctx.hostname}${spec.second.guess}`, guessed: !secondUrl, help }
+  const firstPage = await fetchText(ctx, first.url, 600_000)
+  const secondPage = second.url === first.url ? firstPage : await fetchText(ctx, second.url, 600_000)
+  if (firstPage.blocked && secondPage.blocked) {
+    return {
+      id: 'policies',
+      title: spec.title,
+      max: WEIGHTS.policies,
+      evidence: [first.url, second.url],
+      ...blockedFields(firstPage),
+    }
+  }
+  const firstScore = scorePolicy(firstPage, first)
+  const secondScore = scorePolicy(secondPage, second)
+  const points = firstScore.points + secondScore.points
+  const evidence = [firstPage.url || first.url, secondPage.url || second.url].filter((url, index, all) => all.indexOf(url) === index)
+  const fixes = [firstScore.fix, secondScore.fix].filter(Boolean)
   return {
     id: 'policies',
-    title: 'Return and shipping policies',
+    title: spec.title,
     max: WEIGHTS.policies,
     points,
     status: points === 10 ? 'pass' : points ? 'partial' : 'fail',
     evidence,
-    detail: `${returnScore.detail} ${shippingScore.detail}`,
+    detail: `${firstScore.detail} ${secondScore.detail}`,
     fix: fixes.join(' '),
   }
 }
 
-function scorePolicy(res, kind) {
-  const label = kind === 'return' ? 'Return policy' : 'Shipping policy'
+function scorePolicy(res, policy) {
+  const { label } = policy
   if (res.blocked) return { points: 0, detail: `${label} could not be checked: the site blocked the request.`, fix: '' }
   const text = visibleText(res.text || '', res.headers)
   if (res.status === 200 && text.length >= POLICY_TEXT) {
@@ -515,18 +580,20 @@ function scorePolicy(res, kind) {
       fix: `Publish the ${label.toLowerCase()} as real text, not an empty page that only renders in the browser.`,
     }
   }
-  return {
-    points: 0,
-    detail: `${label} does not resolve (${res.status || 'no response'}).`,
-    fix: kind === 'return'
-      ? 'Publish a return policy at a stable https URL, such as /policies/refund-policy, and link it from the site.'
-      : 'Publish a shipping policy at a stable https URL, such as /policies/shipping-policy, and link it from the site.',
+  const fix = `Publish a ${label.toLowerCase()} at a stable https URL, such as ${policy.guess}, and link it from the site.`
+  if (policy.guessed) {
+    const where = policy.help ? 'the home page, llms.txt, or the help center' : 'the home page or llms.txt'
+    return {
+      points: 0,
+      detail: `No ${label.toLowerCase()} link on ${where}, and ${policy.guess} returned ${res.status ? `HTTP ${res.status}` : 'no response'}.`,
+      fix,
+    }
   }
+  return { points: 0, detail: `${label} does not resolve (${res.status || 'no response'}).`, fix }
 }
 
-function choosePolicy(links, hostname, kind) {
-  const re = kind === 'return' ? /return|refund|exchange/i : /shipping|delivery/i
-  return links.find((url) => {
+function choosePolicy(links, hostname, re) {
+  const usable = links.filter((url) => {
     try {
       const parsed = new URL(url)
       return parsed.protocol === 'https:' && relatedHost(parsed.hostname, hostname) && re.test(parsed.pathname) && !/\.(js|css|png|jpe?g|svg|gif|webp)$/i.test(parsed.pathname)
@@ -534,28 +601,53 @@ function choosePolicy(links, hostname, kind) {
       return false
     }
   })
+  return usable.find((url) => /polic/i.test(new URL(url).pathname)) || usable[0]
+}
+
+function chooseHelp(links, hostname) {
+  for (const url of links) {
+    let parsed
+    try {
+      parsed = new URL(url)
+    } catch {
+      continue
+    }
+    if (parsed.protocol !== 'https:' || !relatedHost(parsed.hostname, hostname)) continue
+    const helpHost = /^(help|support|faq|faqs|care|customer-?service|customercare)\./i.test(parsed.hostname)
+    const helpPath = /^\/(help|support|faq|faqs|hc|customer-?service|customer-care|pages\/faqs?)\/?$/i.test(parsed.pathname)
+    if (!helpHost && !helpPath) continue
+    parsed.hash = ''
+    return parsed.href
+  }
+  return ''
 }
 
 // A product URL pattern alone is weak: SaaS sites use /products/ for feature pages.
 // It counts unless the sampled page declares software or a service and no Product.
 const SITEMAP_CATALOG = 10
 const SOFTWARE_TYPE = /"@type"\s*:\s*\[?\s*"(?:https?:\/\/schema\.org\/)?(?:SoftwareApplication|WebApplication|MobileApplication|Service)"/
+const LODGING = /(^|\/)(VacationRental|Accommodation|LodgingBusiness|Hotel|Motel|Resort|BedAndBreakfast|Hostel|Campground|House|Apartment|Suite|HotelRoom|Room)$/
+const LODGING_IN_PAGE = /"@type"\s*:\s*\[?\s*"(?:https?:\/\/schema\.org\/)?(?:VacationRental|Accommodation|LodgingBusiness|Hotel|Motel|Resort|BedAndBreakfast|Hostel|Campground)"/
+const LISTING_LINK = /href\s*=\s*["'][^"']*\/(?:stays?|rentals?|listings?)\/[a-z0-9]/i
 
 function isStore(home, catalog) {
-  if (catalog.check?.status === 'blocked') return { yes: true }
-  if (catalog.feed?.count) return { yes: true }
-  if (catalog.sitemap?.products >= SITEMAP_CATALOG) return { yes: true }
+  if (catalog.check?.status === 'blocked') return { yes: true, kind: 'shop' }
   const html = home.text || ''
-  if (/cdn\.shopify\.com|Shopify\.theme|myshopify\.com/.test(html)) return { yes: true }
-  if (/"@type"\s*:\s*"Product/.test(html)) return { yes: true }
-  if (/add to cart|add to bag/i.test(html)) return { yes: true }
-  if (catalog.sitemap?.products > 0) return { yes: false, maybe: true }
-  if (/href\s*=\s*["'][^"']*\/(?:products|collections)\//i.test(html)) return { yes: false, maybe: true }
+  const kind = LODGING_IN_PAGE.test(html) || LISTING_LINK.test(html) ? 'rental' : 'shop'
+  if (catalog.feed?.count) return { yes: true, kind }
+  if (catalog.sitemap?.products >= SITEMAP_CATALOG) return { yes: true, kind }
+  if (/cdn\.shopify\.com|Shopify\.theme|myshopify\.com/.test(html)) return { yes: true, kind: 'shop' }
+  if (/"@type"\s*:\s*"Product/.test(html)) return { yes: true, kind: 'shop' }
+  if (LODGING_IN_PAGE.test(html)) return { yes: true, kind: 'rental' }
+  if (/add to cart|add to bag/i.test(html)) return { yes: true, kind: 'shop' }
+  if (catalog.sitemap?.products > 0) return { yes: false, maybe: true, kind }
+  if (/href\s*=\s*["'][^"']*\/(?:products|collections)\//i.test(html)) return { yes: false, maybe: true, kind: 'shop' }
+  if (LISTING_LINK.test(html)) return { yes: false, maybe: true, kind: 'rental' }
   return { yes: false }
 }
 
 export function productSchema(html) {
-  const found = { product: false, price: false, availability: false }
+  const found = { product: false, type: '', price: false, availability: false }
   const blocks = [...String(html || '').matchAll(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)]
   for (const block of blocks) {
     let data
@@ -576,7 +668,11 @@ function noteProduct(node, found, seen) {
     for (const item of node) noteProduct(item, found, seen)
     return
   }
-  if (typesOf(node).some((type) => /(^|\/)Product(Group)?$/i.test(type))) found.product = true
+  const sold = typesOf(node).find((type) => /(^|\/)Product(Group)?$/i.test(type) || LODGING.test(type))
+  if (sold) {
+    found.product = true
+    found.type ||= sold.replace(/^.*\//, '')
+  }
   for (const offer of offersOf(node)) {
     if (offer.price != null && offer.price !== '') found.price = true
     const spec = offer.priceSpecification
@@ -623,7 +719,8 @@ function readProducts(text) {
     }
   }
   const handle = products.find((product) => product?.handle)?.handle
-  return { count: products.length, hasPrice, hasAvailable, url: '' , handle }
+  const link = products.find((product) => typeof product?.url === 'string' && product.url)?.url || ''
+  return { count: products.length, hasPrice, hasAvailable, url: '', handle, link }
 }
 
 function parseProducts(text) {
@@ -659,7 +756,7 @@ function isProductUrl(url) {
   try {
     const path = new URL(url).pathname.toLowerCase()
     if (/sitemap|\.xml$/.test(path)) return false
-    return /\/products?\//.test(path) || /\/p\//.test(path) || /\/pdps?\//.test(path)
+    return /\/products?\//.test(path) || /\/p\//.test(path) || /\/pdps?\//.test(path) || /\/(stays?|rentals?|listings?)\/[^/]+/.test(path)
   } catch {
     return false
   }
@@ -771,6 +868,20 @@ function htmlLinks(html, base) {
   return links
 }
 
+// Help centers such as Kustomer and Zendesk render in the browser, with links in escaped JSON: "href":"/en_us/categories/returns-x".
+function embeddedLinks(html, base) {
+  const text = String(html || '').replace(/\\?&quot;/g, '"').replace(/\\"/g, '"').replace(/\\\//g, '/')
+  const links = []
+  for (const match of text.matchAll(/["']?href["']?\s*:\s*"([^"\s]+)"/gi)) {
+    try {
+      links.push(new URL(match[1], base).href)
+    } catch {
+      // Skip malformed hrefs.
+    }
+  }
+  return links
+}
+
 function markdownLinks(text, base) {
   const links = []
   for (const match of String(text || '').matchAll(/\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/gi)) links.push(match[1])
@@ -784,7 +895,7 @@ function markdownLinks(text, base) {
   return links
 }
 
-async function fetchText(ctx, pathOrUrl, maxBytes = PAGE_MAX) {
+async function fetchText(ctx, pathOrUrl, maxBytes = PAGE_MAX, { anyHost = false } = {}) {
   let url
   try {
     url = new URL(pathOrUrl, `https://${ctx.hostname}/`)
@@ -817,7 +928,7 @@ async function fetchText(ctx, pathOrUrl, maxBytes = PAGE_MAX) {
     })
     if (!res?.ok) return { ok: false, error: res?.detail || 'The host did not respond in time.', status: 0, text: '', headers: {}, blocked: false, url: url.href }
     if (res.status >= 300 && res.status < 400) {
-      const next = redirectTarget(res.headers, url.href, ctx.hostname)
+      const next = redirectTarget(res.headers, url.href, anyHost ? '' : ctx.hostname)
       if (!next) return { ok: false, error: 'The page redirected off this site.', status: res.status, text: '', headers: res.headers, blocked: false, url: url.href }
       url = next
       addresses = null
@@ -845,9 +956,18 @@ function redirectTarget(headers, from, entered) {
     return null
   }
   if (next.protocol !== 'https:' || next.username || next.password || (next.port && next.port !== '443')) return null
-  if (!relatedHost(next.hostname, entered)) return null
+  if (entered && !relatedHost(next.hostname, entered)) return null
+  if (!entered && (isIP(next.hostname.replace(/^\[|\]$/g, '')) || !next.hostname.includes('.'))) return null
   next.hash = ''
   return next
+}
+
+function hostOf(url) {
+  try {
+    return new URL(url).hostname.toLowerCase()
+  } catch {
+    return ''
+  }
 }
 
 function relatedHost(a, b) {

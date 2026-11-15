@@ -71,7 +71,7 @@
     else caption.textContent = 'of 100'
     var host = document.createElement('p')
     host.className = 'readiness-host'
-    host.textContent = result.domain
+    host.textContent = result.redirectedTo ? result.domain + ' redirects to ' + result.redirectedTo + ', so that site was scored' : result.domain
     summary.append(number, caption, host)
     hero.append(summary)
     root.append(hero)

@@ -3,7 +3,7 @@ import test from 'node:test'
 import { WEIGHTS, productSchema, robotAllows, scoreSite } from './readiness.mjs'
 import { renderScoreCard } from './readiness-og.mjs'
 import { readinessMarkdown, readinessPageBody, readinessShare } from './readiness-page.mjs'
-import { withRun } from './readiness-store.mjs'
+import { memoryStore, withRun } from './readiness-store.mjs'
 
 const resolve = async () => ({ ok: true, addresses: ['8.8.8.8'] })
 
@@ -31,7 +31,7 @@ function requestFor(files) {
       return { ok: true, status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'We can help you shop.' }) }
     }
     if (options.headers?.['cap-from'] === 'agent:cap-check-other') return { ok: true, status: 404, headers: {}, body: '' }
-    const file = files[url.pathname]
+    const file = files[url.host + url.pathname] ?? (url.host === 'example.com' ? files[url.pathname] : undefined)
     if (!file) return { ok: true, status: 404, headers: { 'content-type': 'text/plain' }, body: '' }
     return { ok: true, status: file.status || 200, headers: file.headers || { 'content-type': 'text/plain; charset=utf-8' }, body: file.body }
   }
@@ -47,12 +47,17 @@ function byId(result, id) {
 
 test('a Product nested in a graph still counts', () => {
   const html = `<script type="application/ld+json">{"@graph":[{"@type":"FAQPage","mainEntity":[{"@type":"Question","acceptedAnswer":{"item":{"@type":"Product","name":"Mattress"}}}]}]}</script>`
-  assert.deepEqual(productSchema(html), { product: true, price: false, availability: false })
+  assert.deepEqual(productSchema(html), { product: true, type: 'Product', price: false, availability: false })
 })
 
 test('a ProductGroup with variant offers counts as product schema', () => {
   const html = `<script type='application/ld+json'>{"@type":"ProductGroup","hasVariant":[{"@type":"Product","offers":{"price":"12.00","availability":"https://schema.org/InStock"}}]}</script>`
-  assert.deepEqual(productSchema(html), { product: true, price: true, availability: true })
+  assert.deepEqual(productSchema(html), { product: true, type: 'ProductGroup', price: true, availability: true })
+})
+
+test('a VacationRental with an offer counts as listing schema', () => {
+  const html = `<script type="application/ld+json">{"@type":"VacationRental","name":"Orchard House","containsPlace":{"@type":"Accommodation"},"offers":{"@type":"Offer","price":"240","availability":"https://schema.org/InStock"}}</script>`
+  assert.deepEqual(productSchema(html), { product: true, type: 'VacationRental', price: true, availability: true })
 })
 
 test('weights add to 100', () => {
@@ -219,6 +224,81 @@ test('one blocked bot is partial credit, not a failed check', async () => {
   }))
   assert.equal(byId(result, 'robots').status, 'partial')
   assert.equal(byId(result, 'robots').points, 11)
+})
+
+test('a return policy linked only from the help center is found there', async () => {
+  const result = await score(filesOf({
+    '/': { body: '<html><body><a href="/products/hat">Hat</a><a href="https://help.example.com/#top">Help</a><a href="https://help.example.com/en_us/categories/shipping-tracking-x1">Shipping</a><img src="https://cdn.shopify.com/s.js"></body></html>', headers: { 'content-type': 'text/html' } },
+    '/policies/refund-policy': { status: 404, body: 'missing', headers: { 'content-type': 'text/html' } },
+    'help.example.com/': { body: '<html><body><a href="/en_us/can-i-return-in-store-x2">In store</a><a href="/en_us/categories/returns-x3">Returns</a></body></html>', headers: { 'content-type': 'text/html' } },
+    'help.example.com/en_us/can-i-return-in-store-x2': { body: policy('Returns in store'), headers: { 'content-type': 'text/html' } },
+    'help.example.com/en_us/categories/shipping-tracking-x1': { body: policy('Shipping'), headers: { 'content-type': 'text/html' } },
+  }))
+  const policies = byId(result, 'policies')
+  assert.equal(policies.points, 10)
+  assert.deepEqual(policies.evidence, ['https://help.example.com/en_us/can-i-return-in-store-x2', 'https://help.example.com/en_us/categories/shipping-tracking-x1'])
+})
+
+test('a help center that renders in the browser still yields its policy links', async () => {
+  const result = await score(filesOf({
+    '/': { body: '<html><body><a href="/products/hat">Hat</a><a href="https://help.example.com">Help</a><a href="/policies/shipping-policy">Shipping</a><img src="https://cdn.shopify.com/s.js"></body></html>', headers: { 'content-type': 'text/html' } },
+    '/policies/refund-policy': { status: 404, body: 'missing', headers: { 'content-type': 'text/html' } },
+    'help.example.com/': { body: '<html><body><div id="root"></div><script>window.__STATE__={&quot;articles&quot;:[{&quot;href&quot;:&quot;/en_us/what-is-your-return-policy-a1&quot;}]}</script></body></html>', headers: { 'content-type': 'text/html' } },
+    'help.example.com/en_us/what-is-your-return-policy-a1': { body: policy('Returns'), headers: { 'content-type': 'text/html' } },
+  }))
+  assert.equal(byId(result, 'policies').points, 10)
+  assert.equal(byId(result, 'policies').evidence[0], 'https://help.example.com/en_us/what-is-your-return-policy-a1')
+})
+
+test('a guessed policy URL that 404s says no link was found', async () => {
+  const result = await score(filesOf({
+    '/': { body: '<html><body><a href="/products/hat">Hat</a><a href="/policies/shipping-policy">Shipping</a><img src="https://cdn.shopify.com/s.js"></body></html>', headers: { 'content-type': 'text/html' } },
+    '/policies/refund-policy': { status: 404, body: 'missing', headers: { 'content-type': 'text/html' } },
+  }))
+  const policies = byId(result, 'policies')
+  assert.equal(policies.points, 5)
+  assert.match(policies.detail, /No return policy link on the home page or llms\.txt, and \/policies\/refund-policy returned HTTP 404/)
+})
+
+test('a brand domain that redirects to the store domain scores the store', async () => {
+  const store = filesOf()
+  const files = { '/': { status: 301, body: '', headers: { location: 'https://shop-example.com/' } } }
+  for (const [path, file] of Object.entries(store)) files[`shop-example.com${path}`] = file
+  const result = await score(files)
+  assert.equal(result.domain, 'example.com')
+  assert.equal(result.redirectedTo, 'shop-example.com')
+  assert.equal(byId(result, 'catalog').points, 20)
+  assert.equal(byId(result, 'policies').points, 10)
+  assert.deepEqual(byId(result, 'llms').evidence, ['https://shop-example.com/llms.txt'])
+})
+
+test('a vacation rental is a store with a cancellation policy and house rules', async () => {
+  const listing = '<html><head><script type="application/ld+json">{"@type":"VacationRental","name":"Orchard House","offers":{"@type":"Offer","price":"240","priceCurrency":"USD","availability":"https://schema.org/InStock"}}</script></head><body><p>Orchard House</p></body></html>'
+  const result = await score({
+    '/': { body: '<html><body><a href="/stay/orchard-house?checkIn=2026-12-01">Orchard House</a><a href="/cancellation-policy">Cancellation</a><a href="/house-rules">House rules</a></body></html>', headers: { 'content-type': 'text/html' } },
+    '/llms.txt': { body: `# Marlow\n\n${'Vacation rentals in Sonoma County, with nightly rates and open dates. '.repeat(8)}` },
+    '/products.json': { body: JSON.stringify({ products: [{ title: 'Orchard House', handle: 'orchard-house', url: '/stay/orchard-house', variants: [{ price: '240.00', available: true }] }] }), headers: { 'content-type': 'application/json' } },
+    '/stay/orchard-house': { body: listing, headers: { 'content-type': 'text/html' } },
+    '/cancellation-policy': { body: policy('Cancellation'), headers: { 'content-type': 'text/html' } },
+    '/house-rules': { body: policy('House rules'), headers: { 'content-type': 'text/html' } },
+    '/robots.txt': { body: 'User-agent: *\nAllow: /\n' },
+  })
+  assert.equal(result.applicableMax, 100)
+  assert.equal(byId(result, 'catalog').points, 20)
+  assert.equal(byId(result, 'jsonld').points, 10)
+  assert.equal(byId(result, 'jsonld').title, 'Listing schema')
+  assert.deepEqual(byId(result, 'jsonld').evidence, ['https://example.com/stay/orchard-house'])
+  assert.equal(byId(result, 'policies').title, 'Cancellation policy and house rules')
+  assert.equal(byId(result, 'policies').points, 10)
+  assert.equal(result.score, 65)
+})
+
+test('www and the bare domain share one stored record', async () => {
+  const store = memoryStore()
+  await store.put(withRun(null, { domain: 'www.example.com', checkedAt: '2026-11-15T00:00:00.000Z', score: 40, checkedMax: 100, applicableMax: 100, blocked: false, checks: [] }))
+  assert.equal((await store.get('example.com')).latest.score, 40)
+  assert.equal((await store.get('www.example.com')).domain, 'example.com')
+  assert.equal((await store.many(['example.com', 'www.example.com'])).length, 1)
 })
 
 test('history keeps one run per month', () => {
