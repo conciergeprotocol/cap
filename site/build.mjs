@@ -5,6 +5,7 @@ import { Marked } from 'marked'
 import { CALLER, QUESTION } from './check.mjs'
 import { checkPageBody } from './check-page.mjs'
 import { directoryPageBody } from './directory-page.mjs'
+import { readinessMarkdown, readinessPageBody } from './readiness-page.mjs'
 import { ASK_EVERY_DAYS, DELIST_AFTER, RESULT_TTL_S } from './doors.mjs'
 import { createCssVariablesTheme, createHighlighter } from 'shiki'
 
@@ -350,7 +351,7 @@ var navToken=0;
 function visit(href, fromPop){
 var url=new URL(href,location.href);
 var path=cleanPath(url.pathname);
-if(path==='/'||path==='/benchmark'||path==='/check'||path==='/directory'||path==='/chat'){
+if(path==='/'||path==='/benchmark'||path==='/check'||path==='/directory'||path==='/chat'||path.indexOf('/readiness')===0){
 if(fromPop) location.reload(); else location.assign(url.pathname+url.search+url.hash);
 return;
 }
@@ -603,7 +604,7 @@ const navGroups = [
       { route: '/publish', label: 'Publish a door', hint: 'Make a website agent-ready' },
       { route: '/callers', label: 'Call a door', hint: 'Client library and MCP server' },
       { route: '/check', label: 'Check a site', hint: 'See whether a domain passes' },
-      { route: '/directory', label: 'Directory', hint: 'Sites with a passing front door' },
+      { route: '/readiness', label: 'Agent readiness', hint: 'Score how ready a store is for AI shopping agents' },      { route: '/directory', label: 'Directory', hint: 'Sites with a passing front door' },
       { route: '/demos', label: 'Demos', hint: 'A rental, a store, and a company site' }
     ]
   },
@@ -666,7 +667,7 @@ const flatNav = navGroups.flatMap((group) => group.items.map((item) => ({ ...ite
 
 const searchBlurbs = {
   '/check': 'Enter a domain. The checker reads agent.txt, asks one public question, and reports whether the door passes.',
-  '/directory': 'Sites whose front door passes the check. A pass adds the site, and a site that keeps failing drops off.',
+  '/readiness': 'Score how ready a store is for an AI shopping agent: a CAP door, llms.txt, a catalog, crawler access, product schema, and policies.',  '/directory': 'Sites whose front door passes the check. A pass adds the site, and a site that keeps failing drops off.',
   '/chat': 'Ask Cap about the protocol, publishing a door, or calling one. Cap answers from the pages on this site.'
 }
 
@@ -863,16 +864,22 @@ Every site at ${origin}/directory passed the [check](${origin}/check.md): it pub
 
 Ask about the protocol, publishing a door, or calling one at ${origin}/chat. Cap answers from the pages on this site.
 `
+  },
+  {
+    title: 'Agent readiness',
+    route: '/readiness',
+    description: 'Score how ready a store is for an AI shopping agent.',
+    body: readinessPageBody(),
+    markdown: readinessMarkdown(),
   }
 ]
 
 for (const tool of toolPages) {
   const markdownPath = markdownPathFor(tool.route)
   const text = `${tool.markdown.trim()}\n`
-  writeFileSync(
-    join(out, `${tool.route.slice(1)}.html`),
-    layout({ title: tool.title, body: tool.body, route: tool.route, description: tool.description, markdownPath })
-  )
+  const file = join(out, `${tool.route.slice(1)}.html`)
+  mkdirSync(dirname(file), { recursive: true })
+  writeFileSync(file, layout({ title: tool.title, body: tool.body, route: tool.route, description: tool.description, markdownPath }))
   writeFileSync(join(out, markdownPath.slice(1)), docBanner(tool.route) + text)
   docs.push({ title: tool.title, route: tool.route, path: markdownPath, blurb: tool.description, markdown: text })
 }

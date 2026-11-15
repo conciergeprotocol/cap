@@ -11,11 +11,19 @@
     { "source": "/cap/v1", "destination": "https://dapi.cosmicjs.com/v3/cap/v1/ck_02ab6bf29e54a4eeac6654f912281f34" },
     { "source": "/cap/v1/messages", "destination": "https://dapi.cosmicjs.com/v3/cap/v1/ck_02ab6bf29e54a4eeac6654f912281f34/messages" },
     { "source": "/cap/v1/messages/:messageId", "destination": "https://dapi.cosmicjs.com/v3/cap/v1/ck_02ab6bf29e54a4eeac6654f912281f34/messages/:messageId" },
-    { "source": "/cap/v1/:path*", "destination": "https://dapi.cosmicjs.com/v3/cap/v1/:path*" }
+    { "source": "/cap/v1/:path*", "destination": "https://dapi.cosmicjs.com/v3/cap/v1/:path*" },
+    { "source": "/readiness/og/:domain", "destination": "/api/readiness-og?domain=:domain" },
+    { "source": "/readiness/:domain", "destination": "/api/readiness-share?domain=:domain" }
   ],
   "functions": {
     "api/check.js": {
       "maxDuration": 30
+    },
+    "api/readiness.js": {
+      "maxDuration": 60
+    },
+    "api/readiness-share.js": {
+      "maxDuration": 15
     }
   },
   "headers": [
