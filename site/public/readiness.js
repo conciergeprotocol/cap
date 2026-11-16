@@ -7,6 +7,7 @@
   var bar = document.getElementById('readiness-bar')
   var button = form ? form.querySelector('button') : null
   var embedded = document.getElementById('readiness-result')
+  var KINDS = { shop: 'a store', rental: 'a rental', site: 'a website' }
   var preset = domainFromLocation() || new URLSearchParams(location.search).get('domain') || ''
   if (preset && input) input.value = preset
   if (form) {
@@ -67,8 +68,7 @@
     var caption = document.createElement('p')
     caption.className = 'readiness-caption'
     if (result.blocked) caption.textContent = result.checkedMax ? 'Blocked, ' + result.score + ' of ' + result.checkedMax + ' checked' : 'Blocked before any check could finish'
-    else if (result.applicableMax < 100) caption.textContent = 'of ' + result.applicableMax + ', because this site does not sell products'
-    else caption.textContent = 'of 100'
+    else caption.textContent = 'of ' + (result.applicableMax || 100) + (KINDS[result.kind] ? ', scored as ' + KINDS[result.kind] : '')
     var host = document.createElement('p')
     host.className = 'readiness-host'
     host.textContent = result.redirectedTo ? result.domain + ' redirects to ' + result.redirectedTo + ', so that site was scored' : result.domain
