@@ -166,17 +166,57 @@ test('a firewall block is not scored as zero', async () => {
   assert.notEqual(result.checkedMax, 100)
 })
 
-test('a site that is not a store skips catalog, schema, and policies', async () => {
+test('a site that is not a store is scored out of 100 on website checks', async () => {
   const result = await score({
     '/': { body: '<html><body><h1>Documentation</h1></body></html>', headers: { 'content-type': 'text/html' } },
     '/llms.txt': { body: `# Example\n\n${'These are the docs for the protocol and the door. '.repeat(12)}` },
     '/robots.txt': { body: 'User-agent: *\nAllow: /\n' },
   })
-  assert.equal(byId(result, 'catalog').status, 'na')
-  assert.equal(byId(result, 'jsonld').status, 'na')
-  assert.equal(byId(result, 'policies').status, 'na')
-  assert.equal(result.applicableMax, WEIGHTS.door + WEIGHTS.llms + WEIGHTS.robots)
+  assert.equal(result.kind, 'site')
+  assert.equal(result.applicableMax, 100)
+  assert.equal(result.checks.some((check) => check.status === 'na'), false)
+  assert.equal(byId(result, 'catalog').title, 'Machine-readable index')
+  assert.equal(byId(result, 'catalog').points, 0)
+  assert.equal(byId(result, 'jsonld').title, 'Structured data')
+  assert.equal(byId(result, 'policies').title, 'Contact and legal pages')
   assert.equal(result.score, WEIGHTS.llms + WEIGHTS.robots)
+})
+
+test('a website with a sitemap, feed, schema, and contact and legal pages earns those points', async () => {
+  const home = '<html><head><link rel="alternate" type="application/rss+xml" href="/blog/rss.xml"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"Organization","name":"Example"},{"@type":"SoftwareApplication","name":"Example App"}]}</script></head><body><a href="/contact">Contact</a><a href="/legal/privacy">Privacy</a></body></html>'
+  const result = await score({
+    '/': { body: home, headers: { 'content-type': 'text/html' } },
+    '/blog/rss.xml': { body: '<?xml version="1.0"?><rss version="2.0"><channel><title>Example</title></channel></rss>', headers: { 'content-type': 'application/rss+xml' } },
+    '/sitemap.xml': { body: '<urlset><url><loc>https://example.com/</loc></url><url><loc>https://example.com/pricing</loc></url></urlset>', headers: { 'content-type': 'application/xml' } },
+    '/contact': { body: policy('Contact'), headers: { 'content-type': 'text/html' } },
+    '/legal/privacy': { body: policy('Privacy'), headers: { 'content-type': 'text/html' } },
+    '/robots.txt': { body: 'User-agent: *\nAllow: /\n' },
+  })
+  assert.equal(result.kind, 'site')
+  assert.equal(byId(result, 'catalog').points, 20)
+  assert.match(byId(result, 'catalog').detail, /sitemap lists 2 pages\. An RSS feed is published/)
+  assert.equal(byId(result, 'jsonld').points, 10)
+  assert.equal(byId(result, 'policies').points, 10)
+  assert.equal(result.score, 20 + 15 + 10 + 10)
+})
+
+test('a home page that never answers is blocked, not a 0 for a site that sells nothing', async () => {
+  const files = filesOf()
+  const request = requestFor(files)
+  const result = await scoreSite('example.com', {
+    resolve,
+    gapMs: 0,
+    request: async (options) => {
+      const path = new URL(options.url).pathname
+      if (path === '/' || path === '/robots.txt') return { ok: false, detail: 'The host did not respond in time.' }
+      return request(options)
+    },
+  })
+  assert.equal(result.blocked, true)
+  assert.equal(result.kind, undefined)
+  assert.equal(result.checkedMax, 0)
+  for (const id of ['door', 'llms', 'catalog', 'robots', 'jsonld', 'policies']) assert.equal(byId(result, id).status, 'blocked', id)
+  assert.match(byId(result, 'llms').detail, /did not answer the checker/)
 })
 
 test('a SaaS site with /products/ feature pages is not a store', async () => {
@@ -190,10 +230,11 @@ test('a SaaS site with /products/ feature pages is not a store', async () => {
     '/policies/shipping-policy': { body: policy('Not found'), headers: { 'content-type': 'text/html' } },
     '/robots.txt': { body: 'User-agent: *\nAllow: /\n' },
   })
-  assert.equal(byId(result, 'catalog').status, 'na')
-  assert.equal(byId(result, 'jsonld').status, 'na')
-  assert.equal(byId(result, 'policies').status, 'na')
-  assert.equal(result.applicableMax, WEIGHTS.door + WEIGHTS.llms + WEIGHTS.robots)
+  assert.equal(result.kind, 'site')
+  assert.equal(result.applicableMax, 100)
+  assert.equal(byId(result, 'catalog').points, 12)
+  assert.equal(byId(result, 'jsonld').title, 'Structured data')
+  assert.equal(byId(result, 'policies').title, 'Contact and legal pages')
 })
 
 test('a software page that also has Product schema is still a store', async () => {
@@ -203,8 +244,8 @@ test('a software page that also has Product schema is still a store', async () =
     '/robots.txt': { body: 'User-agent: *\nAllow: /\n' },
   })
   assert.equal(byId(result, 'jsonld').points, 10)
-  assert.notEqual(byId(result, 'catalog').status, 'na')
-  assert.equal(result.applicableMax, 100)
+  assert.equal(result.kind, 'shop')
+  assert.equal(byId(result, 'catalog').title, 'Structured catalog')
 })
 
 test('a valid door is worth 35', async () => {
@@ -283,7 +324,7 @@ test('a vacation rental is a store with a cancellation policy and house rules', 
     '/house-rules': { body: policy('House rules'), headers: { 'content-type': 'text/html' } },
     '/robots.txt': { body: 'User-agent: *\nAllow: /\n' },
   })
-  assert.equal(result.applicableMax, 100)
+  assert.equal(result.kind, 'rental')
   assert.equal(byId(result, 'catalog').points, 20)
   assert.equal(byId(result, 'jsonld').points, 10)
   assert.equal(byId(result, 'jsonld').title, 'Listing schema')

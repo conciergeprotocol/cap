@@ -1,4 +1,5 @@
 import { createBucketClient } from '@cosmicjs/sdk'
+import { VERSION } from './readiness.mjs'
 
 export const READINESS_TYPE = 'cap-readiness'
 export const CACHE_MS = 24 * 60 * 60 * 1000
@@ -32,6 +33,8 @@ export function withRun(previous, result) {
   const slim = {
     month,
     checkedAt: result.checkedAt,
+    version: result.version,
+    kind: result.kind,
     score: result.score,
     checkedMax: result.checkedMax,
     applicableMax: result.applicableMax,
@@ -43,6 +46,7 @@ export function withRun(previous, result) {
 }
 
 export function fresh(record, now = Date.now()) {
+  if (record?.latest?.version !== VERSION) return false
   const at = Date.parse(record?.latest?.checkedAt || '')
   return Number.isFinite(at) && now - at < CACHE_MS
 }

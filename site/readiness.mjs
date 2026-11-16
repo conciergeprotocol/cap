@@ -2,7 +2,7 @@ import { isIP } from 'node:net'
 import { gunzipSync } from 'node:zlib'
 import { checkDoor, parseHost, pinnedRequest, resolvePublic } from './check.mjs'
 
-export const VERSION = 1
+export const VERSION = 2
 export const UA = 'CAP-Readiness/1.0 (+https://conciergeprotocol.org/readiness)'
 export const WEIGHTS = { door: 35, llms: 10, catalog: 20, robots: 15, jsonld: 10, policies: 10 }
 export const ROBOTS = [
@@ -23,9 +23,17 @@ const CATALOG_FIX = 'Publish /products.json with a price and availability (in st
 const RENTAL_CATALOG_FIX = 'Publish /products.json with one entry per listing: its URL, the nightly price, and whether it has open dates.'
 const SCHEMA_FIX = 'Add schema.org Product JSON-LD on product pages, with an Offer that includes price and availability.'
 const RENTAL_SCHEMA_FIX = 'Add schema.org VacationRental or LodgingBusiness JSON-LD on each listing page, with an Offer that includes the nightly price and availability.'
+const SITEMAP_FIX = 'Publish /sitemap.xml listing the pages that matter, and reference it from robots.txt.'
+const FEED_FIX = 'Publish a machine-readable source an agent can read in one request: an RSS or Atom feed for articles, an OpenAPI spec for an API, or /llms-full.txt with the full text of the key pages.'
+const SITE_SCHEMA_FIX = 'Add schema.org JSON-LD to the home page: Organization (or a LocalBusiness type) for who runs the site, and a type for what it offers, such as SoftwareApplication, Service, Product, Course, Event, or Article.'
 
-// What a store has to publish. A rental has no returns or shipping, so it is asked for its cancellation policy and house rules instead.
+// What each kind of site has to publish. A store is asked for returns and shipping, a rental for its cancellation policy and house rules, and any other site for a contact page and its privacy policy or terms.
 const POLICY_KINDS = {
+  site: {
+    title: 'Contact and legal pages',
+    first: { label: 'Contact page', match: /contact|about|support/i, guess: '/contact' },
+    second: { label: 'Privacy policy or terms', match: /privacy|terms|legal/i, guess: '/privacy' },
+  },
   shop: {
     title: 'Return and shipping policies',
     first: { label: 'Return policy', match: /return|refund|exchange/i, guess: '/policies/refund-policy' },
@@ -76,22 +84,24 @@ export async function scoreSite(input, deps = {}) {
     ctx.addresses = moved.addresses
     movedTo = landed
   }
-  const finish = (checks) => {
-    const result = summarize(host.hostname, checks)
+  const finish = (checks, kind) => {
+    const result = summarize(host.hostname, checks, kind)
     if (movedTo) result.redirectedTo = movedTo
     return result
   }
 
   const door = scoreDoor(await runDoor(ctx.hostname, { request, resolve, ask: deps.ask !== false }), ctx.hostname)
-  if (home.blocked) {
-    const robots = await checkRobots(ctx, home)
+  // Without the home page nothing else can be judged, including what kind of site this is. Bot protection often stalls instead of answering 403.
+  if (home.blocked || !home.ok) {
+    const wall = home.blocked ? home : { ...home, dropped: true }
+    const robots = await checkRobots(ctx, wall)
     return finish([
-      door.status === 'fail' ? blockedCheck('door', 'CAP door', WEIGHTS.door, home) : door,
-      blockedCheck('llms', 'llms.txt', WEIGHTS.llms, home),
-      blockedCheck('catalog', 'Structured catalog', WEIGHTS.catalog, home),
+      door.status === 'fail' ? blockedCheck('door', 'CAP door', WEIGHTS.door, wall) : door,
+      blockedCheck('llms', 'llms.txt', WEIGHTS.llms, wall),
+      blockedCheck('catalog', 'Catalog or index', WEIGHTS.catalog, wall),
       robots,
-      blockedCheck('jsonld', 'Product schema', WEIGHTS.jsonld, home),
-      blockedCheck('policies', 'Return and shipping policies', WEIGHTS.policies, home),
+      blockedCheck('jsonld', 'Structured data', WEIGHTS.jsonld, wall),
+      blockedCheck('policies', 'Key pages', WEIGHTS.policies, wall),
     ])
   }
 
@@ -100,41 +110,39 @@ export async function scoreSite(input, deps = {}) {
   delete llms.body
   const catalog = await checkCatalog(ctx, home)
   const robots = await checkRobots(ctx, home)
-  const store = isStore(home, catalog)
+  const sells = sellsWhat(home, catalog)
+  let kind = 'site'
   let jsonld = null
-  if (store.yes || store.maybe) {
+  if (sells.kind) {
     const schema = await checkJsonld(ctx, catalog, home)
-    jsonld = schema.check
-    if (store.maybe) store.yes = schema.product || !schema.software
-    if (schema.lodging) store.kind = 'rental'
+    if (!sells.maybe || schema.product || !schema.software) {
+      kind = schema.lodging ? 'rental' : sells.kind
+      jsonld = schema.check
+    }
   }
-  if (!store.yes) {
-    jsonld = notApplicable('jsonld', 'Product schema', WEIGHTS.jsonld, 'This site does not look like a store, so product schema does not apply.')
-  }
-  const policies = store.yes
-    ? await checkPolicies(ctx, home, llmsBody, store.kind)
-    : notApplicable('policies', 'Return and shipping policies', WEIGHTS.policies, 'This site does not look like a store, so return and shipping pages do not apply.')
-  if (!store.yes) {
-    catalog.check = notApplicable('catalog', 'Structured catalog', WEIGHTS.catalog, 'This site does not look like a store, so a product catalog does not apply.')
-  } else if (store.kind === 'rental') {
+  if (kind === 'site') {
+    catalog.check = await checkSiteIndex(ctx, home, llmsBody, catalog.sitemap)
+    jsonld = checkSiteSchema(home)
+  } else if (kind === 'rental') {
     if (catalog.check.fix === CATALOG_FIX) catalog.check.fix = RENTAL_CATALOG_FIX
     if (jsonld.fix === SCHEMA_FIX) jsonld.fix = RENTAL_SCHEMA_FIX
     jsonld.title = 'Listing schema'
   }
-  return finish([door, llms, catalog.check, robots, jsonld, policies])
+  const policies = await checkPolicies(ctx, home, llmsBody, kind)
+  return finish([door, llms, catalog.check, robots, jsonld, policies], kind)
 }
 
-export function summarize(domain, checks) {
-  const applicable = checks.filter((check) => check.status !== 'na')
-  const ran = applicable.filter((check) => check.status !== 'blocked')
+export function summarize(domain, checks, kind) {
+  const ran = checks.filter((check) => check.status !== 'blocked')
   const score = ran.reduce((sum, check) => sum + check.points, 0)
   const checkedMax = ran.reduce((sum, check) => sum + check.max, 0)
-  const applicableMax = applicable.reduce((sum, check) => sum + check.max, 0)
+  const applicableMax = checks.reduce((sum, check) => sum + check.max, 0)
   return {
     ok: true,
     version: VERSION,
     domain,
     checkedAt: new Date().toISOString(),
+    ...(kind ? { kind } : {}),
     score,
     checkedMax,
     applicableMax,
@@ -199,7 +207,7 @@ async function checkLlms(ctx) {
         detail: template
           ? 'llms.txt is present, but it is the stock "Agent Instructions" template.'
           : 'llms.txt is present, but it is only a short stub.',
-        fix: 'Replace it with a page in this brand\'s own words: what it sells, and where products, shipping, and returns are.',
+        fix: 'Replace it with a page in this site\'s own words: what it offers, and where an agent finds the pages that matter.',
         body: text,
       }
     }
@@ -324,6 +332,7 @@ async function readSitemap(ctx, homeText) {
 
   let fetches = 0
   let best = { products: 0, sample: '', truncated: false }
+  const pages = { count: 0, url: '' }
   while (queue.length && fetches < 5 && best.products === 0) {
     const url = queue.shift()
     const res = await fetchText(ctx, url, 800_000)
@@ -336,6 +345,10 @@ async function readSitemap(ctx, homeText) {
       for (const item of ranked.slice(0, 4)) push(item.loc, item.rank === 0)
       continue
     }
+    if (all.length > pages.count) {
+      pages.count = all.length
+      pages.url = res.url
+    }
     const products = all.filter((loc) => isProductLoc(loc, res.url, homeText))
     if (!products.length) continue
     best = {
@@ -346,7 +359,7 @@ async function readSitemap(ctx, homeText) {
       source: res.url,
     }
   }
-  return best
+  return { ...best, pages: pages.count, pagesUrl: pages.url }
 }
 
 function sitemapRank(url) {
@@ -366,6 +379,7 @@ async function checkRobots(ctx, home) {
   const res = ctx.robotsRes || await fetchText(ctx, '/robots.txt')
   const base = { id: 'robots', title: 'AI crawlers', max: WEIGHTS.robots, evidence }
   if (res.blocked) return { ...base, ...blockedFields(res) }
+  if (home?.dropped && !res.ok) return { ...base, ...blockedFields(home) }
   const missing = res.status === 404
   const readable = res.status === 200 && res.text && !isHtml(res, res.text)
   if (!missing && !readable) {
@@ -376,14 +390,14 @@ async function checkRobots(ctx, home) {
   const points = allowed.filter((agent) => agent.ok).reduce((sum, agent) => sum + agent.points, 0)
   const names = allowed.filter((agent) => agent.ok).map((agent) => agent.agent)
   const denied = allowed.filter((agent) => !agent.ok).map((agent) => agent.agent)
-  if (home?.blocked) {
+  if (home?.blocked || home?.dropped) {
     const who = names.length ? `${names.join(', ')} ${names.length === 1 ? 'is' : 'are'} allowed in robots.txt` : 'robots.txt blocks these agents'
     return {
       ...base,
       status: 'fail',
       points: 0,
-      detail: `${who}, but the site blocked ${UA}, so an agent cannot read the pages.`,
-      fix: `Allow ${UA} through the firewall. A robots.txt allow does not help while the firewall returns a challenge.`,
+      detail: `${who}, but the site ${home.dropped ? 'did not answer' : 'blocked'} ${UA}, so an agent cannot read the pages.`,
+      fix: `Allow ${UA} through the firewall. A robots.txt allow does not help while the firewall ${home.dropped ? 'stalls automated requests' : 'returns a challenge'}.`,
     }
   }
   if (!denied.length) {
@@ -515,6 +529,80 @@ function schemaCard(base, found) {
   }
 }
 
+// A site that does not sell from a catalog earns the catalog points with an index of its pages (12) and one source an agent can read in a single request (8).
+async function checkSiteIndex(ctx, home, llmsBody, sitemap) {
+  const base = { id: 'catalog', title: 'Machine-readable index', max: WEIGHTS.catalog, evidence: [] }
+  const parts = []
+  const fixes = []
+  let points = 0
+  if (sitemap?.pages) {
+    points += 12
+    base.evidence.push(sitemap.pagesUrl)
+    parts.push(`A sitemap lists ${sitemap.pages}${sitemap.truncated ? '+' : ''} ${sitemap.pages === 1 ? 'page' : 'pages'}.`)
+  } else {
+    parts.push('No sitemap with page URLs.')
+    fixes.push(SITEMAP_FIX)
+  }
+  const feed = await findFeed(ctx, home, llmsBody)
+  if (feed) {
+    points += 8
+    base.evidence.push(feed.url)
+    parts.push(`${feed.label} is published.`)
+  } else {
+    parts.push('No feed, API spec, or llms-full.txt.')
+    fixes.push(FEED_FIX)
+  }
+  return { ...base, status: points === WEIGHTS.catalog ? 'pass' : points ? 'partial' : 'fail', points, detail: parts.join(' '), fix: fixes.join(' ') }
+}
+
+async function findFeed(ctx, home, llmsBody) {
+  const base = home.url || `https://${ctx.hostname}/`
+  const candidates = []
+  for (const tag of String(home.text || '').match(/<link\b[^>]*>/gi) || []) {
+    if (!/\brel\s*=\s*["']?alternate\b/i.test(tag)) continue
+    const type = tag.match(/\btype\s*=\s*["']?application\/(rss\+xml|atom\+xml|feed\+json)["'\s>]/i)
+    const href = tag.match(/\bhref\s*=\s*(?:"([^"]+)"|'([^']+)')/i)
+    if (!type || !href) continue
+    try {
+      candidates.push({ url: new URL(href[1] || href[2], base).href, label: type[1].startsWith('feed') ? 'A JSON Feed' : `An ${type[1].startsWith('rss') ? 'RSS' : 'Atom'} feed` })
+    } catch {
+      // Skip malformed hrefs.
+    }
+  }
+  for (const url of [...htmlLinks(home.text, base), ...markdownLinks(llmsBody, base)]) {
+    if (/openapi|swagger/i.test(url) && /\.(json|ya?ml)(\?|$)/i.test(url)) candidates.push({ url, label: 'An OpenAPI spec' })
+  }
+  candidates.push({ url: `https://${ctx.hostname}/llms-full.txt`, label: 'llms-full.txt' })
+  const tried = new Set()
+  for (const candidate of candidates) {
+    if (tried.has(candidate.url) || tried.size >= 3) continue
+    tried.add(candidate.url)
+    const res = await fetchText(ctx, candidate.url)
+    const text = (res.text || '').trim()
+    if (res.status !== 200 || res.blocked || isHtml(res, text)) continue
+    if (candidate.label === 'llms-full.txt' ? text.length >= 200 : /<rss\b|<feed\b|jsonfeed\.org|openapi|swagger/i.test(text.slice(0, 4000))) return candidate
+  }
+  return null
+}
+
+const IDENTITY_TYPE = /(Organization|Corporation|NGO|Business|Store|Restaurant|Person|WebSite|Brand)$/
+const OFFER_TYPE = /^(SoftwareApplication|WebApplication|MobileApplication|Service|Product|ProductGroup|Offer|AggregateOffer|Article|NewsArticle|BlogPosting|TechArticle|Event|Course|Dataset|FAQPage|Recipe|Book|JobPosting|HowTo|Menu|VacationRental|Accommodation|LodgingBusiness|Hotel|MedicalClinic|Physician)$/
+
+function checkSiteSchema(home) {
+  const types = schemaTypes(home.text)
+  const evidence = home.url ? [home.url] : []
+  const base = { id: 'jsonld', title: 'Structured data', max: WEIGHTS.jsonld, evidence }
+  const identity = types.filter((type) => IDENTITY_TYPE.test(type))
+  const offer = types.filter((type) => OFFER_TYPE.test(type))
+  const points = (identity.length ? 5 : 0) + (offer.length ? 5 : 0)
+  if (!types.length) return { ...base, status: 'fail', points: 0, detail: 'No schema.org JSON-LD on the home page.', fix: SITE_SCHEMA_FIX }
+  const named = [...new Set([...identity, ...offer])]
+  const detail = named.length
+    ? `Home page JSON-LD declares ${named.slice(0, 4).join(', ')}.${identity.length ? '' : ' Nothing says who runs the site.'}${offer.length ? '' : ' Nothing says what it offers.'}`
+    : `Home page JSON-LD declares ${types.slice(0, 3).join(', ')}, which says neither who runs the site nor what it offers.`
+  return { ...base, status: points === WEIGHTS.jsonld ? 'pass' : points ? 'partial' : 'fail', points, detail, fix: points === WEIGHTS.jsonld ? '' : SITE_SCHEMA_FIX }
+}
+
 async function checkPolicies(ctx, home, llmsBody, kind = 'shop') {
   const spec = POLICY_KINDS[kind] || POLICY_KINDS.shop
   const pool = [
@@ -630,35 +718,58 @@ const LODGING = /(^|\/)(VacationRental|Accommodation|LodgingBusiness|Hotel|Motel
 const LODGING_IN_PAGE = /"@type"\s*:\s*\[?\s*"(?:https?:\/\/schema\.org\/)?(?:VacationRental|Accommodation|LodgingBusiness|Hotel|Motel|Resort|BedAndBreakfast|Hostel|Campground)"/
 const LISTING_LINK = /href\s*=\s*["'][^"']*\/(?:stays?|rentals?|listings?)\/[a-z0-9]/i
 
-function isStore(home, catalog) {
-  if (catalog.check?.status === 'blocked') return { yes: true, kind: 'shop' }
+// Picks which catalog checks to run: a shop, a rental, or neither. `maybe` is confirmed by the schema on a sampled page.
+function sellsWhat(home, catalog) {
+  if (catalog.check?.status === 'blocked') return { kind: 'shop' }
   const html = home.text || ''
   const kind = LODGING_IN_PAGE.test(html) || LISTING_LINK.test(html) ? 'rental' : 'shop'
-  if (catalog.feed?.count) return { yes: true, kind }
-  if (catalog.sitemap?.products >= SITEMAP_CATALOG) return { yes: true, kind }
-  if (/cdn\.shopify\.com|Shopify\.theme|myshopify\.com/.test(html)) return { yes: true, kind: 'shop' }
-  if (/"@type"\s*:\s*"Product/.test(html)) return { yes: true, kind: 'shop' }
-  if (LODGING_IN_PAGE.test(html)) return { yes: true, kind: 'rental' }
-  if (/add to cart|add to bag/i.test(html)) return { yes: true, kind: 'shop' }
-  if (catalog.sitemap?.products > 0) return { yes: false, maybe: true, kind }
-  if (/href\s*=\s*["'][^"']*\/(?:products|collections)\//i.test(html)) return { yes: false, maybe: true, kind: 'shop' }
-  if (LISTING_LINK.test(html)) return { yes: false, maybe: true, kind: 'rental' }
-  return { yes: false }
+  if (catalog.feed?.count) return { kind }
+  if (catalog.sitemap?.products >= SITEMAP_CATALOG) return { kind }
+  if (/cdn\.shopify\.com|Shopify\.theme|myshopify\.com/.test(html)) return { kind: 'shop' }
+  if (/"@type"\s*:\s*"Product/.test(html)) return { kind: 'shop' }
+  if (LODGING_IN_PAGE.test(html)) return { kind: 'rental' }
+  if (/add to cart|add to bag/i.test(html)) return { kind: 'shop' }
+  if (catalog.sitemap?.products > 0) return { kind, maybe: true }
+  if (/href\s*=\s*["'][^"']*\/(?:products|collections)\//i.test(html)) return { kind: 'shop', maybe: true }
+  if (LISTING_LINK.test(html)) return { kind: 'rental', maybe: true }
+  return { kind: '' }
+}
+
+function jsonldBlocks(html) {
+  const out = []
+  for (const block of String(html || '').matchAll(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+    try {
+      out.push(JSON.parse(block[1].trim()))
+    } catch {
+      // Skip invalid JSON-LD.
+    }
+  }
+  return out
 }
 
 export function productSchema(html) {
   const found = { product: false, type: '', price: false, availability: false }
-  const blocks = [...String(html || '').matchAll(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)]
-  for (const block of blocks) {
-    let data
-    try {
-      data = JSON.parse(block[1].trim())
-    } catch {
-      continue
-    }
+  for (const data of jsonldBlocks(html)) {
     for (const node of flattenNodes(data)) noteProduct(node, found, new Set())
   }
   return found
+}
+
+export function schemaTypes(html) {
+  const types = new Set()
+  const seen = new Set()
+  const walk = (node) => {
+    if (!node || typeof node !== 'object' || seen.has(node)) return
+    seen.add(node)
+    if (Array.isArray(node)) {
+      node.forEach(walk)
+      return
+    }
+    for (const type of typesOf(node)) types.add(type.replace(/^.*\//, ''))
+    Object.values(node).forEach(walk)
+  }
+  jsonldBlocks(html).forEach(walk)
+  return [...types]
 }
 
 function noteProduct(node, found, seen) {
@@ -819,17 +930,15 @@ function blockedFields(res) {
   return {
     status: 'blocked',
     points: 0,
-    detail: `Bot protection stopped this check${res.status ? ` (HTTP ${res.status})` : ''}. It is not scored as a failure.`,
+    detail: res.dropped
+      ? `The site did not answer the checker (${(res.error || 'No response').replace(/\.$/, '').replace(/^./, (ch) => ch.toLowerCase())}). Bot protection often stalls automated requests this way, so it is not scored as a failure.`
+      : `Bot protection stopped this check${res.status ? ` (HTTP ${res.status})` : ''}. It is not scored as a failure.`,
     fix: '',
   }
 }
 
 function blockedCheck(id, title, max, res) {
   return { id, title, max, evidence: res?.url ? [res.url] : [], ...blockedFields(res || {}) }
-}
-
-function notApplicable(id, title, max, detail) {
-  return { id, title, max, points: 0, status: 'na', evidence: [], detail, fix: '' }
 }
 
 function missDetail(res, label) {
