@@ -49,7 +49,7 @@ To add a door, see https://conciergeprotocol.org/publish.
 `
 }
 
-export function readinessShare({ domain, result }) {
+export function readinessShare({ domain, result, shell = '' }) {
   const score = result?.score
   const title = result
     ? `${result.blocked ? 'Blocked' : score} agent readiness for ${domain}`
@@ -57,24 +57,27 @@ export function readinessShare({ domain, result }) {
   const description = result
     ? `${domain} scored ${score} of ${result.blocked ? result.checkedMax : result.applicableMax} on the CAP agent readiness check.`
     : `How ready ${domain} is for AI agents.`
+  const url = `https://conciergeprotocol.org/readiness/${encodeURIComponent(domain)}`
   const image = `https://conciergeprotocol.org/readiness/og/${encodeURIComponent(domain)}`
-  const data = result ? JSON.stringify(result).replace(/</g, '\\u003c') : ''
+  const data = result ? JSON.stringify({ ...result, cached: true }).replace(/</g, '\\u003c') : ''
+  const pageTitle = `${title} · Concierge Agent Protocol`
+  if (shell.includes('id="readiness-form"')) return patchShell(shell, { pageTitle, description, url, image, data })
   return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${escapeHtml(title)} · Concierge Agent Protocol</title>
+<title>${escapeHtml(pageTitle)}</title>
 <meta name="description" content="${escapeHtml(description)}">
 <meta property="og:type" content="website">
-<meta property="og:title" content="${escapeHtml(title)}">
+<meta property="og:title" content="${escapeHtml(pageTitle)}">
 <meta property="og:description" content="${escapeHtml(description)}">
-<meta property="og:url" content="https://conciergeprotocol.org/readiness/${encodeURIComponent(domain)}">
+<meta property="og:url" content="${url}">
 <meta property="og:image" content="${image}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${escapeHtml(title)}">
+<meta name="twitter:title" content="${escapeHtml(pageTitle)}">
 <meta name="twitter:description" content="${escapeHtml(description)}">
 <meta name="twitter:image" content="${image}">
 <link rel="icon" href="/favicon.png" type="image/png">
@@ -94,6 +97,32 @@ ${readinessPageBody()}
 ${data ? `<script type="application/json" id="readiness-result">${data}</script>` : ''}
 </body>
 </html>`
+}
+
+// A refreshed /readiness/:domain URL is the same document as /readiness. Only the share title and the cached score change.
+function patchShell(shell, { pageTitle, description, url, image, data }) {
+  let html = shell
+  html = html.replace(/<title>[^<]*<\/title>/, `<title>${escapeHtml(pageTitle)}</title>`)
+  html = replaceMeta(html, 'name', 'description', description)
+  html = replaceMeta(html, 'property', 'og:title', pageTitle)
+  html = replaceMeta(html, 'property', 'og:description', description)
+  html = replaceMeta(html, 'property', 'og:url', url)
+  html = replaceMeta(html, 'property', 'og:image', image)
+  html = replaceMeta(html, 'property', 'og:image:width', '1200')
+  html = replaceMeta(html, 'property', 'og:image:height', '630')
+  html = replaceMeta(html, 'property', 'og:image:alt', pageTitle)
+  html = replaceMeta(html, 'name', 'twitter:title', pageTitle)
+  html = replaceMeta(html, 'name', 'twitter:description', description)
+  html = replaceMeta(html, 'name', 'twitter:image', image)
+  if (!data) return html
+  const script = `<script type="application/json" id="readiness-result">${data}</script>`
+  return html.includes('</body>') ? html.replace('</body>', `${script}</body>`) : `${html}${script}`
+}
+
+function replaceMeta(html, attr, key, value) {
+  const pattern = new RegExp(`<meta ${attr}="${key}" content="[^"]*">`)
+  const tag = `<meta ${attr}="${key}" content="${escapeHtml(value)}">`
+  return pattern.test(html) ? html.replace(pattern, tag) : html
 }
 
 function escapeHtml(text) {

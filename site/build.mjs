@@ -879,7 +879,9 @@ for (const tool of toolPages) {
   const text = `${tool.markdown.trim()}\n`
   const file = join(out, `${tool.route.slice(1)}.html`)
   mkdirSync(dirname(file), { recursive: true })
-  writeFileSync(file, layout({ title: tool.title, body: tool.body, route: tool.route, description: tool.description, markdownPath }))
+  const html = layout({ title: tool.title, body: tool.body, route: tool.route, description: tool.description, markdownPath })
+  writeFileSync(file, html)
+  if (tool.route === '/readiness') writeFileSync(join(root, 'api', 'readiness-shell.html'), html)
   writeFileSync(join(out, markdownPath.slice(1)), docBanner(tool.route) + text)
   docs.push({ title: tool.title, route: tool.route, path: markdownPath, blurb: tool.description, markdown: text })
 }

@@ -7,5 +7,6 @@
 node_modules/
 reference/data/
 site/dist/
+api/readiness-shell.html
 .vercel
 .env*
