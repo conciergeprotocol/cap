@@ -23,7 +23,8 @@
       "maxDuration": 60
     },
     "api/readiness-share.js": {
-      "maxDuration": 15
+      "maxDuration": 15,
+      "includeFiles": "{api/readiness-shell.html,site/dist/readiness.html}"
     }
   },
   "headers": [

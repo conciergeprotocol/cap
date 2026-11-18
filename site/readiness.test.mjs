@@ -360,3 +360,34 @@ test('the score card is a png and the page stays vendor neutral', () => {
   const pages = [readinessPageBody(), readinessMarkdown(), readinessShare({ domain: 'allbirds.com', result: null })]
   for (const html of pages) assert.doesNotMatch(html, /cosmicjs|calendly|leaderboard/i)
 })
+
+test('a refreshed result uses the same page as the inline report', () => {
+  const shell = `<!doctype html><html><head><title>Agent readiness · Concierge Agent Protocol</title>
+<meta name="description" content="Score a store.">
+<meta property="og:title" content="Agent readiness · Concierge Agent Protocol">
+<meta property="og:description" content="Score a store.">
+<meta property="og:url" content="https://conciergeprotocol.org/readiness">
+<meta property="og:image" content="https://example.com/poster.png">
+<meta property="og:image:width" content="1920">
+<meta property="og:image:height" content="1080">
+<meta property="og:image:alt" content="poster">
+<meta name="twitter:title" content="Agent readiness · Concierge Agent Protocol">
+<meta name="twitter:description" content="Score a store.">
+<meta name="twitter:image" content="https://example.com/poster.png">
+</head><body><aside class="sidebar" id="site-menu">nav</aside><main id="content"><h1>Agent readiness</h1><form id="readiness-form"></form></main></body></html>`
+  const html = readinessShare({
+    domain: 'cosmicjs.com',
+    result: { score: 95, applicableMax: 100, blocked: false, domain: 'cosmicjs.com', checks: [] },
+    shell,
+  })
+  assert.match(html, /id="site-menu"/)
+  assert.match(html, /id="readiness-form"/)
+  assert.match(html, /<h1>Agent readiness<\/h1>/)
+  assert.doesNotMatch(html, /Check a domain/)
+  assert.match(html, /<title>95 agent readiness for cosmicjs.com · Concierge Agent Protocol<\/title>/)
+  assert.match(html, /property="og:url" content="https:\/\/conciergeprotocol.org\/readiness\/cosmicjs.com"/)
+  assert.match(html, /property="og:image" content="https:\/\/conciergeprotocol.org\/readiness\/og\/cosmicjs.com"/)
+  assert.match(html, /id="readiness-result"/)
+  assert.match(html, /"cached":true/)
+  assert.match(html, /"score":95/)
+})
