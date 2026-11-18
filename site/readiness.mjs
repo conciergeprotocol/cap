@@ -2,7 +2,7 @@ import { isIP } from 'node:net'
 import { gunzipSync } from 'node:zlib'
 import { checkDoor, parseHost, pinnedRequest, resolvePublic } from './check.mjs'
 
-export const VERSION = 2
+export const VERSION = 3
 export const UA = 'CAP-Readiness/1.0 (+https://conciergeprotocol.org/readiness)'
 export const WEIGHTS = { door: 35, llms: 10, catalog: 20, robots: 15, jsonld: 10, policies: 10 }
 export const ROBOTS = [
@@ -17,7 +17,9 @@ const BUDGET_MS = 55_000
 const GAP_MS = 1000
 const POLICY_TEXT = 400
 
-const DOOR_FIX = 'Publish /agent.txt at the site root. The first line is "Protocol: CAP/1.0", then a CAP line with the https endpoint. The endpoint has to answer a public question.'
+const DOOR_FIX = 'Publish an agent door: /agent.txt for CAP (first line "Protocol: CAP/1.0", then a CAP line with the https endpoint), /.well-known/poppy.json, or an A2A /.well-known/agent-card.json. Full points need the endpoint to answer: a CAP door answers a public question, and a UCP door\'s MCP server lists its tools.'
+const DOOR_TITLE = 'Agent door'
+const DISCOVERY_POINTS = 15
 const LLMS_FIX = 'Publish /llms.txt as plain text that tells an agent what this site offers and where to find the pages that matter, such as products, pricing, docs, or policies.'
 const CATALOG_FIX = 'Publish /products.json with a price and availability (in stock or out of stock) on each variant.'
 const RENTAL_CATALOG_FIX = 'Publish /products.json with one entry per listing: its URL, the nightly price, and whether it has open dates.'
@@ -90,13 +92,17 @@ export async function scoreSite(input, deps = {}) {
     return result
   }
 
-  const door = scoreDoor(await runDoor(ctx.hostname, { request, resolve, ask: deps.ask !== false }), ctx.hostname)
+  let door = scoreDoor(await runDoor(ctx.hostname, { request, resolve, ask: deps.ask !== false }), ctx.hostname)
+  if (door.status !== 'pass' && door.status !== 'blocked') {
+    const other = await checkOtherDoors(ctx)
+    if (other && other.points > door.points) door = other
+  }
   // Without the home page nothing else can be judged, including what kind of site this is. Bot protection often stalls instead of answering 403.
   if (home.blocked || !home.ok) {
     const wall = home.blocked ? home : { ...home, dropped: true }
     const robots = await checkRobots(ctx, wall)
     return finish([
-      door.status === 'fail' ? blockedCheck('door', 'CAP door', WEIGHTS.door, wall) : door,
+      door.status === 'fail' ? blockedCheck('door', DOOR_TITLE, WEIGHTS.door, wall) : door,
       blockedCheck('llms', 'llms.txt', WEIGHTS.llms, wall),
       blockedCheck('catalog', 'Catalog or index', WEIGHTS.catalog, wall),
       robots,
@@ -156,7 +162,7 @@ function scoreDoor(result, hostname) {
   const evidence = [`https://${hostname}/agent.txt`]
   const card = result.checks?.find((check) => check.id === 'card')
   const reply = result.checks?.find((check) => check.id === 'reply')
-  const base = { id: 'door', title: 'CAP door', max: WEIGHTS.door, evidence }
+  const base = { id: 'door', title: DOOR_TITLE, max: WEIGHTS.door, evidence }
   if (card && blockedStatus(card.status)) {
     return { ...base, status: 'blocked', points: 0, detail: card.detail, fix: '' }
   }
@@ -164,6 +170,7 @@ function scoreDoor(result, hostname) {
     if (result.cap) evidence.push(result.cap)
     return {
       ...base,
+      protocol: 'CAP',
       status: 'pass',
       points: WEIGHTS.door,
       evidence,
@@ -175,8 +182,9 @@ function scoreDoor(result, hostname) {
     if (result.cap) evidence.push(result.cap)
     return {
       ...base,
+      protocol: 'CAP',
       status: 'partial',
-      points: 15,
+      points: DISCOVERY_POINTS,
       evidence,
       detail: `${card.detail} ${reply?.detail || 'The CAP endpoint did not answer the test question.'}`,
       fix: 'agent.txt is valid. The CAP endpoint still has to answer a public question with status done.',
@@ -188,6 +196,137 @@ function scoreDoor(result, hostname) {
     points: 0,
     detail: card?.detail || 'No agent.txt.',
     fix: DOOR_FIX,
+  }
+}
+
+// A door in another protocol earns the discovery points for its file, and the whole door when the checker can call its endpoint.
+async function checkOtherDoors(ctx) {
+  return (await checkPoppy(ctx)) || (await checkAgentCard(ctx))
+}
+
+const PROTOCOL_NAMES = { ucp: 'UCP', cap: 'CAP', 'conciergeprotocol.org/cap': 'CAP', a2a: 'A2A', mcp: 'MCP' }
+const UNCALLED_FIX = 'The other 20 points need an endpoint the checker can call today: a CAP door, or UCP with an MCP server.'
+
+async function checkPoppy(ctx) {
+  const url = `https://${ctx.hostname}/.well-known/poppy.json`
+  const doc = await fetchJson(ctx, url)
+  const protocols = Array.isArray(doc?.agent?.protocols) ? doc.agent.protocols.filter((entry) => typeof entry?.type === 'string') : []
+  if (typeof doc?.protocol_version !== 'string' || !protocols.length) return null
+  const names = [...new Set(protocols.map((entry) => PROTOCOL_NAMES[entry.type.toLowerCase()] || entry.type))]
+  const version = `poppy.json (version ${doc.protocol_version})`
+  const base = { id: 'door', title: DOOR_TITLE, max: WEIGHTS.door, evidence: [url], protocol: `Poppy, ${names.join(', ')}` }
+  const ucp = protocols.find((entry) => entry.type.toLowerCase() === 'ucp' && typeof entry.endpoint === 'string')
+  if (!ucp) {
+    return {
+      ...base,
+      status: 'partial',
+      points: DISCOVERY_POINTS,
+      detail: `${version} lists ${names.join(', ')}. The checker cannot call that protocol yet, so the file earns the discovery points.`,
+      fix: UNCALLED_FIX,
+    }
+  }
+  const live = await checkUcp(ctx, ucp.endpoint)
+  base.evidence.push(...live.evidence)
+  if (live.ok) {
+    return {
+      ...base,
+      status: 'pass',
+      points: WEIGHTS.door,
+      detail: `${version} points agents at UCP, and its MCP server lists ${live.count} tools, including ${live.names}.`,
+      fix: '',
+    }
+  }
+  return {
+    ...base,
+    status: 'partial',
+    points: DISCOVERY_POINTS,
+    detail: `${version} points agents at UCP, but ${live.detail}`,
+    fix: 'The UCP profile has to list an MCP endpoint that answers tools/list.',
+  }
+}
+
+async function checkUcp(ctx, endpoint) {
+  let profileUrl
+  try {
+    profileUrl = new URL(endpoint, `https://${ctx.hostname}/`).href
+  } catch {
+    return { ok: false, evidence: [], detail: 'its endpoint is not a URL.' }
+  }
+  const profile = await fetchJson(ctx, profileUrl)
+  const services = Object.values(profile?.ucp?.services || {}).flat()
+  const mcp = services.find((service) => service?.transport === 'mcp' && typeof service.endpoint === 'string')
+  if (!mcp) return { ok: false, evidence: [profileUrl], detail: `${profileUrl} lists no MCP endpoint.` }
+  return { ...(await mcpTools(ctx, mcp.endpoint)), evidence: [profileUrl, mcp.endpoint] }
+}
+
+const TOOL_NAMES_FIRST = ['search_catalog', 'ask_business', 'create_checkout']
+
+async function mcpTools(ctx, endpoint) {
+  let url
+  try {
+    url = new URL(endpoint)
+  } catch {
+    return { ok: false, detail: 'its MCP endpoint is not a URL.' }
+  }
+  if (url.protocol !== 'https:') return { ok: false, detail: 'its MCP endpoint is not https.' }
+  const found = await ctx.resolve(url.hostname)
+  if (!found.ok) return { ok: false, detail: found.detail }
+  if (!(await pace(ctx))) return { ok: false, detail: 'the check ran out of time before calling its MCP server.' }
+  const res = await ctx.request({
+    url: url.href,
+    method: 'POST',
+    addresses: found.addresses,
+    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
+    timeoutMs: Math.min(8_000, ctx.deadline - Date.now()),
+    maxBytes: 1_000_000,
+    truncate: true,
+  })
+  if (!res?.ok) return { ok: false, detail: `its MCP server did not respond (${(res?.detail || 'no response').replace(/\.$/, '')}).` }
+  if (res.status !== 200) return { ok: false, detail: `its MCP server returned HTTP ${res.status} to tools/list.` }
+  const tools = readRpc(asText(res.body), headerValue(res.headers, 'content-type'))?.result?.tools
+  if (!Array.isArray(tools) || !tools.length) return { ok: false, detail: 'its MCP server listed no tools.' }
+  const all = tools.map((tool) => tool?.name).filter((name) => typeof name === 'string')
+  const names = [...TOOL_NAMES_FIRST.filter((name) => all.includes(name)), ...all].filter((name, index, list) => list.indexOf(name) === index).slice(0, 3)
+  return { ok: true, count: tools.length, names: names.join(', ') }
+}
+
+// Streamable HTTP servers can answer a single request as JSON or as one server-sent event.
+function readRpc(text, type) {
+  const body = /event-stream/i.test(type)
+    ? text.split(/\r?\n/).filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('')
+    : text
+  try {
+    return JSON.parse(body)
+  } catch {
+    return null
+  }
+}
+
+async function checkAgentCard(ctx) {
+  const url = `https://${ctx.hostname}/.well-known/agent-card.json`
+  const card = await fetchJson(ctx, url)
+  if (typeof card?.name !== 'string' || !(typeof card.url === 'string' || Array.isArray(card.supportedInterfaces))) return null
+  return {
+    id: 'door',
+    title: DOOR_TITLE,
+    max: WEIGHTS.door,
+    evidence: [url],
+    protocol: 'A2A',
+    status: 'partial',
+    points: DISCOVERY_POINTS,
+    detail: `An A2A agent card names ${card.name}. The checker cannot call A2A yet, so the card earns the discovery points.`,
+    fix: UNCALLED_FIX,
+  }
+}
+
+async function fetchJson(ctx, url) {
+  const res = await fetchText(ctx, url, 1_000_000)
+  if (res.status !== 200 || res.blocked || res.truncated || !res.text || isHtml(res, res.text)) return null
+  try {
+    return JSON.parse(res.text)
+  } catch {
+    return null
   }
 }
 
@@ -1019,10 +1158,7 @@ async function fetchText(ctx, pathOrUrl, maxBytes = PAGE_MAX, { anyHost = false 
       if (!found.ok) return { ok: false, error: found.detail, status: 0, text: '', headers: {}, blocked: false, url: url.href }
       addresses = found.addresses
     }
-    const wait = ctx.nextAt - Date.now()
-    if (wait > 0) await sleep(wait)
-    ctx.nextAt = Date.now() + ctx.gap
-    if (ctx.deadline - Date.now() < 500) {
+    if (!(await pace(ctx))) {
       return { ok: false, error: 'The check ran out of time.', status: 0, text: '', headers: {}, blocked: false, url: url.href }
     }
     const res = await ctx.request({
@@ -1055,6 +1191,13 @@ async function fetchText(ctx, pathOrUrl, maxBytes = PAGE_MAX, { anyHost = false 
     }
   }
   return { ok: false, error: 'The page redirected too many times.', status: 0, text: '', headers: {}, blocked: false, url: url.href }
+}
+
+async function pace(ctx) {
+  const wait = ctx.nextAt - Date.now()
+  if (wait > 0) await sleep(wait)
+  ctx.nextAt = Date.now() + ctx.gap
+  return ctx.deadline - Date.now() >= 500
 }
 
 function redirectTarget(headers, from, entered) {
