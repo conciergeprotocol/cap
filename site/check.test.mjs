@@ -1,6 +1,19 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { agentPointer, checkDoor, isPublicAddress, parseHost, pickIcon, sameSite } from './check.mjs'
+import { agentPointer, ASK_LINE, checkDoor, isPublicAddress, parseHost, pickIcon, sameSite } from './check.mjs'
+
+function barePost(options) {
+  return options.method === 'POST' && !options.headers?.['cap-version']
+}
+
+function rejectBare() {
+  return {
+    ok: true,
+    status: 400,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ error: { code: 'invalid_request', message: 'Send CAP-Version and CAP-From.' } }),
+  }
+}
 import { checkPageBody } from './check-page.mjs'
 
 test('parseHost accepts a domain and rejects everything else', () => {
@@ -33,6 +46,7 @@ test('a door that answers and hides the message passes', async () => {
       if (options.url.endsWith('/agent.txt')) {
         return { ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'Protocol: CAP/1.0\nName: Example\nCAP: https://example.com/cap/v1\n' }
       }
+      if (barePost(options)) return rejectBare()
       if (options.method === 'POST') {
         return { ok: true, status: 202, headers: { 'retry-after': '0' }, body: JSON.stringify({ id: 'msg_abc12345', status: 'working' }) }
       }
@@ -56,6 +70,7 @@ test('a door without the Ask line or the help still passes, with tips', async ()
           ? { ok: true, status: 200, headers: { 'content-type': 'text/plain; charset=utf-8' }, body: helpBody }
           : { ok: true, status: 404, headers: { 'content-type': 'text/html' }, body: '<html></html>' }
       }
+      if (barePost(options)) return rejectBare()
       if (options.method === 'POST') {
         return { ok: true, status: 200, headers: {}, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'Hello.' }) }
       }
@@ -70,7 +85,7 @@ test('a door without the Ask line or the help still passes, with tips', async ()
   assert.match(bareCard.detail, /Ask line/)
 
   const full = await door(
-    'Protocol: CAP/1.0\nAsk: This site\'s agent answers questions for the company.\nCAP: https://example.com/cap/v1\n',
+    `Protocol: CAP/1.0\nAsk: ${ASK_LINE}\nCAP: https://example.com/cap/v1\n`,
     'POST https://example.com/cap/v1/messages\n',
   )
   const fullCard = full.checks.find((check) => check.id === 'card')
@@ -86,6 +101,7 @@ test('the CAP line may point at another https host', async () => {
       if (options.url.endsWith('/agent.txt')) {
         return { ok: true, status: 200, headers: {}, body: 'Protocol: CAP/1.0\nCAP: https://cap.example.net/cap/v1\n' }
       }
+      if (barePost(options)) return rejectBare()
       if (options.method === 'POST') {
         assert.equal(options.url, 'https://cap.example.net/cap/v1/messages')
         assert.deepEqual(options.addresses, ['9.9.9.9'])
@@ -117,6 +133,7 @@ test('a redirect onto another host is followed', async () => {
         assert.deepEqual(options.addresses, ['1.2.3.4'])
         return { ok: true, status: 200, headers: {}, body: 'Protocol: CAP/1.0\nCAP: https://example.com/cap/v1\n' }
       }
+      if (barePost(options)) return rejectBare()
       if (options.method === 'POST') {
         return { ok: true, status: 200, headers: {}, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'Hello.' }) }
       }
@@ -158,6 +175,7 @@ test('a homepage link is followed when agent.txt is missing', async () => {
         assert.deepEqual(options.addresses, ['1.2.3.4'])
         return { ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'Protocol: CAP/1.0\nCAP: https://example.com/cap/v1\n' }
       }
+      if (barePost(options)) return rejectBare()
       if (options.method === 'POST') {
         return { ok: true, status: 200, headers: {}, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'Hello.' }) }
       }
@@ -177,6 +195,7 @@ test('a valid agent.txt wins over the homepage', async () => {
       if (options.url.endsWith('/agent.txt')) {
         return { ok: true, status: 200, headers: {}, body: 'Protocol: CAP/1.0\nCAP: https://example.com/cap/v1\n' }
       }
+      if (barePost(options)) return rejectBare()
       if (options.method === 'POST') {
         return { ok: true, status: 200, headers: {}, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'Hello.' }) }
       }
@@ -205,6 +224,7 @@ test('www is the same site as the bare domain', async () => {
       if (options.url.endsWith('/agent.txt')) {
         return { ok: true, status: 200, headers: {}, body: 'Protocol: CAP/1.0\nCAP: https://www.example.com/cap/v1\n' }
       }
+      if (barePost(options)) return rejectBare()
       if (options.method === 'POST') {
         assert.equal(options.url, 'https://www.example.com/cap/v1/messages')
         assert.deepEqual(options.addresses, ['1.1.1.1'])
@@ -263,6 +283,7 @@ const door = (onPost) => ({
     if (options.url.endsWith('/agent.txt')) {
       return { ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'Protocol: CAP/1.0\nCAP: https://example.com/cap/v1\n' }
     }
+    if (barePost(options)) return rejectBare()
     if (options.method === 'POST') return onPost(options)
     if (options.headers['cap-from'] === 'agent:cap-check-other') return { ok: true, status: 404, headers: {}, body: '' }
     return { ok: true, status: 200, headers: {}, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'Hi.' }) }
@@ -371,6 +392,7 @@ function loginDoor(meta, { status = 200, location } = {}) {
         if (options.url === META) {
           return { ok: true, status, headers: { 'content-type': 'application/json' }, body: JSON.stringify(meta) }
         }
+        if (barePost(options)) return rejectBare()
         if (options.method === 'POST') {
           return {
             ok: true,
@@ -389,11 +411,17 @@ function loginDoor(meta, { status = 200, location } = {}) {
   }
 }
 
+const LOGIN = {
+  issuer: 'https://example.com/oauth',
+  device_authorization_endpoint: 'https://example.com/oauth/device',
+  token_endpoint: 'https://example.com/oauth/token',
+  revocation_endpoint: 'https://example.com/oauth/revoke',
+  scopes_supported: ['read', 'write'],
+  protected_resources: ['https://example.com/cap/v1'],
+}
+
 test('a login whose metadata lists the CAP line passes', async () => {
-  const door = loginDoor({
-    issuer: 'https://example.com/oauth',
-    protected_resources: ['https://example.com/cap/v1'],
-  })
+  const door = loginDoor(LOGIN)
   const result = await checkDoor('example.com', door.deps)
   assert.equal(result.passed, true)
   assert.equal(result.checks.find((check) => check.id === 'login').pass, true)
@@ -442,10 +470,7 @@ test('a file-only check still reads the login', async () => {
 })
 
 test('a 202 Location on another origin is a tip, not a failure', async () => {
-  const result = await checkDoor('example.com', loginDoor({
-    issuer: 'https://example.com/oauth',
-    protected_resources: ['https://example.com/cap/v1'],
-  }, { location: 'https://evil.example/cap/v1/messages/msg_abc12345' }).deps)
+  const result = await checkDoor('example.com', loginDoor(LOGIN, { location: 'https://evil.example/cap/v1/messages/msg_abc12345' }).deps)
   assert.equal(result.passed, true)
   const reply = result.checks.find((check) => check.id === 'reply')
   assert.match(reply.detail, /evil\.example/)
@@ -504,6 +529,101 @@ test('a poppy.json is ignored when it is not one, or lists no CAP door', async (
   ucp.agent.protocols = [{ type: 'ucp', endpoint: 'https://example.com/.well-known/ucp', description: 'Shopping' }]
   const commerce = await poppyDoor(poppyFile(ucp))
   assert.equal(commerce.checks.some((check) => check.id === 'poppy'), false)
+})
+
+test('an Ask line with extra instructions fails', async () => {
+  const result = await checkDoor('example.com', {
+    resolve: async () => ({ ok: true, addresses: ['8.8.8.8'] }),
+    ask: false,
+    request: async (options) => {
+      if (options.url.endsWith('/agent.txt')) {
+        return {
+          ok: true,
+          status: 200,
+          headers: { 'content-type': 'text/plain' },
+          body: `Protocol: CAP/1.0\nAsk: ${ASK_LINE} To change a cart, call /actions.\nCAP: https://example.com/cap/v1\n`,
+        }
+      }
+      return { ok: true, status: 404, headers: {}, body: '' }
+    },
+  })
+  assert.equal(result.passed, false)
+  assert.match(result.checks.find((check) => check.id === 'card').detail, /copied exactly/)
+})
+
+test('JSON under the CAP URL fails, and a CAP message there does not', async () => {
+  const result = await checkDoor('example.com', {
+    resolve: async () => ({ ok: true, addresses: ['8.8.8.8'] }),
+    ask: false,
+    request: async (options) => {
+      if (options.url.endsWith('/agent.txt')) {
+        return { ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'Protocol: CAP/1.0\nCAP: https://example.com/cap/v1\n' }
+      }
+      if (options.url.endsWith('/actions')) {
+        return { ok: true, status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ actions: [{ method: 'GET', url: 'https://example.com/cap/v1/cart' }] }) }
+      }
+      if (options.url.endsWith('/cart')) {
+        return { ok: true, status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'Hello.' }) }
+      }
+      return { ok: true, status: 404, headers: {}, body: '' }
+    },
+  })
+  assert.equal(result.passed, false)
+  const surface = result.checks.find((check) => check.id === 'surface')
+  assert.match(surface.detail, /\/actions/)
+  assert.doesNotMatch(surface.detail, /\/cart/)
+})
+
+test('a login fails when its scopes are not read and write', async () => {
+  const result = await checkDoor('example.com', loginDoor({ ...LOGIN, scopes_supported: ['cart', 'checkout'] }).deps)
+  assert.equal(result.passed, false)
+  assert.match(result.checks.find((check) => check.id === 'login').detail, /read/)
+})
+
+test('a login fails when revocation is missing', async () => {
+  const meta = { ...LOGIN }
+  delete meta.revocation_endpoint
+  const result = await checkDoor('example.com', loginDoor(meta).deps)
+  assert.match(result.checks.find((check) => check.id === 'login').detail, /revocation_endpoint/)
+})
+
+test('a POST without CAP headers must be a shaped 400', async () => {
+  const result = await checkDoor('example.com', {
+    resolve: async () => ({ ok: true, addresses: ['8.8.8.8'] }),
+    request: async (options) => {
+      if (options.url.endsWith('/agent.txt')) {
+        return { ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'Protocol: CAP/1.0\nCAP: https://example.com/cap/v1\n' }
+      }
+      if (barePost(options)) {
+        return { ok: true, status: 400, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ error: 'login_required', message: 'Log in.' }) }
+      }
+      if (options.method === 'POST') {
+        return { ok: true, status: 200, headers: {}, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'Hello.' }) }
+      }
+      if (options.headers?.['cap-from'] === 'agent:cap-check-other') return { ok: true, status: 404, headers: {}, body: '' }
+      return { ok: true, status: 404, headers: {}, body: '' }
+    },
+  })
+  assert.equal(result.passed, false)
+  assert.match(result.checks.find((check) => check.id === 'shape').detail, /code/)
+})
+
+test('public caching of the help fails', async () => {
+  const result = await checkDoor('example.com', {
+    resolve: async () => ({ ok: true, addresses: ['8.8.8.8'] }),
+    ask: false,
+    request: async (options) => {
+      if (options.url.endsWith('/agent.txt')) {
+        return { ok: true, status: 200, headers: { 'content-type': 'text/plain' }, body: 'Protocol: CAP/1.0\nCAP: https://example.com/cap/v1\n' }
+      }
+      if (options.url === 'https://example.com/cap/v1') {
+        return { ok: true, status: 200, headers: { 'content-type': 'text/plain', 'cache-control': 'public, max-age=300' }, body: 'POST https://example.com/cap/v1/messages\n' }
+      }
+      return { ok: true, status: 404, headers: {}, body: '' }
+    },
+  })
+  assert.equal(result.passed, false)
+  assert.match(result.checks.find((check) => check.id === 'help').detail, /no-store/)
 })
 
 test('a poppy.json that points somewhere else fails', async () => {

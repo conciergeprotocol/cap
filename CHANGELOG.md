@@ -2,6 +2,16 @@
 
 Breaking changes to the draft are listed here with what an owner or a caller has to change.
 
+## 1.0 Draft, November 18, 2026, the check rejects a second API
+
+Nothing in the protocol changes. A door that already follows it still passes.
+
+- The door check fails when the `Ask` line is present but is not the sentence in the spec. A missing `Ask` line stays a tip.
+- When `agent.txt` has an `OAuth` line, the metadata has to include `device_authorization_endpoint`, `token_endpoint`, and `revocation_endpoint` as https URLs. `scopes_supported`, when set, may list only `read` and `write`.
+- The check fails when `GET {CAP}/actions`, `/tools`, `/cart`, `/checkout`, or `/books` returns JSON that is not a CAP message. The CAP URL serves `/messages` and `/confirmations`. A visiting agent sends a message.
+- A `POST` to `/messages` with no `CAP-Version` and no `CAP-From` must be `400` with `{"error": {"code", "message"}}`.
+- Help cached as `public` fails the check. CAP responses use `Cache-Control: no-store`.
+
 ## 1.0 Draft, November 14, 2026, listed in Poppy
 
 Nothing breaks. This adds a way to be found and changes nothing on the wire.
