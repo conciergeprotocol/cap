@@ -667,7 +667,7 @@ const flatNav = navGroups.flatMap((group) => group.items.map((item) => ({ ...ite
 
 const searchBlurbs = {
   '/check': 'Enter a domain. The checker reads agent.txt, asks one public question, and reports whether the door passes.',
-  '/readiness': 'Score how ready a store is for an AI shopping agent: a CAP door, llms.txt, a catalog, crawler access, product schema, and policies.',  '/directory': 'Sites whose front door passes the check. A pass adds the site, and a site that keeps failing drops off.',
+  '/readiness': 'Score how ready a store is for an AI shopping agent: an agent door in any protocol, llms.txt, a catalog, crawler access, product schema, and policies.',  '/directory': 'Sites whose front door passes the check. A pass adds the site, and a site that keeps failing drops off.',
   '/chat': 'Ask Cap about the protocol, publishing a door, or calling one. Cap answers from the pages on this site.'
 }
 

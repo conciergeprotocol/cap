@@ -27,6 +27,10 @@ function filesOf(extra) {
 function requestFor(files) {
   return async (options) => {
     const url = new URL(options.url)
+    const posted = files[`POST ${url.host}${url.pathname}`]
+    if (options.method === 'POST' && posted) {
+      return { ok: true, status: posted.status || 200, headers: posted.headers || { 'content-type': 'application/json' }, body: posted.body }
+    }
     if (options.method === 'POST') {
       return { ok: true, status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'We can help you shop.' }) }
     }
@@ -257,6 +261,73 @@ test('a valid door is worth 35', async () => {
   assert.equal(byId(result, 'door').status, 'pass')
   assert.equal(byId(result, 'door').points, 35)
   assert.equal(result.score, 35 + 10 + 15)
+})
+
+const poppyUcp = JSON.stringify({
+  protocol_version: '0.4',
+  organization: { name: 'Example', domain: 'example.com' },
+  agent: { protocols: [{ type: 'ucp', endpoint: 'https://example.com/.well-known/ucp' }] },
+})
+const ucpProfile = JSON.stringify({
+  ucp: { services: { 'dev.ucp.shopping': [{ transport: 'mcp', endpoint: 'https://shop.example.net/api/ucp/mcp' }, { transport: 'embedded' }] } },
+})
+const toolList = JSON.stringify({ jsonrpc: '2.0', id: 1, result: { tools: [{ name: 'get_cart' }, { name: 'search_catalog' }, { name: 'ask_business' }] } })
+const json = { 'content-type': 'application/json' }
+
+test('a Poppy file whose UCP server lists its tools is a whole door', async () => {
+  const result = await score(filesOf({
+    '/.well-known/poppy.json': { body: poppyUcp, headers: json },
+    '/.well-known/ucp': { body: ucpProfile, headers: json },
+    'POST shop.example.net/api/ucp/mcp': { body: toolList },
+  }))
+  const door = byId(result, 'door')
+  assert.equal(door.status, 'pass')
+  assert.equal(door.points, 35)
+  assert.equal(door.protocol, 'Poppy, UCP')
+  assert.match(door.detail, /lists 3 tools, including search_catalog, ask_business/)
+  assert.equal(result.score, 61 + 35)
+})
+
+test('a UCP server that answers as a server-sent event still counts', async () => {
+  const result = await score(filesOf({
+    '/.well-known/poppy.json': { body: poppyUcp, headers: json },
+    '/.well-known/ucp': { body: ucpProfile, headers: json },
+    'POST shop.example.net/api/ucp/mcp': { body: `event: message\ndata: ${toolList}\n\n`, headers: { 'content-type': 'text/event-stream' } },
+  }))
+  assert.equal(byId(result, 'door').points, 35)
+})
+
+test('a Poppy file whose UCP server does not answer earns the discovery points', async () => {
+  const result = await score(filesOf({
+    '/.well-known/poppy.json': { body: poppyUcp, headers: json },
+    '/.well-known/ucp': { body: ucpProfile, headers: json },
+    'POST shop.example.net/api/ucp/mcp': { status: 401, body: '{}' },
+  }))
+  const door = byId(result, 'door')
+  assert.equal(door.status, 'partial')
+  assert.equal(door.points, 15)
+  assert.match(door.detail, /HTTP 401/)
+})
+
+test('a Poppy file for a protocol the checker cannot call earns the discovery points', async () => {
+  const body = JSON.stringify({ protocol_version: '0.3', agent: { protocols: [{ type: 'example.com/chat', endpoint: 'https://example.com/chat' }] } })
+  const door = byId(await score(filesOf({ '/.well-known/poppy.json': { body, headers: json } })), 'door')
+  assert.equal(door.points, 15)
+  assert.equal(door.protocol, 'Poppy, example.com/chat')
+})
+
+test('an A2A agent card earns the discovery points', async () => {
+  const body = JSON.stringify({ name: 'Example Hats', url: 'https://example.com/a2a' })
+  const door = byId(await score(filesOf({ '/.well-known/agent-card.json': { body, headers: json } })), 'door')
+  assert.equal(door.points, 15)
+  assert.equal(door.protocol, 'A2A')
+})
+
+test('a homepage served for every path is not a door', async () => {
+  const html = { body: '<html><body>Shop</body></html>', headers: { 'content-type': 'text/html' } }
+  const door = byId(await score(filesOf({ '/.well-known/poppy.json': html, '/.well-known/agent-card.json': html })), 'door')
+  assert.equal(door.status, 'fail')
+  assert.equal(door.points, 0)
 })
 
 test('one blocked bot is partial credit, not a failed check', async () => {

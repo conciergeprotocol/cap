@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from 'node:fs'
-import { scoreSite } from './readiness.mjs'
+import { VERSION, scoreSite } from './readiness.mjs'
 import { withRun } from './readiness-store.mjs'
 
 const args = process.argv.slice(2)
@@ -66,6 +66,6 @@ await Promise.all(Array.from({ length: Math.min(3, list.length) }, worker))
 if (out) {
   records.sort((a, b) => list.indexOf(a.domain) - list.indexOf(b.domain))
   const month = records[0]?.history[0]?.month || new Date().toISOString().slice(0, 7)
-  writeFileSync(out, `${JSON.stringify({ month, methodology: 1, records }, null, 2)}\n`)
+  writeFileSync(out, `${JSON.stringify({ month, methodology: VERSION, records }, null, 2)}\n`)
   console.log(`wrote ${records.length} of ${list.length} records for ${month} to ${out}`)
 }
