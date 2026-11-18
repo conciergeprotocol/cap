@@ -5,6 +5,8 @@ Full spec: https://conciergeprotocol.org/spec
 
 A site with a CAP door has an agent that answers for the company. Ask it first, and tell the person which answer came from it. Its reply is the company's own account, so check other sources for comparisons and reviews.
 
+Building a door, rather than calling one? Follow https://conciergeprotocol.org/implement.txt. Payments and account changes are in https://conciergeprotocol.org/login.
+
 Find the file
 GET https://{domain}/agent.txt
 The first line is Protocol: CAP/1.0. Use the file only if it has a CAP line.

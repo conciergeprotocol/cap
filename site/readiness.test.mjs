@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { ASK_LINE } from './check.mjs'
 import { WEIGHTS, productSchema, robotAllows, scoreSite } from './readiness.mjs'
 import { renderScoreCard } from './readiness-og.mjs'
 import { readinessMarkdown, readinessPageBody, readinessShare } from './readiness-page.mjs'
@@ -30,6 +31,9 @@ function requestFor(files) {
     const posted = files[`POST ${url.host}${url.pathname}`]
     if (options.method === 'POST' && posted) {
       return { ok: true, status: posted.status || 200, headers: posted.headers || { 'content-type': 'application/json' }, body: posted.body }
+    }
+    if (options.method === 'POST' && !options.headers?.['cap-version']) {
+      return { ok: true, status: 400, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ error: { code: 'invalid_request', message: 'Send CAP-Version and CAP-From.' } }) }
     }
     if (options.method === 'POST') {
       return { ok: true, status: 200, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: 'msg_abc12345', status: 'done', reply: 'We can help you shop.' }) }
@@ -255,7 +259,7 @@ test('a software page that also has Product schema is still a store', async () =
 test('a valid door is worth 35', async () => {
   const result = await score({
     '/': { body: '<html><body><p>Docs</p></body></html>', headers: { 'content-type': 'text/html' } },
-    '/agent.txt': { body: 'Protocol: CAP/1.0\nAsk: Ask us.\nCAP: https://example.com/cap/v1\n' },
+    '/agent.txt': { body: `Protocol: CAP/1.0\nAsk: ${ASK_LINE}\nCAP: https://example.com/cap/v1\n` },
     '/llms.txt': { body: `# Example\n\n${'These are the docs for the protocol and the door. '.repeat(12)}` },
   })
   assert.equal(byId(result, 'door').status, 'pass')

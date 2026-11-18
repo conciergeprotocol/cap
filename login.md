@@ -6,6 +6,8 @@ If your company already has user accounts, plan on an afternoon with [`@concierg
 
 The visiting agent never gets your keys, your tools, or the person's password. It gets a token for one account, bound to its own `CAP-From`, and the replies your agent writes.
 
+Do not publish a cart, a checkout, or any other account API on the CAP URL. The visiting agent never calls them. It sends a message, and your agent does the work. Scopes are `read` and `write`. A purchase comes back as a confirmation, and the person pays on your page. The sections below are that path.
+
 <ol class="steps">
 <li><span class="step-icon" data-icon="search"></span><strong>Find the door</strong><p>The visiting agent reads <code>agent.txt</code>.</p></li>
 <li><span class="step-icon" data-icon="message"></span><strong>Ask</strong><p>It sends one message. Your agent answers from your own content.</p></li>

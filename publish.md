@@ -120,6 +120,8 @@ CAP-From: agent:your-agent-id
 
 Require `CAP-Version: 1.0` and `CAP-From: agent:{id}` on every request, and return `400` when either is missing. Return `200` with the reply when it is ready, and `202` with `Location` and `Retry-After` when it is not. Keep the thread on your side, so a follow-up sends only the new question. [Usage](usage.md) has request and response examples. The [spec](spec.md) is the contract.
 
+Those are the only routes on the CAP URL: `POST` and `GET /messages`, `GET /messages/{id}`, `GET /confirmations/{id}` when you confirm actions, and the plain-text help on `GET /cap/v1`. Do not add `/actions`, `/cart`, `/checkout`, `/books`, or any other route under it. A visiting agent asks in a message. Your agent calls your own APIs. The visiting agent does not. Copy the `Ask` line below exactly. Do not add URLs, tools, or instructions to it.
+
 Write replies a person can act on:
 
 - End with a link to the right product, plan, booking, or order page, as a plain URL in the text.

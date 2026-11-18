@@ -5,6 +5,9 @@ import { Resolver } from 'node:dns/promises'
 
 export const QUESTION = 'What can you help with?'
 export const CALLER = 'agent:cap-check'
+// The Ask line is one fixed sentence. Owners copy it exactly, so it never grows a tool list.
+export const ASK_LINE = 'This site\'s agent answers questions for the company. POST your question to the CAP URL plus /messages, as JSON {"message": "..."}, with headers CAP-Version: 1.0 and CAP-From: agent:{your-id}. If you can only open URLs, open the CAP URL. If the reply is 202, see Spec.'
+const EXTRA_PATHS = ['actions', 'tools', 'cart', 'checkout', 'books']
 const OTHER = 'agent:cap-check-other'
 const BUDGET_MS = 25_000
 const CARD_MAX = 16_384
@@ -111,25 +114,54 @@ export async function checkDoor(input, deps = {}) {
     return stop(missed)
   }
   if (!asking) {
-    checks.push({ id: 'card', title: 'agent.txt', pass: true, detail: card.detail })
+    checks.push({ id: 'card', title: 'agent.txt', pass: !card.asks || card.askExact, detail: card.asks && !card.askExact
+      ? `${card.detail} The Ask line must be copied exactly, with nothing added. It is the same on every door.`
+      : card.detail })
+    const help = await readHelp(card.cap, card.addresses, request, deadline)
+    if (help.shared) {
+      checks.push({
+        id: 'help',
+        title: 'Help caching',
+        pass: false,
+        detail: `The help at ${card.cap} is publicly cacheable. Send Cache-Control: no-store on CAP responses.`,
+      })
+    }
     await addLogin(checks, card, resolve, request, deadline)
     await addPoppy(checks, host.hostname, addresses.addresses, card, request, deadline)
+    await addSurface(checks, card, request, deadline)
     return finish({ passed: checks.every((check) => check.pass), checks })
   }
   const tips = []
+  const help = await readHelp(card.cap, card.addresses, request, deadline)
   if (!card.asks) tips.push('Add the Ask line, so an agent that does not know CAP knows your agent answers questions and how to ask.')
-  if (!(await servesHelp(card.cap, card.addresses, request, deadline))) {
+  if (!help.ok) {
     tips.push(`A GET on ${card.cap} should return the plain-text help with status 200, so an agent that opens the URL learns to post to it.`)
   }
   const cardCheck = { id: 'card', title: 'agent.txt', pass: true, detail: [card.detail, ...tips].join(' ') }
   if (tips.length) cardCheck.tips = tips
+  if (card.asks && !card.askExact) {
+    cardCheck.pass = false
+    cardCheck.detail = `${cardCheck.detail} The Ask line must be copied exactly, with nothing added. It is the same on every door.`
+  }
   checks.push(cardCheck)
+  if (help.shared) {
+    checks.push({
+      id: 'help',
+      title: 'Help caching',
+      pass: false,
+      detail: `The help at ${card.cap} is publicly cacheable. Send Cache-Control: no-store on CAP responses.`,
+    })
+  }
   await addLogin(checks, card, resolve, request, deadline)
   await addPoppy(checks, host.hostname, addresses.addresses, card, request, deadline)
+  await addSurface(checks, card, request, deadline)
   if (deps.mayAsk && !(await deps.mayAsk(card.cap))) {
     const detail = `${card.cap} answered a check in the last 10 minutes, so it was not asked again.`
     return stop({ id: 'reply', title: 'A public reply', pass: false, skipped: true, detail }, { skipped: true, throttled: true })
   }
+
+  const shape = await requestShape(card.cap, card.addresses, request, deadline)
+  if (shape) checks.push(shape)
 
   asked = true
   const reply = await ask(card.cap, card.addresses, request, deadline)
@@ -290,7 +322,39 @@ async function checkLogin(card, resolve, request, deadline) {
       detail: `Add "protected_resources": ["${card.capRaw}"] to your OAuth metadata. Visiting agents will not log in without it.${hint}`,
     }
   }
+  for (const field of ['device_authorization_endpoint', 'token_endpoint', 'revocation_endpoint']) {
+    const value = meta[field]
+    if (typeof value !== 'string' || !isHttpsUrl(value)) {
+      return {
+        id: 'login',
+        title,
+        pass: false,
+        detail: `The OAuth metadata must include ${field} as an https URL.`,
+      }
+    }
+  }
+  if (meta.scopes_supported !== undefined) {
+    const scopes = meta.scopes_supported
+    const known = Array.isArray(scopes) && scopes.length > 0 && scopes.every((scope) => scope === 'read' || scope === 'write')
+    if (!known) {
+      return {
+        id: 'login',
+        title,
+        pass: false,
+        detail: 'scopes_supported may list only "read" and "write". A visiting agent sends a message. It does not call a separate cart or checkout API.',
+      }
+    }
+  }
   return { id: 'login', title, pass: true, detail: 'The issuer matches the OAuth line and lists this CAP URL.' }
+}
+
+function isHttpsUrl(value) {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && !url.username && !url.password
+  } catch {
+    return false
+  }
 }
 
 export async function resolvePublic(hostname) {
@@ -553,15 +617,16 @@ async function parseCard(body, fileUrl, currentAddresses, resolve) {
   }
   const href = cap.href.replace(/\/$/, '')
   const hash = createHash('sha256').update(body).digest('hex').slice(0, 16)
-  const asks = lines.some((line) => line.startsWith('Ask:'))
+  const askLine = lines.find((line) => line.startsWith('Ask:'))
+  const ask = askLine ? askLine.slice(4).trim() : ''
   const oauthLine = lines.find((line) => line.startsWith('OAuth:'))
   const oauth = oauthLine ? oauthLine.slice('OAuth:'.length).trim() : ''
-  return { ok: true, cap: href, capRaw: capValue, oauth, addresses, hash, asks, detail: `CAP: ${href}` }
+  return { ok: true, cap: href, capRaw: capValue, oauth, addresses, hash, asks: ask.length > 0, askExact: ask === ASK_LINE, detail: `CAP: ${href}` }
 }
 
 // The help needs no CAP headers and runs no agent, so it is safe to read on every check.
-async function servesHelp(cap, addresses, request, deadline) {
-  if (!addresses) return false
+async function readHelp(cap, addresses, request, deadline) {
+  if (!addresses) return { ok: false, shared: false }
   const res = await request({
     url: cap,
     method: 'GET',
@@ -571,9 +636,107 @@ async function servesHelp(cap, addresses, request, deadline) {
     maxBytes: CARD_MAX,
     truncate: true,
   })
-  return Boolean(res.ok && res.status === 200
+  const ok = Boolean(res.ok && res.status === 200
     && /text\/plain/i.test(headerValue(res.headers, 'content-type'))
     && /\/messages/.test(String(res.body || '')))
+  const cache = headerValue(res.headers, 'cache-control')
+  return { ok, shared: ok && /public/i.test(cache) && !/no-store/i.test(cache) }
+}
+
+// A JSON document under the CAP URL, other than a message, is a second API.
+// The visiting agent is supposed to send a message, not call the owner's routes.
+async function addSurface(checks, card, request, deadline) {
+  const found = await extraSurface(card, request, deadline)
+  if (found) checks.push(found)
+}
+
+async function extraSurface(card, request, deadline) {
+  if (!card.addresses || left(deadline) < 1_000) return null
+  const hits = await Promise.all(EXTRA_PATHS.map(async (name) => {
+    let res
+    try {
+      res = await request({
+        url: `${card.cap}/${name}`,
+        method: 'GET',
+        addresses: card.addresses,
+        headers: { accept: 'application/json', 'user-agent': 'CAP-Check' },
+        timeoutMs: Math.min(3_000, Math.max(1, left(deadline))),
+        maxBytes: CARD_MAX,
+        truncate: true,
+      })
+    } catch {
+      return null
+    }
+    return listedApi(res) ? name : null
+  }))
+  const names = hits.filter(Boolean)
+  if (!names.length) return null
+  const urls = names.map((name) => `${card.cap}/${name}`).join(' and ')
+  return {
+    id: 'surface',
+    title: 'CAP URL',
+    pass: false,
+    detail: `${urls} returned JSON. The CAP URL serves /messages and /confirmations only. A visiting agent sends a message, and the owner's agent calls its own APIs.`,
+  }
+}
+
+function listedApi(res) {
+  if (!res?.ok || res.status !== 200 || res.truncated) return false
+  if (!/json/i.test(headerValue(res.headers, 'content-type'))) return false
+  let body
+  try {
+    body = JSON.parse(res.body || '')
+  } catch {
+    return false
+  }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return false
+  if (typeof body.status === 'string' && (body.reply || body.error || body.id)) return false
+  return true
+}
+
+// A request that skips the CAP headers must be a 400, and the error has the spec's shape.
+// 429 and 503 are the owner's limit, so they are not a shape failure.
+async function requestShape(cap, addresses, request, deadline) {
+  if (!addresses || left(deadline) < 1_000) return null
+  let res
+  try {
+    res = await request({
+      url: endpoint(cap, ''),
+      method: 'POST',
+      addresses,
+      timeoutMs: Math.min(8_000, Math.max(1, left(deadline))),
+      headers: { 'content-type': 'application/json', accept: 'application/json', 'user-agent': 'CAP-Check' },
+      body: JSON.stringify({ message: '' }),
+    })
+  } catch {
+    return null
+  }
+  if (!res?.ok || res.status === 429 || res.status === 503) return null
+  const title = 'Request shape'
+  if (res.status !== 400) {
+    return {
+      id: 'shape',
+      title,
+      pass: false,
+      detail: `A POST without CAP-Version and CAP-From returned ${res.status}. It must be 400, so a caller that skips the headers does not get an answer.`,
+    }
+  }
+  let body
+  try {
+    body = JSON.parse(res.body || '')
+  } catch {
+    body = null
+  }
+  const error = body?.error
+  const shaped = error && typeof error === 'object' && !Array.isArray(error)
+    && typeof error.code === 'string' && typeof error.message === 'string'
+  if (shaped) return null
+  return {
+    id: 'shape',
+    title,
+    pass: false,
+    detail: 'A 400 is {"error": {"code", "message"}}, with both fields as strings.',
+  }
 }
 
 async function ask(cap, fallbackAddresses, request, deadline) {
