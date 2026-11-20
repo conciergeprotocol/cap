@@ -1,10 +1,10 @@
 import { isIP } from 'node:net'
 import { gunzipSync } from 'node:zlib'
 import { QUESTION, checkDoor, parseHost, pinnedRequest, resolvePublic } from './check.mjs'
-import { a2aGetRequest, a2aSendRequest, a2aTarget, readA2a } from './effectiveness/protocols.mjs'
+import { a2aGetRequest, a2aSendRequest, a2aTarget, isWriteTool, mcpCallBody, mcpText, readA2a, toolArguments } from './effectiveness/protocols.mjs'
 import { readRpc } from './rpc.mjs'
 
-export const VERSION = 3
+export const VERSION = 4
 export const UA = 'CAP-Readiness/1.0 (+https://conciergeprotocol.org/readiness)'
 export const WEIGHTS = { door: 35, llms: 10, catalog: 20, robots: 15, jsonld: 10, policies: 10 }
 export const ROBOTS = [
@@ -19,9 +19,11 @@ const BUDGET_MS = 55_000
 const GAP_MS = 1000
 const POLICY_TEXT = 400
 
-const DOOR_FIX = 'Publish an agent door: /agent.txt for CAP (first line "Protocol: CAP/1.0", then a CAP line with the https endpoint), /.well-known/poppy.json, or an A2A /.well-known/agent-card.json. Full points need the endpoint to answer: a CAP door answers a public question, an A2A endpoint answers message/send, and a UCP door\'s MCP server lists its tools.'
+const DOOR_FIX = 'Publish an agent door: /agent.txt for CAP (first line "Protocol: CAP/1.0", then a CAP line with the https endpoint), /.well-known/poppy.json, or an A2A /.well-known/agent-card.json. Full points need the endpoint to answer: a CAP door answers a public question, an A2A endpoint answers message/send, and a UCP door returns products from a read-only catalog search.'
 const DOOR_TITLE = 'Agent door'
 const DISCOVERY_POINTS = 15
+const LISTED_POINTS = 25
+const CATALOG_QUERY = 'hat'
 const LLMS_FIX = 'Publish /llms.txt as plain text that tells an agent what this site offers and where to find the pages that matter, such as products, pricing, docs, or policies.'
 const CATALOG_FIX = 'Publish /products.json with a price and availability (in stock or out of stock) on each variant.'
 const RENTAL_CATALOG_FIX = 'Publish /products.json with one entry per listing: its URL, the nightly price, and whether it has open dates.'
@@ -211,7 +213,7 @@ async function checkOtherDoors(ctx) {
 }
 
 const PROTOCOL_NAMES = { ucp: 'UCP', cap: 'CAP', 'conciergeprotocol.org/cap': 'CAP', a2a: 'A2A', mcp: 'MCP' }
-const UNCALLED_FIX = 'The other 20 points need an endpoint the checker can call today: a CAP door, an A2A message/send, or UCP with an MCP server.'
+const UNCALLED_FIX = 'The other 20 points need an endpoint the checker can call today: a CAP door, an A2A message/send, or a UCP catalog search that returns products.'
 
 async function checkPoppy(ctx) {
   const url = `https://${ctx.hostname}/.well-known/poppy.json`
@@ -238,8 +240,17 @@ async function checkPoppy(ctx) {
       ...base,
       status: 'pass',
       points: WEIGHTS.door,
-      detail: `${version} points agents at UCP, and its MCP server lists ${live.count} tools, including ${live.names}.`,
+      detail: `${version} points agents at UCP. Its MCP server lists ${live.count} tools, and ${live.tool} returned catalog results.`,
       fix: '',
+    }
+  }
+  if (live.listed) {
+    return {
+      ...base,
+      status: 'partial',
+      points: LISTED_POINTS,
+      detail: `${version} points agents at UCP, and its MCP server lists ${live.count} tools, including ${live.names}. ${live.detail}`,
+      fix: 'Full points need a read-only catalog search, such as search_catalog, that returns products. Listing tools is not enough, and checkout tools are not called.',
     }
   }
   return {
@@ -247,7 +258,7 @@ async function checkPoppy(ctx) {
     status: 'partial',
     points: DISCOVERY_POINTS,
     detail: `${version} points agents at UCP, but ${live.detail}`,
-    fix: 'The UCP profile has to list an MCP endpoint that answers tools/list.',
+    fix: 'The UCP profile has to list an MCP endpoint that answers tools/list, then a read-only catalog search.',
   }
 }
 
@@ -267,6 +278,42 @@ async function checkUcp(ctx, endpoint) {
 
 const TOOL_NAMES_FIRST = ['search_catalog', 'ask_business', 'create_checkout']
 
+function catalogTool(tools) {
+  const ranked = tools
+    .filter((tool) => typeof tool?.name === 'string' && !isWriteTool(tool.name))
+    .map((tool) => {
+      const name = tool.name.toLowerCase()
+      const rank = name === 'search_catalog' || name === 'search_shop_catalog' ? 0 : /search|find|lookup/.test(name) ? 1 : 9
+      return { tool, rank }
+    })
+    .filter((item) => item.rank < 9 && toolArguments(item.tool, CATALOG_QUERY))
+    .sort((a, b) => a.rank - b.rank)
+  return ranked[0]?.tool || null
+}
+
+function catalogResults(text) {
+  const value = String(text || '').trim()
+  if (value.length < 12) return false
+  return !/^(\[\]|\{\}|null|none|no results?|not found|0 results?)$/i.test(value)
+}
+
+async function postMcp(ctx, url, addresses, body) {
+  if (!(await pace(ctx))) return { ok: false, detail: 'the check ran out of time before calling its MCP server.' }
+  const res = await ctx.request({
+    url: url.href,
+    method: 'POST',
+    addresses,
+    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
+    body: JSON.stringify(body),
+    timeoutMs: Math.min(8_000, ctx.deadline - Date.now()),
+    maxBytes: 1_000_000,
+    truncate: true,
+  })
+  if (!res?.ok) return { ok: false, detail: `its MCP server did not respond (${(res?.detail || 'no response').replace(/\.$/, '')}).` }
+  if (res.status !== 200) return { ok: false, detail: `its MCP server returned HTTP ${res.status}.` }
+  return { ok: true, rpc: readRpc(asText(res.body), headerValue(res.headers, 'content-type')) }
+}
+
 async function mcpTools(ctx, endpoint) {
   let url
   try {
@@ -277,24 +324,22 @@ async function mcpTools(ctx, endpoint) {
   if (url.protocol !== 'https:') return { ok: false, detail: 'its MCP endpoint is not https.' }
   const found = await ctx.resolve(url.hostname)
   if (!found.ok) return { ok: false, detail: found.detail }
-  if (!(await pace(ctx))) return { ok: false, detail: 'the check ran out of time before calling its MCP server.' }
-  const res = await ctx.request({
-    url: url.href,
-    method: 'POST',
-    addresses: found.addresses,
-    headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }),
-    timeoutMs: Math.min(8_000, ctx.deadline - Date.now()),
-    maxBytes: 1_000_000,
-    truncate: true,
-  })
-  if (!res?.ok) return { ok: false, detail: `its MCP server did not respond (${(res?.detail || 'no response').replace(/\.$/, '')}).` }
-  if (res.status !== 200) return { ok: false, detail: `its MCP server returned HTTP ${res.status} to tools/list.` }
-  const tools = readRpc(asText(res.body), headerValue(res.headers, 'content-type'))?.result?.tools
+  const listed = await postMcp(ctx, url, found.addresses, { jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} })
+  if (!listed.ok) return { ok: false, detail: listed.detail.replace(/\.$/, ' to tools/list.') }
+  const tools = listed.rpc?.result?.tools
   if (!Array.isArray(tools) || !tools.length) return { ok: false, detail: 'its MCP server listed no tools.' }
   const all = tools.map((tool) => tool?.name).filter((name) => typeof name === 'string')
   const names = [...TOOL_NAMES_FIRST.filter((name) => all.includes(name)), ...all].filter((name, index, list) => list.indexOf(name) === index).slice(0, 3)
-  return { ok: true, count: tools.length, names: names.join(', ') }
+  const summary = { ok: false, listed: true, count: tools.length, names: names.join(', ') }
+  const tool = catalogTool(tools)
+  if (!tool) {
+    return { ...summary, detail: 'None of those tools is a read-only catalog search.' }
+  }
+  const called = await postMcp(ctx, url, found.addresses, mcpCallBody(tool.name, toolArguments(tool, CATALOG_QUERY)))
+  if (!called.ok) return { ...summary, detail: `${tool.name} did not answer (${called.detail.replace(/\.$/, '')}).` }
+  const reply = mcpText(called.rpc?.result)
+  if (reply.text && catalogResults(reply.text)) return { ...summary, ok: true, tool: tool.name }
+  return { ...summary, detail: `${tool.name} did not return products.` }
 }
 
 async function checkAgentCard(ctx) {
