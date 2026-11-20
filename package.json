@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node site/build.mjs && node --env-file-if-exists=.env site/sync-pages.mjs",
     "dev": "node --env-file-if-exists=.env site/serve.mjs",
-    "test": "node --test site/check.test.mjs site/doors.test.mjs site/readiness.test.mjs"
+    "test": "node --test site/check.test.mjs site/doors.test.mjs site/readiness.test.mjs site/effectiveness.test.mjs"
   },
   "devDependencies": {
     "marked": "^16.0.0",

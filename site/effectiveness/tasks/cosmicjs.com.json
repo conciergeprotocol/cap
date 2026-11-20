@@ -1,0 +1,31 @@
+{
+  "domain": "cosmicjs.com",
+  "taskSetVersion": "2026Q4",
+  "tasks": [
+    {
+      "id": "T1",
+      "archetype": "discover",
+      "prompt": "What Cosmic plans are offered, and what is the main difference between them?"
+    },
+    {
+      "id": "T2",
+      "archetype": "availability",
+      "prompt": "Can a new project use the API on the free plan?"
+    },
+    {
+      "id": "T3",
+      "archetype": "fit",
+      "prompt": "Which plan fits a small team that needs more than one project?"
+    },
+    {
+      "id": "T4",
+      "archetype": "policy",
+      "prompt": "Where are the terms of service, and what do they cover in one sentence?"
+    },
+    {
+      "id": "T5",
+      "archetype": "convert",
+      "prompt": "What is the next step to create a free Cosmic account?"
+    }
+  ]
+}

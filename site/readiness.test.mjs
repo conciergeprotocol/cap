@@ -325,6 +325,24 @@ test('an A2A agent card earns the discovery points', async () => {
   const door = byId(await score(filesOf({ '/.well-known/agent-card.json': { body, headers: json } })), 'door')
   assert.equal(door.points, 15)
   assert.equal(door.protocol, 'A2A')
+  assert.doesNotMatch(door.detail, /cannot call A2A/)
+})
+
+test('an A2A endpoint that answers message/send is a whole door', async () => {
+  const card = JSON.stringify({ name: 'Example Hats', url: 'https://example.com/a2a' })
+  const reply = JSON.stringify({
+    jsonrpc: '2.0',
+    id: 1,
+    result: { kind: 'message', role: 'agent', messageId: 'm1', parts: [{ kind: 'text', text: 'We sell hats.' }] },
+  })
+  const door = byId(await score(filesOf({
+    '/.well-known/agent-card.json': { body: card, headers: json },
+    'POST example.com/a2a': { body: reply },
+  })), 'door')
+  assert.equal(door.status, 'pass')
+  assert.equal(door.points, 35)
+  assert.equal(door.protocol, 'A2A')
+  assert.match(door.detail, /answered a public question/)
 })
 
 test('a homepage served for every path is not a door', async () => {
