@@ -1,6 +1,8 @@
 import { isIP } from 'node:net'
 import { gunzipSync } from 'node:zlib'
-import { checkDoor, parseHost, pinnedRequest, resolvePublic } from './check.mjs'
+import { QUESTION, checkDoor, parseHost, pinnedRequest, resolvePublic } from './check.mjs'
+import { a2aGetRequest, a2aSendRequest, a2aTarget, readA2a } from './effectiveness/protocols.mjs'
+import { readRpc } from './rpc.mjs'
 
 export const VERSION = 3
 export const UA = 'CAP-Readiness/1.0 (+https://conciergeprotocol.org/readiness)'
@@ -17,7 +19,7 @@ const BUDGET_MS = 55_000
 const GAP_MS = 1000
 const POLICY_TEXT = 400
 
-const DOOR_FIX = 'Publish an agent door: /agent.txt for CAP (first line "Protocol: CAP/1.0", then a CAP line with the https endpoint), /.well-known/poppy.json, or an A2A /.well-known/agent-card.json. Full points need the endpoint to answer: a CAP door answers a public question, and a UCP door\'s MCP server lists its tools.'
+const DOOR_FIX = 'Publish an agent door: /agent.txt for CAP (first line "Protocol: CAP/1.0", then a CAP line with the https endpoint), /.well-known/poppy.json, or an A2A /.well-known/agent-card.json. Full points need the endpoint to answer: a CAP door answers a public question, an A2A endpoint answers message/send, and a UCP door\'s MCP server lists its tools.'
 const DOOR_TITLE = 'Agent door'
 const DISCOVERY_POINTS = 15
 const LLMS_FIX = 'Publish /llms.txt as plain text that tells an agent what this site offers and where to find the pages that matter, such as products, pricing, docs, or policies.'
@@ -201,11 +203,15 @@ function scoreDoor(result, hostname) {
 
 // A door in another protocol earns the discovery points for its file, and the whole door when the checker can call its endpoint.
 async function checkOtherDoors(ctx) {
-  return (await checkPoppy(ctx)) || (await checkAgentCard(ctx))
+  const poppy = await checkPoppy(ctx)
+  if (poppy?.points === WEIGHTS.door) return poppy
+  const card = await checkAgentCard(ctx)
+  if (card && (!poppy || card.points > poppy.points)) return card
+  return poppy
 }
 
 const PROTOCOL_NAMES = { ucp: 'UCP', cap: 'CAP', 'conciergeprotocol.org/cap': 'CAP', a2a: 'A2A', mcp: 'MCP' }
-const UNCALLED_FIX = 'The other 20 points need an endpoint the checker can call today: a CAP door, or UCP with an MCP server.'
+const UNCALLED_FIX = 'The other 20 points need an endpoint the checker can call today: a CAP door, an A2A message/send, or UCP with an MCP server.'
 
 async function checkPoppy(ctx) {
   const url = `https://${ctx.hostname}/.well-known/poppy.json`
@@ -291,33 +297,87 @@ async function mcpTools(ctx, endpoint) {
   return { ok: true, count: tools.length, names: names.join(', ') }
 }
 
-// Streamable HTTP servers can answer a single request as JSON or as one server-sent event.
-function readRpc(text, type) {
-  const body = /event-stream/i.test(type)
-    ? text.split(/\r?\n/).filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('')
-    : text
-  try {
-    return JSON.parse(body)
-  } catch {
-    return null
-  }
-}
-
 async function checkAgentCard(ctx) {
   const url = `https://${ctx.hostname}/.well-known/agent-card.json`
   const card = await fetchJson(ctx, url)
   if (typeof card?.name !== 'string' || !(typeof card.url === 'string' || Array.isArray(card.supportedInterfaces))) return null
-  return {
+  const target = a2aTarget(card)
+  const base = {
     id: 'door',
     title: DOOR_TITLE,
     max: WEIGHTS.door,
     evidence: [url],
     protocol: 'A2A',
+  }
+  if (!target) {
+    return {
+      ...base,
+      status: 'partial',
+      points: DISCOVERY_POINTS,
+      detail: `An A2A agent card names ${card.name}, but its endpoint is not an https URL.`,
+      fix: UNCALLED_FIX,
+    }
+  }
+  const live = await askA2aOnce(ctx, target)
+  base.evidence.push(target.url)
+  if (live.ok) {
+    return {
+      ...base,
+      status: 'pass',
+      points: WEIGHTS.door,
+      detail: `An A2A agent card names ${card.name}, and ${target.url} answered a public question.`,
+      fix: '',
+    }
+  }
+  return {
+    ...base,
     status: 'partial',
     points: DISCOVERY_POINTS,
-    detail: `An A2A agent card names ${card.name}. The checker cannot call A2A yet, so the card earns the discovery points.`,
-    fix: UNCALLED_FIX,
+    detail: `An A2A agent card names ${card.name}, but ${live.detail}`,
+    fix: 'The A2A endpoint has to answer message/send with a text reply.',
   }
+}
+
+async function askA2aOnce(ctx, target) {
+  const sent = await postA2a(ctx, a2aSendRequest(target, QUESTION))
+  if (!sent.ok) return sent
+  let parsed = readA2a(sent.rpc)
+  if (parsed.working && parsed.id) {
+    const next = await postA2a(ctx, a2aGetRequest(target, parsed.id))
+    if (next.ok) parsed = readA2a(next.rpc)
+  }
+  if (parsed.text && !parsed.working) return { ok: true }
+  return { ok: false, detail: parsed.working ? 'its A2A task did not finish.' : (parsed.error || 'it returned no text.') }
+}
+
+async function postA2a(ctx, spec) {
+  let url
+  try {
+    url = new URL(spec.url)
+  } catch {
+    return { ok: false, detail: 'its endpoint is not a URL.' }
+  }
+  if (url.protocol !== 'https:') return { ok: false, detail: 'its endpoint is not https.' }
+  const found = await ctx.resolve(url.hostname)
+  if (!found.ok) return { ok: false, detail: found.detail }
+  if (!(await pace(ctx))) return { ok: false, detail: 'the check ran out of time before calling its A2A endpoint.' }
+  const res = await ctx.request({
+    url: url.href,
+    method: spec.method,
+    addresses: found.addresses,
+    headers: {
+      accept: 'application/json',
+      'user-agent': UA,
+      ...(spec.body ? { 'content-type': 'application/json' } : {}),
+    },
+    ...(spec.body ? { body: JSON.stringify(spec.body) } : {}),
+    timeoutMs: Math.min(8_000, ctx.deadline - Date.now()),
+    maxBytes: 1_000_000,
+    truncate: true,
+  })
+  if (!res?.ok) return { ok: false, detail: `its A2A endpoint did not respond (${(res?.detail || 'no response').replace(/\.$/, '')}).` }
+  if (res.status !== 200) return { ok: false, detail: `its A2A endpoint returned HTTP ${res.status}.` }
+  return { ok: true, rpc: readRpc(asText(res.body), headerValue(res.headers, 'content-type')) }
 }
 
 async function fetchJson(ctx, url) {

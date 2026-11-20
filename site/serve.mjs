@@ -8,6 +8,7 @@ import doorsHandler from '../api/doors.js'
 import readinessHandler from '../api/readiness.js'
 import readinessOgHandler from '../api/readiness-og.js'
 import readinessShareHandler from '../api/readiness-share.js'
+import effectivenessHandler from '../api/effectiveness.js'
 
 const api = new Map([
   ['/api/check', checkHandler],
@@ -15,7 +16,8 @@ const api = new Map([
   ['/api/doors', doorsHandler],
   ['/api/readiness', readinessHandler],
   ['/api/readiness-og', readinessOgHandler],
-  ['/api/readiness-share', readinessShareHandler]
+  ['/api/readiness-share', readinessShareHandler],
+  ['/api/effectiveness', effectivenessHandler]
 ])
 
 const root = fileURLToPath(new URL('dist/', import.meta.url))

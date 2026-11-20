@@ -1,0 +1,31 @@
+{
+  "domain": "marlow.cosmic.site",
+  "taskSetVersion": "2026Q4",
+  "tasks": [
+    {
+      "id": "T1",
+      "archetype": "discover",
+      "prompt": "Which homes does Marlow list, and where are they?"
+    },
+    {
+      "id": "T2",
+      "archetype": "availability",
+      "prompt": "Is any home available to book, and how would a guest check dates?"
+    },
+    {
+      "id": "T3",
+      "archetype": "fit",
+      "prompt": "Which home fits a group of six guests?"
+    },
+    {
+      "id": "T4",
+      "archetype": "policy",
+      "prompt": "What should a guest know about changing or cancelling a stay?"
+    },
+    {
+      "id": "T5",
+      "archetype": "convert",
+      "prompt": "What is the next step to reserve a home?"
+    }
+  ]
+}

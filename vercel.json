@@ -22,6 +22,9 @@
     "api/readiness.js": {
       "maxDuration": 60
     },
+    "api/effectiveness.js": {
+      "maxDuration": 300
+    },
     "api/readiness-share.js": {
       "maxDuration": 15,
       "includeFiles": "{api/readiness-shell.html,site/dist/readiness.html}"
