@@ -30,7 +30,13 @@ function requestFor(files) {
     const url = new URL(options.url)
     const posted = files[`POST ${url.host}${url.pathname}`]
     if (options.method === 'POST' && posted) {
-      return { ok: true, status: posted.status || 200, headers: posted.headers || { 'content-type': 'application/json' }, body: posted.body }
+      let body = posted.body
+      if (typeof body === 'function') {
+        let rpc = {}
+        try { rpc = JSON.parse(options.body || '{}') } catch { rpc = {} }
+        body = body(rpc)
+      }
+      return { ok: true, status: posted.status || 200, headers: posted.headers || { 'content-type': 'application/json' }, body }
     }
     if (options.method === 'POST' && !options.headers?.['cap-version']) {
       return { ok: true, status: 400, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ error: { code: 'invalid_request', message: 'Send CAP-Version and CAP-From.' } }) }
@@ -278,25 +284,63 @@ const ucpProfile = JSON.stringify({
 const toolList = JSON.stringify({ jsonrpc: '2.0', id: 1, result: { tools: [{ name: 'get_cart' }, { name: 'search_catalog' }, { name: 'ask_business' }] } })
 const json = { 'content-type': 'application/json' }
 
-test('a Poppy file whose UCP server lists its tools is a whole door', async () => {
+const searchReply = JSON.stringify({ jsonrpc: '2.0', id: 2, result: { content: [{ type: 'text', text: 'Hat, $20, in stock' }] } })
+
+test('a Poppy file whose UCP server only lists tools earns partial credit', async () => {
   const result = await score(filesOf({
     '/.well-known/poppy.json': { body: poppyUcp, headers: json },
     '/.well-known/ucp': { body: ucpProfile, headers: json },
     'POST shop.example.net/api/ucp/mcp': { body: toolList },
   }))
   const door = byId(result, 'door')
-  assert.equal(door.status, 'pass')
-  assert.equal(door.points, 35)
+  assert.equal(door.status, 'partial')
+  assert.equal(door.points, 25)
   assert.equal(door.protocol, 'Poppy, UCP')
   assert.match(door.detail, /lists 3 tools, including search_catalog, ask_business/)
-  assert.equal(result.score, 61 + 35)
+  assert.match(door.detail, /did not return products/)
+  assert.equal(result.score, 61 + 25)
 })
 
-test('a UCP server that answers as a server-sent event still counts', async () => {
+test('a UCP catalog search that returns products is a whole door', async () => {
   const result = await score(filesOf({
     '/.well-known/poppy.json': { body: poppyUcp, headers: json },
     '/.well-known/ucp': { body: ucpProfile, headers: json },
-    'POST shop.example.net/api/ucp/mcp': { body: `event: message\ndata: ${toolList}\n\n`, headers: { 'content-type': 'text/event-stream' } },
+    'POST shop.example.net/api/ucp/mcp': {
+      body: (rpc) => rpc.method === 'tools/call' ? searchReply : toolList,
+    },
+  }))
+  const door = byId(result, 'door')
+  assert.equal(door.status, 'pass')
+  assert.equal(door.points, 35)
+  assert.match(door.detail, /search_catalog returned catalog results/)
+  assert.equal(result.score, 61 + 35)
+})
+
+test('a UCP server of only write tools is not asked to run one', async () => {
+  const calls = []
+  const result = await score(filesOf({
+    '/.well-known/poppy.json': { body: poppyUcp, headers: json },
+    '/.well-known/ucp': { body: ucpProfile, headers: json },
+    'POST shop.example.net/api/ucp/mcp': {
+      body: (rpc) => {
+        calls.push(rpc.method)
+        return JSON.stringify({ jsonrpc: '2.0', id: 1, result: { tools: [{ name: 'create_checkout' }] } })
+      },
+    },
+  }))
+  assert.deepEqual(calls, ['tools/list'])
+  assert.equal(byId(result, 'door').points, 25)
+  assert.match(byId(result, 'door').detail, /None of those tools is a read-only catalog search/)
+})
+
+test('a UCP server that answers a catalog search as a server-sent event is a whole door', async () => {
+  const result = await score(filesOf({
+    '/.well-known/poppy.json': { body: poppyUcp, headers: json },
+    '/.well-known/ucp': { body: ucpProfile, headers: json },
+    'POST shop.example.net/api/ucp/mcp': {
+      headers: { 'content-type': 'text/event-stream' },
+      body: (rpc) => `event: message\ndata: ${rpc.method === 'tools/call' ? searchReply : toolList}\n\n`,
+    },
   }))
   assert.equal(byId(result, 'door').points, 35)
 })
