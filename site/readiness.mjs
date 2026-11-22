@@ -125,7 +125,9 @@ export async function scoreSite(input, deps = {}) {
   let jsonld = null
   if (sells.kind) {
     const schema = await checkJsonld(ctx, catalog, home)
-    if (!sells.maybe || schema.product || !schema.software) {
+    // A Product node with no price is a review widget, not a catalog. It does not confirm a store.
+    const bareProduct = Boolean(schema.product && !schema.priced)
+    if (!sells.maybe || schema.priced || (!schema.software && !bareProduct)) {
       kind = schema.lodging ? 'rental' : sells.kind
       jsonld = schema.check
     }
@@ -722,16 +724,17 @@ async function checkJsonld(ctx, catalog, home) {
   const candidates = [...new Set([catalog.feed?.url, ...productLinks(home), catalog.sitemap?.sample].filter(Boolean))].slice(0, 3)
   const base = { id: 'jsonld', title: 'Product schema', max: WEIGHTS.jsonld, evidence: candidates.slice(0, 1) }
   if (!candidates.length) {
-    return { check: { ...base, status: 'fail', points: 0, detail: 'No product page URL to inspect.', fix: SCHEMA_FIX }, product: false, software: false, lodging: false }
+    return { check: { ...base, status: 'fail', points: 0, detail: 'No product page URL to inspect.', fix: SCHEMA_FIX }, product: false, software: false, lodging: false, priced: false }
   }
   let last = null
   let product = false
   let software = false
   let lodging = false
+  let priced = false
   for (const productUrl of candidates) {
     const res = await fetchText(ctx, productUrl, 2_500_000)
     const card = { ...base, evidence: [productUrl] }
-    if (res.blocked) return { check: { ...card, ...blockedFields(res) }, product, software, lodging }
+    if (res.blocked) return { check: { ...card, ...blockedFields(res) }, product, software, lodging, priced }
     if (res.status !== 200 || !res.text) {
       last = { ...card, status: 'fail', points: 0, detail: missDetail(res, 'the product page'), fix: SCHEMA_FIX }
       continue
@@ -740,11 +743,12 @@ async function checkJsonld(ctx, catalog, home) {
     product ||= found.product
     lodging ||= LODGING.test(found.type || '')
     software ||= SOFTWARE_TYPE.test(res.text)
+    priced ||= Boolean(found.product && (found.price || found.availability))
     const scored = schemaCard(card, found)
-    if (scored.points) return { check: scored, product, software, lodging }
+    if (scored.points) return { check: scored, product, software, lodging, priced }
     last = scored
   }
-  return { check: last, product, software, lodging }
+  return { check: last, product, software, lodging, priced }
 }
 
 function schemaCard(base, found) {
@@ -970,12 +974,15 @@ function sellsWhat(home, catalog) {
   if (catalog.feed?.count) return { kind }
   if (catalog.sitemap?.products >= SITEMAP_CATALOG) return { kind }
   if (/cdn\.shopify\.com|Shopify\.theme|myshopify\.com/.test(html)) return { kind: 'shop' }
-  if (/"@type"\s*:\s*"Product/.test(html)) return { kind: 'shop' }
+  // A price or availability means the page is selling something. A Product node with neither is often a review widget on a SaaS site.
+  const marked = productSchema(html)
+  if (marked.price || marked.availability) return { kind: 'shop' }
   if (LODGING_IN_PAGE.test(html)) return { kind: 'rental' }
   if (/add to cart|add to bag/i.test(html)) return { kind: 'shop' }
   if (catalog.sitemap?.products > 0) return { kind, maybe: true }
   if (/href\s*=\s*["'][^"']*\/(?:products|collections)\//i.test(html)) return { kind: 'shop', maybe: true }
   if (LISTING_LINK.test(html)) return { kind: 'rental', maybe: true }
+  if (marked.product) return { kind: 'shop', maybe: true }
   return { kind: '' }
 }
 
