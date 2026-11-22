@@ -251,6 +251,21 @@ test('a SaaS site with /products/ feature pages is not a store', async () => {
   assert.equal(byId(result, 'policies').title, 'Contact and legal pages')
 })
 
+test('a review-widget Product on feature pages is not a store', async () => {
+  const widget = '<html><head><script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"Rippling","aggregateRating":{"@type":"AggregateRating","ratingValue":"4.8","reviewCount":10},"description":"All-in-one HR, IT, and Finance platform"}</script></head><body><a href="/products/hr">HR</a><a href="/products/it">IT</a><p>Payroll, HR, and IT in one platform for the whole company.</p></body></html>'
+  const result = await score({
+    '/': { body: widget, headers: { 'content-type': 'text/html' } },
+    '/products/hr': { body: widget, headers: { 'content-type': 'text/html' } },
+    '/products/it': { body: widget, headers: { 'content-type': 'text/html' } },
+    '/sitemap.xml': { body: '<urlset><url><loc>https://example.com/products/hr</loc></url><url><loc>https://example.com/</loc></url></urlset>', headers: { 'content-type': 'application/xml' } },
+    '/robots.txt': { body: 'User-agent: *\nAllow: /\n' },
+  })
+  assert.equal(result.kind, 'site')
+  assert.equal(byId(result, 'catalog').title, 'Machine-readable index')
+  assert.equal(byId(result, 'jsonld').title, 'Structured data')
+  assert.equal(byId(result, 'policies').title, 'Contact and legal pages')
+})
+
 test('a software page that also has Product schema is still a store', async () => {
   const result = await score({
     '/': { body: '<html><body><a href="/products/hat">Hat</a></body></html>', headers: { 'content-type': 'text/html' } },
